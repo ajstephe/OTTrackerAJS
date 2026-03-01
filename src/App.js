@@ -590,8 +590,8 @@ export default function App() {
       <nav className="bg-white/80 backdrop-blur-md border-t border-gray-100 absolute bottom-0 w-full px-2 sm:px-4 h-20 pb-safe shrink-0 z-20 flex justify-between items-center shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.05)]">
         {[
           { id: 'dashboard', icon: Home, label: 'Home' },
-          { id: 'add', icon: PlusCircle, label: 'Log OT & PA' },
           { id: 'months', icon: Calendar, label: 'Breakdown' },
+          { id: 'add', icon: PlusCircle, label: 'Log OT & PA' },
           { id: 'graph', icon: BarChart3, label: 'Trends' },
           { id: 'settings', icon: SettingsIcon, label: 'Settings' }
         ].map((tab) => (
