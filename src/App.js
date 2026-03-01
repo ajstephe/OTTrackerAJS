@@ -3,13 +3,13 @@ import {
   Home, PlusCircle, Settings as SettingsIcon, Edit2, Trash2, 
   ArrowLeft, Save, PoundSterling, Clock, ChevronRight, 
   Loader2, Calendar, BarChart3, UserPlus, CheckCircle2,
-  Download, Upload, ShieldCheck, TrendingUp, ChevronDown, AlertTriangle
+  Download, Upload, ShieldCheck, TrendingUp, ChevronDown
 } from 'lucide-react';
 
 // Firebase Imports
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, getDocs, query } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 // --- CONFIG & INITIALIZATION ---
 let firebaseConfig = {};
@@ -139,8 +139,8 @@ export default function App() {
       gPA += PA_RATES[e.paRate] || 0;
     });
     const totalGross = gOT + gPA, totalNet = totalGross * (1 - (settings.taxRate / 100));
-    const todayStr = new Date().toISOString().split('T')[0];
-    const cIdx = PAY_PERIODS.findIndex(p => todayStr >= p.start && todayStr <= p.end);
+    const today = new Date().toISOString().split('T')[0];
+    const cIdx = PAY_PERIODS.findIndex(p => today >= p.start && today <= p.end);
     const getP = (i) => {
       if (i < 0 || i >= PAY_PERIODS.length) return null;
       const p = PAY_PERIODS[i];
@@ -201,28 +201,25 @@ export default function App() {
     }
   };
 
-  const handleWipeAllData = async () => {
+  const handleWipeData = async () => {
+    if (isFirebaseValid && user) {
+      for (const entry of entries) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'entries', entry.id));
+      }
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'config'));
+    } else {
+      localStorage.removeItem('ajs_ot_v5');
+      localStorage.removeItem('ajs_sett_v5');
+    }
     setEntries([]);
     setSettings({ rank: '', service: '', rates: { r133: 0, r150: 0, r200: 0 }, taxRate: 40 });
-    localStorage.removeItem('ajs_ot_v5');
-    localStorage.removeItem('ajs_sett_v5');
-
-    if (isFirebaseValid && user) {
-      try {
-        const batch = writeBatch(db);
-        const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'entries'));
-        const snapshot = await getDocs(q);
-        snapshot.forEach((d) => batch.delete(d.ref));
-        const settingsRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'config');
-        batch.delete(settingsRef);
-        await batch.commit();
-      } catch (err) {
-        console.error("Cloud wipe failed:", err);
-      }
-    }
     setShowDeleteConfirm(false);
     setActiveTab('dashboard');
   };
+
+  if (authLoading || dataLoading) {
+    return <div className="h-screen flex flex-col items-center justify-center bg-slate-50 text-blue-900"><Loader2 className="animate-spin w-10 h-10 mb-4" /><p className="font-bold">Restoring Tracker...</p></div>;
+  }
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -276,10 +273,7 @@ export default function App() {
                     <div className="flex justify-between items-center py-2 border-b border-gray-50 text-sm font-black text-gray-800 truncate"><span className="text-gray-400 font-bold uppercase text-[10px]">Rank</span>{settings.service || 'Not Selected'}</div>
                     <div className="grid grid-cols-3 gap-3 pt-1">
                         {['1.33x', '1.5x', '2.0x'].map((label, i) => (
-                            <div key={label} className="bg-slate-50 p-2 rounded-xl text-center">
-                                <p className="text-[9px] font-black text-gray-400 uppercase mb-1">{label}</p>
-                                <p className="text-xs font-black text-blue-900">£{(settings.rates?.[['r133', 'r150', 'r200'][i]] || 0).toFixed(2)}</p>
-                            </div>
+                            <div key={label} className="bg-slate-50 p-2 rounded-xl text-center"><p className="text-[9px] font-black text-gray-400 uppercase mb-1">{label}</p><p className="text-xs font-black text-blue-900">£{(settings.rates?.[['r133', 'r150', 'r200'][i]] || 0).toFixed(2)}</p></div>
                         ))}
                     </div>
                 </div>
@@ -294,12 +288,12 @@ export default function App() {
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-6">
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Date</label>
-                        <input type="date" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1 leading-none">Date</label>
+                        <input type="date" className="w-full bg-slate-50 border-none p-4 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Duty / Reason</label>
-                        <input type="text" placeholder="e.g. MPL7XX, PXX" className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1 leading-none">Duty / Reason</label>
+                        <input type="text" placeholder="e.g. MPL7XX, PXX" className="w-full bg-slate-50 border-none p-4 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
                     </div>
                 </div>
 
@@ -316,17 +310,17 @@ export default function App() {
                     <p className="text-[11px] font-black text-amber-900 uppercase tracking-widest text-center leading-none">PA Allowance</p>
                     <div className="flex gap-2">
                         {['None', 'PA1', 'PA2', 'PA3'].map(pa => (
-                            <button key={pa} onClick={() => setFormData({...formData, paRate: pa})} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${formData.paRate === pa ? 'bg-teal-500 text-white shadow-lg' : 'bg-white text-amber-900/50 hover:bg-amber-100'}`}>{pa}</button>
+                            <button key={pa} onClick={() => setFormData({...formData, paRate: pa})} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${formData.paRate === pa ? 'bg-amber-500 text-white shadow-lg' : 'bg-white text-amber-900/50 hover:bg-amber-100'}`}>{pa}</button>
                         ))}
                     </div>
                 </div>
 
                 <div>
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1 leading-none">Notes</label>
-                    <textarea rows="3" placeholder="Add shift notes or incident details..." className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-inner resize-none transition-all" value={formData.comments} onChange={e => setFormData({...formData, comments: e.target.value})} />
+                    <textarea rows="3" placeholder="Add shift notes or incident details..." className="w-full bg-slate-50 border-none p-4 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-inner resize-none" value={formData.comments} onChange={e => setFormData({...formData, comments: e.target.value})} />
                 </div>
 
-                <button onClick={handleSave} className="w-full bg-blue-600 text-white font-black p-5 rounded-2xl shadow-xl active:scale-95 transition-all flex justify-center items-center gap-3"><Save className="w-6 h-6" /> {editingEntry ? 'Update Record' : 'Save Record'}</button>
+                <button onClick={handleSave} className="w-full bg-blue-600 text-white font-black p-5 rounded-2xl shadow-xl active:scale-95 transition-all flex justify-center items-center gap-3"><Save className="w-6 h-6" /> {editingEntry ? 'Update' : 'Save'} Record</button>
             </div>
           </div>
         )}
@@ -337,15 +331,24 @@ export default function App() {
             {PAY_PERIODS.map(p => {
               const pE = fyEntries.filter(e => e.date >= p.start && e.date <= p.end);
               let gOT = 0, gPA = 0, h133=0, h150=0, h200=0, pa1=0, pa2=0, pa3=0;
+              
               pE.forEach(e => {
                 const hr = { r1: parseFloat(e.hours133)||0, r2: parseFloat(e.hours150)||0, r3: parseFloat(e.hours200)||0 };
                 h133 += hr.r1; h150 += hr.r2; h200 += hr.r3;
                 gOT += (hr.r1 * (settings.rates?.r133 || 0)) + (hr.r2 * (settings.rates?.r150 || 0)) + (hr.r3 * (settings.rates?.r200 || 0));
                 gPA += (PA_RATES[e.paRate] || 0);
-                if (e.paRate === 'PA1') pa1++; else if (e.paRate === 'PA2') pa2++; else if (e.paRate === 'PA3') pa3++;
+                if (e.paRate === 'PA1') pa1++; 
+                else if (e.paRate === 'PA2') pa2++; 
+                else if (e.paRate === 'PA3') pa3++;
               });
-              const taxRate = (settings.taxRate || 40) / 100, nOT = gOT * (1 - taxRate), nPA = gPA * (1 - taxRate), totG = gOT + gPA, totN = totG * (1 - taxRate);
+
+              const taxRate = (settings.taxRate || 40) / 100;
+              const nOT = gOT * (1 - taxRate);
+              const nPA = gPA * (1 - taxRate);
+              const totG = gOT + gPA;
+              const totN = totG * (1 - taxRate);
               const isExp = expandedMonth === p.month;
+
               return (
                 <div key={p.month} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <button onClick={() => setExpandedMonth(isExp ? null : p.month)} className="w-full text-left p-5 hover:bg-slate-50 transition-colors">
@@ -364,33 +367,55 @@ export default function App() {
                               {!isExp && <span className="text-[7px] font-black text-blue-400 uppercase mt-1 tracking-tighter">Expand</span>}
                             </div>
                         </div>
+
                         <div className="grid grid-cols-2 gap-3 mb-4">
                             <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100/50 space-y-1">
                                 <p className="text-[9px] font-black text-blue-800 uppercase tracking-wider mb-1">Overtime Pay</p>
-                                <div className="flex justify-between text-[10px] font-bold text-blue-900"><span>Gross:</span><span>£{gOT.toFixed(2)}</span></div>
-                                <div className="flex justify-between text-[10px] font-bold text-blue-700"><span>Net:</span><span>£{nOT.toFixed(2)}</span></div>
-                                <div className="pt-1 mt-1 border-t border-blue-200/50 text-[8px] font-black text-blue-600 uppercase tracking-tighter">1.33x:{h133}Hrs • 1.5x:{h150}Hrs • 2.0x:{h200}Hrs</div>
+                                <div className="flex justify-between text-[10px] font-bold text-blue-900">
+                                    <span>Gross:</span><span>£{gOT.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-[10px] font-bold text-blue-700">
+                                    <span>Net:</span><span>£{nOT.toFixed(2)}</span>
+                                </div>
+                                <div className="pt-1.5 mt-1.5 border-t border-blue-200/50 text-[8px] font-black text-blue-600 uppercase tracking-tighter flex flex-col gap-0.5">
+                                    <div>{h133}Hrs @ 1.33x = £{(h133 * (settings.rates?.r133 || 0)).toFixed(2)}</div>
+                                    <div>{h150}Hrs @ 1.5x = £{(h150 * (settings.rates?.r150 || 0)).toFixed(2)}</div>
+                                    <div>{h200}Hrs @ 2.0x = £{(h200 * (settings.rates?.r200 || 0)).toFixed(2)}</div>
+                                </div>
                             </div>
                             <div className="bg-amber-50/50 p-2.5 rounded-xl border border-amber-100/50 space-y-1">
                                 <p className="text-[9px] font-black text-amber-800 uppercase tracking-wider mb-1">PA Allowance</p>
-                                <div className="flex justify-between text-[10px] font-bold text-amber-900"><span>Gross:</span><span>£{gPA.toFixed(2)}</span></div>
-                                <div className="flex justify-between text-[10px] font-bold text-amber-700"><span>Net:</span><span>£{nPA.toFixed(2)}</span></div>
-                                <div className="pt-1 mt-1 border-t border-amber-200/50 text-[8px] font-black text-amber-600 uppercase tracking-tighter">PA1:{pa1} • PA2:{pa2} • PA3:{pa3}</div>
+                                <div className="flex justify-between text-[10px] font-bold text-amber-900">
+                                    <span>Gross:</span><span>£{gPA.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-[10px] font-bold text-amber-700">
+                                    <span>Net:</span><span>£{nPA.toFixed(2)}</span>
+                                </div>
+                                <div className="pt-1 mt-1 border-t border-amber-200/50 text-[8px] font-black text-amber-600 uppercase tracking-tighter">
+                                    PA1:{pa1} • PA2:{pa2} • PA3:{pa3}
+                                </div>
                             </div>
                         </div>
+
                         <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-4 mt-2">
                             <div><p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 leading-none">Monthly Gross</p><p className="font-black text-blue-950 text-xl leading-none">£{totG.toFixed(2)}</p></div>
                             <div className="text-right"><p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1 leading-none">Monthly Net</p><p className="font-black text-emerald-600 text-xl leading-none">£{totN.toFixed(2)}</p></div>
                         </div>
                     </button>
+
                     {isExp && (
-                        <div className="bg-slate-50/50 p-4 space-y-3 border-t border-gray-100 animate-in fade-in duration-300">
+                        <div className="bg-slate-50/50 p-4 space-y-3 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
                             {pE.length === 0 ? <p className="text-center text-xs py-8 text-gray-400 font-bold uppercase tracking-widest leading-none">No individual records yet.</p> : 
                                 [...pE].sort((a,b) => new Date(a.date) - new Date(b.date)).map(e => {
-                                    const hrs133 = parseFloat(e.hours133)||0, hrs150 = parseFloat(e.hours150)||0, hrs200 = parseFloat(e.hours200)||0;
-                                    const val133 = hrs133 * (settings.rates?.r133||0), val150 = hrs150 * (settings.rates?.r150||0), val200 = hrs200 * (settings.rates?.r200||0);
-                                    const ePA = PA_RATES[e.paRate] || 0, eG = val133 + val150 + val200 + ePA, eN = eG * (1 - taxRate);
+                                    const e133 = parseFloat(e.hours133)||0, e150 = parseFloat(e.hours150)||0, e200 = parseFloat(e.hours200)||0;
+                                    const val133 = e133 * (settings.rates?.r133||0);
+                                    const val150 = e150 * (settings.rates?.r150||0);
+                                    const val200 = e200 * (settings.rates?.r200||0);
+                                    const ePA = PA_RATES[e.paRate] || 0;
+                                    const eG = val133 + val150 + val200 + ePA;
+                                    const eN = eG * (1 - taxRate);
                                     const isFuture = e.date > todayStr;
+
                                     return (
                                         <div key={e.id} className={`bg-white p-4 rounded-xl border shadow-sm space-y-3 relative ${isFuture ? 'border-blue-200 ring-1 ring-blue-50' : 'border-gray-100'}`}>
                                             {isFuture && <div className="absolute -top-2 -right-1 bg-blue-600 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-sm">Planned</div>}
@@ -401,11 +426,12 @@ export default function App() {
                                                     <button onClick={() => deleteEntry(e.id)} className="p-2 text-gray-400 hover:text-red-600 bg-slate-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </div>
+                                            
                                             <div className="bg-slate-50 rounded-xl p-3 space-y-2 border border-slate-100">
                                                 <div className="space-y-1">
-                                                    {hrs133 > 0 && <p className="text-[10px] font-bold text-gray-600">1.33x @ {hrs133}Hrs = <span className="text-blue-900 font-black">£{val133.toFixed(2)}</span></p>}
-                                                    {hrs150 > 0 && <p className="text-[10px] font-bold text-gray-600">1.5x @ {hrs150}Hrs = <span className="text-blue-900 font-black">£{val150.toFixed(2)}</span></p>}
-                                                    {hrs200 > 0 && <p className="text-[10px] font-bold text-gray-600">2.0x @ {hrs200}Hrs = <span className="text-blue-900 font-black">£{val200.toFixed(2)}</span></p>}
+                                                    {e133 > 0 && <p className="text-[10px] font-bold text-gray-600">1.33x @ {e133}Hrs = <span className="text-blue-900 font-black">£{val133.toFixed(2)}</span></p>}
+                                                    {e150 > 0 && <p className="text-[10px] font-bold text-gray-600">1.5x @ {e150}Hrs = <span className="text-blue-900 font-black">£{val150.toFixed(2)}</span></p>}
+                                                    {e200 > 0 && <p className="text-[10px] font-bold text-gray-600">2.0x @ {e200}Hrs = <span className="text-blue-900 font-black">£{val200.toFixed(2)}</span></p>}
                                                     {e.paRate !== 'None' && <p className="text-[10px] font-bold text-amber-700">Allowance: 1x {e.paRate} = <span className="font-black">£{ePA.toFixed(2)}</span></p>}
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2 text-[10px] font-bold border-t border-slate-200 pt-2 mt-1">
@@ -435,27 +461,57 @@ export default function App() {
                     const data = PAY_PERIODS.map(p => {
                         const pE = fyEntries.filter(e => e.date >= p.start && e.date <= p.end);
                         let g = 0; const r = settings.rates || { r133: 0, r150: 0, r200: 0 }; 
-                        pE.forEach(e => { g += (parseFloat(e.hours133)||0)*r.r133 + (parseFloat(e.hours150)||0)*r.r150 + (parseFloat(e.hours200)||0)*r.r200 + (PA_RATES[e.paRate] || 0); });
+                        pE.forEach(e => { 
+                          g += (parseFloat(e.hours133)||0)*r.r133 + (parseFloat(e.hours150)||0)*r.r150 + (parseFloat(e.hours200)||0)*r.r200 + (PA_RATES[e.paRate] || 0); 
+                        });
                         return { short: p.short, gross: g, net: g * (1 - (settings.taxRate || 40)/100) };
                     });
+                    
                     const max = Math.max(...data.map(d => d.gross), 200);
-                    const pX = 40, pY = 20, w = 400, h = 240, effW = w - (pX * 2), effH = h - (pY * 2);
-                    const pts = data.map((d, i) => ({ x: pX + (i * (effW / (data.length - 1))), yG: h - pY - ((d.gross / max) * effH), yN: h - pY - ((d.net / max) * effH), label: d.short }));
-                    const gPath = `M ${pts.map(p => `${p.x} ${p.yG}`).join(' L ')}`, nPath = `M ${pts.map(p => `${p.x} ${p.yN}`).join(' L ')}`;
+                    const paddingX = 40; 
+                    const paddingY = 20;
+                    const width = 400, height = 240;
+                    const effW = width - (paddingX * 2), effH = height - (paddingY * 2);
+                    
+                    const pts = data.map((d, i) => ({
+                      x: paddingX + (i * (effW / (data.length - 1))),
+                      yG: height - paddingY - ((d.gross / max) * effH),
+                      yN: height - paddingY - ((d.net / max) * effH),
+                      label: d.short
+                    }));
+
+                    const gPath = `M ${pts.map(p => `${p.x} ${p.yG}`).join(' L ')}`;
+                    const nPath = `M ${pts.map(p => `${p.x} ${p.yN}`).join(' L ')}`;
+
                     return (
                         <div className="w-full">
                             <div className="relative w-full aspect-[4/3]">
-                                <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
                                     {[0, 0.5, 1].map(v => (
-                                      <g key={v}><line x1={pX} y1={h-pY-(v*effH)} x2={w-pX} y2={h-pY-(v*effH)} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={v === 0 ? "0" : "4 4"} /><text x={pX - 8} y={h-pY-(v*effH)} textAnchor="end" alignmentBaseline="middle" className="text-[10px] font-black fill-slate-300">£{Math.round(max * v)}</text></g>
+                                      <g key={v}>
+                                        <line x1={paddingX} y1={height-paddingY-(v*effH)} x2={width-paddingX} y2={height-paddingY-(v*effH)} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={v === 0 ? "0" : "4 4"} />
+                                        <text x={paddingX - 8} y={height-paddingY-(v*effH)} textAnchor="end" alignmentBaseline="middle" className="text-[10px] font-black fill-slate-300">£{Math.round(max * v)}</text>
+                                      </g>
                                     ))}
-                                    {pts.map((p, i) => (<text key={i} x={p.x} y={h - pY + 16} textAnchor="middle" className="text-[10px] font-black fill-slate-400 uppercase">{p.label}</text>))}
+                                    {pts.map((p, i) => (
+                                      <text key={i} x={p.x} y={height - paddingY + 16} textAnchor="middle" className="text-[10px] font-black fill-slate-400 uppercase">{p.label}</text>
+                                    ))}
+
                                     <path d={nPath} fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                     <path d={gPath} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    {pts.map((p, i) => (<g key={i}><circle cx={p.x} cy={p.yG} r="3" fill="#22c55e" stroke="white" strokeWidth="1" /><circle cx={p.x} cy={p.yN} r="3" fill="#ef4444" stroke="white" strokeWidth="1" /></g>))}
+                                    
+                                    {pts.map((p, i) => (
+                                      <g key={i}>
+                                        <circle cx={p.x} cy={p.yG} r="3" fill="#22c55e" stroke="white" strokeWidth="1" />
+                                        <circle cx={p.x} cy={p.yN} r="3" fill="#ef4444" stroke="white" strokeWidth="1" />
+                                      </g>
+                                    ))}
                                 </svg>
                             </div>
-                            <div className="mt-4 flex justify-center gap-8"><div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-green-500"></div><span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Gross</span></div><div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-red-500"></div><span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Net</span></div></div>
+                            <div className="mt-4 flex justify-center gap-8">
+                                <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-green-500"></div><span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Gross</span></div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-0.5 bg-red-500"></div><span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Net</span></div>
+                            </div>
                         </div>
                     );
                 })()}
@@ -470,7 +526,7 @@ export default function App() {
                 <div className="space-y-4">
                     <div>
                         <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1 leading-none">Rank & Era</label>
-                        <select className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 mb-4 transition-all" value={settings.rank} onChange={e => {
+                        <select className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all mb-4" value={settings.rank} onChange={e => {
                             const r = e.target.value; if (!r) return setSettings({...settings, rank: '', service: ''});
                             const s = Object.keys(PAY_RATES[r])[0];
                             setSettings({...settings, rank: r, service: s, rates: PAY_RATES[r][s]});
@@ -486,81 +542,68 @@ export default function App() {
                 <div className="border-t border-slate-50 pt-8 text-center">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 leading-none">Tax Calculation (%)</label>
                     <div className="flex gap-2 p-1.5 bg-slate-50 rounded-2xl border border-slate-100">
-                        {[20, 40, 45].map(rate => (<button key={rate} onClick={()=>setSettings({...settings, taxRate: rate})} className={`flex-1 py-4 rounded-xl text-sm font-black transition-all ${settings.taxRate===rate ? 'bg-blue-600 text-white shadow-lg scale-105' : 'text-slate-400 hover:bg-slate-200'}`}>{rate}%</button>))}
+                        {[20, 40, 45].map(rate => (<button key={rate} onClick={()=>setSettings({...settings, taxRate: rate})} className={`flex-1 py-4 rounded-xl text-sm font-black transition-all ${settings.taxRate===rate ? 'bg-blue-600 text-white shadow-lg scale-105' : 'text-slate-600 hover:bg-slate-200'}`}>{rate}%</button>))}
                     </div>
                 </div>
             </div>
-            
-            <div className="bg-blue-900 rounded-3xl p-6 text-white shadow-xl space-y-8">
-                <div className="flex items-center gap-5">
-                    <div className="p-4 bg-white/10 rounded-2xl shadow-inner"><ShieldCheck className="w-8 h-8 text-blue-100" /></div>
-                    <div><h3 className="font-bold text-lg leading-none mb-1 tracking-tight uppercase">Data Management</h3><p className="text-blue-200 text-xs">Records stored locally.</p></div>
+
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 animate-in zoom-in-95 duration-200">
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-3 text-center leading-none">Hourly Rate</p>
+                <div className="grid grid-cols-3 gap-3">
+                    {['1.33x', '1.5x', '2.0x'].map((label, i) => (
+                        <div key={label} className="text-center"><p className="text-[9px] font-black text-gray-400 uppercase mb-1 tracking-tighter leading-none">{label}</p><p className="text-sm font-black text-gray-800 leading-none">£{(settings.rates?.[['r133', 'r150', 'r200'][i]] || 0).toFixed(2)}</p></div>
+                    ))}
                 </div>
-                
+            </div>
+            
+            <div className="bg-blue-900 rounded-3xl p-6 text-white shadow-xl space-y-4">
+                <div className="flex items-center gap-5"><div className="p-4 bg-white/10 rounded-2xl shadow-inner"><ShieldCheck className="w-8 h-8 text-blue-100" /></div><div><h3 className="font-bold text-lg leading-none mb-1 tracking-tight uppercase">Data Management</h3><p className="text-blue-200 text-xs">Records stored locally.</p></div></div>
                 <div className="bg-blue-950/50 rounded-2xl p-4 space-y-3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-300 flex items-center gap-2"><Download className="w-3 h-3" /> External Backup</p>
                     <p className="text-[11px] text-blue-100/70 leading-relaxed italic">Create a backup or restore from a backup if you ever need to clear your web browser.</p>
                     <div className="flex gap-2">
-                        <button onClick={handleExport} className="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-xl text-[10px] font-black flex justify-center items-center gap-2 transition-all active:scale-95"><Download className="w-3 h-3" /> Backup</button>
-                        <button onClick={() => fileInputRef.current.click()} className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-[10px] font-black flex justify-center items-center gap-2 transition-all active:scale-95"><Upload className="w-3 h-3" /> Restore</button>
+                        <button onClick={handleExport} className="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-xl text-[10px] font-black flex justify-center items-center gap-2 active:scale-95 transition-all"><Download className="w-3 h-3" /> Backup</button>
+                        <button onClick={() => fileInputRef.current.click()} className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-[10px] font-black flex justify-center items-center gap-2 active:scale-95 transition-all"><Upload className="w-3 h-3" /> Restore</button>
                         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
                     </div>
-                </div>
 
-                <div className="pt-8 border-t border-white/5 space-y-3">
-                    <button onClick={() => setShowDeleteConfirm(true)} className="w-full bg-red-600/20 hover:bg-red-600 hover:text-white text-red-500 py-4 rounded-xl text-[10px] font-black flex justify-center items-center gap-2 transition-all active:scale-95 border border-red-600/30 group">
-                        <Trash2 className="w-3.5 h-3.5 transition-transform group-hover:rotate-12" /> Delete All Data
-                    </button>
-                    <p className="text-[9px] text-center text-white/30 font-bold uppercase tracking-tighter">This action will erase everything from this device.</p>
+                    <div className="pt-4 mt-4 border-t border-white/10">
+                        {!showDeleteConfirm ? (
+                            <button onClick={() => setShowDeleteConfirm(true)} className="w-full bg-red-500/20 hover:bg-red-500/40 text-red-200 py-3 rounded-xl text-[10px] font-black flex justify-center items-center gap-2 active:scale-95 transition-all border border-red-500/30">
+                                <Trash2 className="w-4 h-4" /> Wipe All Data
+                            </button>
+                        ) : (
+                            <div className="bg-red-950/50 border border-red-500/50 p-4 rounded-xl space-y-3 animate-in fade-in zoom-in-95">
+                                <p className="text-xs font-bold text-red-200 text-center leading-tight">Are you absolutely sure?<br/><span className="text-[9px] font-normal text-red-300">This cannot be undone.</span></p>
+                                <div className="flex gap-2">
+                                    <button onClick={handleWipeData} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-[10px] font-black transition-all uppercase tracking-wider">Yes, Delete</button>
+                                    <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-[10px] font-black transition-all uppercase tracking-wider">No, Cancel</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
           </div>
         )}
       </main>
 
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-blue-950/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowDeleteConfirm(false)}></div>
-          <div className="bg-white rounded-[2rem] p-8 w-full max-w-sm relative z-10 shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
-            <div className="flex justify-center mb-6"><div className="bg-red-50 p-4 rounded-full border border-red-100"><AlertTriangle className="w-10 h-10 text-red-500" /></div></div>
-            <h3 className="text-xl font-black text-gray-900 text-center mb-2 tracking-tight uppercase">Erase all records?</h3>
-            <p className="text-center text-sm text-gray-500 mb-8 leading-relaxed">This will permanently delete every shift logged and reset your rank settings. <br/><span className="font-bold text-red-600 underline">This cannot be undone.</span></p>
-            <div className="grid grid-cols-2 gap-3"><button onClick={() => setShowDeleteConfirm(false)} className="bg-slate-50 hover:bg-slate-100 text-slate-600 font-black py-4 rounded-2xl transition-all active:scale-95">No, Keep</button><button onClick={handleWipeAllData} className="bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-red-600/20 transition-all active:scale-95">Yes, Delete</button></div>
-          </div>
-        </div>
-      )}
-
-      <nav className="bg-white/80 backdrop-blur-md border-t border-gray-100 absolute bottom-0 w-full px-4 h-20 pb-safe shrink-0 z-20 flex justify-between items-center shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.05)]">
+      <nav className="bg-white/80 backdrop-blur-md border-t border-gray-100 absolute bottom-0 w-full px-2 sm:px-4 h-20 pb-safe shrink-0 z-20 flex justify-between items-center shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.05)]">
         {[
-          { id: 'dashboard', icon: Home, label: 'Home', color: 'text-slate-600' },
-          { id: 'add', icon: PlusCircle, label: 'Log OT & PA', color: 'bg-teal-500 text-white shadow-lg shadow-teal-500/20' },
-          { id: 'months', icon: Calendar, label: 'Breakdown', color: 'text-slate-600' },
-          { id: 'graph', icon: BarChart3, label: 'Trends', color: 'text-slate-600' },
-          { id: 'settings', icon: SettingsIcon, label: 'Settings', color: 'text-slate-600' }
-        ].map((tab) => {
-          const isActive = activeTab === tab.id;
-          const isSpecial = tab.id === 'add';
-          
-          if (isSpecial) {
-            return (
-              <button 
-                key={tab.id} 
-                onClick={() => setActiveTab(tab.id)} 
-                className={`flex flex-col items-center gap-1 transition-all py-2.5 px-4 rounded-2xl active:scale-90 ${isActive ? 'bg-teal-600 shadow-teal-600/30' : tab.color}`}
-              >
-                <tab.icon className={`w-6 h-6 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-                <span className="text-[8px] font-black uppercase tracking-tight">{tab.label}</span>
-              </button>
-            );
-          }
-
-          return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all px-2 ${isActive ? 'text-blue-600 scale-110' : `${tab.color} hover:text-slate-900`}`}>
-              <tab.icon className={`w-6 h-6 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-              <span className="text-[9px] font-black uppercase tracking-tighter">{tab.label}</span>
-            </button>
-          );
-        })}
+          { id: 'dashboard', icon: Home, label: 'Home' },
+          { id: 'add', icon: PlusCircle, label: 'Log OT & PA' },
+          { id: 'months', icon: Calendar, label: 'Breakdown' },
+          { id: 'graph', icon: BarChart3, label: 'Trends' },
+          { id: 'settings', icon: SettingsIcon, label: 'Settings' }
+        ].map((tab) => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center transition-all ${
+            tab.id === 'add' 
+              ? `bg-emerald-500 text-white px-3 py-2.5 rounded-2xl shadow-lg hover:bg-emerald-600 active:scale-95 ${activeTab === 'add' ? 'scale-105 ring-4 ring-emerald-100' : ''}` 
+              : `gap-1.5 px-2 ${activeTab === tab.id ? 'text-blue-600 scale-110' : 'text-slate-500 hover:text-slate-900'}`
+          }`}>
+            <tab.icon className={`${tab.id === 'add' ? 'w-6 h-6 mb-1' : 'w-6 h-6'} ${activeTab === tab.id || tab.id === 'add' ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+            <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-tighter">{tab.label}</span>
+          </button>
+        ))}
       </nav>
     </div>
   );
