@@ -391,8 +391,10 @@ export default function App() {
                                 <div className="flex justify-between text-[10px] font-bold text-amber-700">
                                     <span>Net:</span><span>£{nPA.toFixed(2)}</span>
                                 </div>
-                                <div className="pt-1 mt-1 border-t border-amber-200/50 text-[8px] font-black text-amber-600 uppercase tracking-tighter">
-                                    PA1:{pa1} • PA2:{pa2} • PA3:{pa3}
+                                <div className="pt-1.5 mt-1.5 border-t border-amber-200/50 text-[8px] font-black text-amber-600 uppercase tracking-tighter flex flex-col gap-0.5">
+                                    <div>PA1 = {pa1}</div>
+                                    <div>PA2 = {pa2}</div>
+                                    <div>PA3 = {pa3}</div>
                                 </div>
                             </div>
                         </div>
