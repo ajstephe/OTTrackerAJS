@@ -446,6 +446,12 @@ export default function App() {
                                     );
                                 })
                             }
+                            <button 
+                                onClick={() => setExpandedMonth(null)} 
+                                className="w-full mt-2 py-3.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest shadow-sm flex justify-center items-center gap-2 active:scale-95 transition-all hover:bg-slate-50"
+                            >
+                                Tap to Close <ChevronDown className="w-4 h-4 rotate-180" />
+                            </button>
                         </div>
                     )}
                 </div>
