@@ -239,19 +239,19 @@ export default function App() {
             <div className="space-y-3">
                 <h3 className="font-black text-gray-800 text-sm uppercase px-1 tracking-wider leading-none">Monthly Overtime Summary</h3>
                 {[totals.curr, totals.next, totals.prev].map((item, i) => item && (
-                    <div key={i} className={`rounded-3xl p-7 border flex justify-between items-center transition-all ${i === 0 ? 'bg-blue-50 border-blue-200 shadow-md' : 'bg-white border-gray-100'}`}>
+                    <div key={i} className={`rounded-[2rem] p-8 border flex justify-between items-center transition-all ${i === 0 ? 'bg-blue-50 border-blue-200 shadow-lg' : 'bg-white border-gray-100'}`}>
                         <div className="flex-1">
-                          <p className={`text-xs font-black uppercase mb-1.5 ${i === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                          <p className={`text-sm font-black uppercase mb-2 ${i === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
                             {i === 0 ? 'Current' : i === 1 ? 'Next' : 'Previous'} Pay Month
                           </p>
-                          <h4 className="font-bold text-xl text-gray-800 leading-none">{item.month}</h4>
-                          <p className="text-sm text-blue-600 font-black uppercase tracking-widest mt-2 leading-none">
+                          <h4 className="font-bold text-2xl text-gray-800 leading-none">{item.month}</h4>
+                          <p className="text-sm text-blue-600 font-black uppercase tracking-widest mt-2.5 leading-none">
                             {new Date(item.start).toLocaleDateString('en-GB', {day:'numeric', month:'short'})} - {new Date(item.end).toLocaleDateString('en-GB', {day:'numeric', month:'short'})}
                           </p>
                         </div>
                         <div className="text-right">
-                            <p className="text-base font-black text-blue-900 mb-1.5 leading-none">£{item.gross.toFixed(2)} <span className="text-xs font-normal uppercase opacity-60 tracking-tight">Gross</span></p>
-                            <p className="text-base font-black text-emerald-600 leading-none">£{item.net.toFixed(2)} <span className="text-xs font-normal uppercase opacity-60 tracking-tight">Net</span></p>
+                            <p className="text-xl font-black text-blue-900 mb-2 leading-none">£{item.gross.toFixed(2)} <span className="text-xs font-normal uppercase opacity-60 tracking-tight">Gross</span></p>
+                            <p className="text-xl font-black text-emerald-600 leading-none">£{item.net.toFixed(2)} <span className="text-xs font-normal uppercase opacity-60 tracking-tight">Net</span></p>
                         </div>
                     </div>
                 ))}
@@ -362,46 +362,46 @@ export default function App() {
                             <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3 py-2 rounded-xl text-blue-700 font-black uppercase shadow-sm">
                                 <div className="flex flex-col items-end">
                                     <span className="text-sm leading-none">{(h133+h150+h200).toFixed(1)} Hours</span>
-                                    {!isExp && <span className="text-[8px] tracking-widest mt-1.5 opacity-80 leading-none">Tap to Expand</span>}
+                                    {!isExp && <span className="text-[10px] text-blue-500 tracking-widest mt-1.5 leading-none">Tap to Expand</span>}
                                 </div>
                                 <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isExp ? 'rotate-90' : 'rotate-0'}`} />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 mb-5">
-                            <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50 space-y-1.5">
-                                <p className="text-xs font-black text-blue-800 uppercase tracking-wider mb-2">Overtime Pay</p>
-                                <div className="flex justify-between text-xs font-bold text-blue-900">
-                                    <span>Gross:</span><span>£{gOT.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between text-xs font-bold text-blue-700">
-                                    <span>Net:</span><span>£{nOT.toFixed(2)}</span>
-                                </div>
-                                <div className="pt-2 mt-2 border-t border-blue-200/50 text-[10px] font-black text-blue-600 uppercase tracking-tighter flex flex-col gap-1">
-                                    <div>{h133}Hrs @ 1.33x = £{(h133 * (settings.rates?.r133 || 0)).toFixed(2)}</div>
-                                    <div>{h150}Hrs @ 1.5x = £{(h150 * (settings.rates?.r150 || 0)).toFixed(2)}</div>
-                                    <div>{h200}Hrs @ 2.0x = £{(h200 * (settings.rates?.r200 || 0)).toFixed(2)}</div>
-                                </div>
-                            </div>
-                            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50 space-y-1.5">
-                                <p className="text-xs font-black text-amber-800 uppercase tracking-wider mb-2">PA Allowance</p>
-                                <div className="flex justify-between text-xs font-bold text-amber-900">
-                                    <span>Gross:</span><span>£{gPA.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between text-xs font-bold text-amber-700">
-                                    <span>Net:</span><span>£{nPA.toFixed(2)}</span>
-                                </div>
-                                <div className="pt-2 mt-2 border-t border-amber-200/50 text-[10px] font-black text-amber-600 uppercase tracking-tighter flex flex-col gap-1">
-                                    <div>PA1 = {pa1}</div>
-                                    <div>PA2 = {pa2}</div>
-                                    <div>PA3 = {pa3}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-5 mt-2">
+                        <div className="grid grid-cols-2 gap-4 border-b border-slate-50 pb-5 mb-5">
                             <div><p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">Monthly Gross</p><p className="font-black text-blue-950 text-2xl leading-none">£{totG.toFixed(2)}</p></div>
                             <div className="text-right"><p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1.5 leading-none">Monthly Net</p><p className="font-black text-emerald-600 text-2xl leading-none">£{totN.toFixed(2)}</p></div>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            <div className="bg-blue-50/50 p-5 rounded-3xl border border-blue-100/50 space-y-2">
+                                <p className="text-sm font-black text-blue-800 uppercase tracking-wider mb-3">Overtime Pay</p>
+                                <div className="flex justify-between text-sm font-bold text-blue-900">
+                                    <span>Gross:</span><span>£{gOT.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm font-bold text-blue-700">
+                                    <span>Net:</span><span>£{nOT.toFixed(2)}</span>
+                                </div>
+                                <div className="pt-3 mt-3 border-t border-blue-200/50 text-xs font-black text-blue-600 uppercase tracking-tighter flex flex-col gap-2">
+                                    <div className="flex justify-between"><span>{h133}Hrs @ 1.33x</span><span>£{(h133 * (settings.rates?.r133 || 0)).toFixed(2)}</span></div>
+                                    <div className="flex justify-between"><span>{h150}Hrs @ 1.5x</span><span>£{(h150 * (settings.rates?.r150 || 0)).toFixed(2)}</span></div>
+                                    <div className="flex justify-between"><span>{h200}Hrs @ 2.0x</span><span>£{(h200 * (settings.rates?.r200 || 0)).toFixed(2)}</span></div>
+                                </div>
+                            </div>
+                            <div className="bg-amber-50/50 p-5 rounded-3xl border border-amber-100/50 space-y-2">
+                                <p className="text-sm font-black text-amber-800 uppercase tracking-wider mb-3">PA Allowance</p>
+                                <div className="flex justify-between text-sm font-bold text-amber-900">
+                                    <span>Gross:</span><span>£{gPA.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm font-bold text-amber-700">
+                                    <span>Net:</span><span>£{nPA.toFixed(2)}</span>
+                                </div>
+                                <div className="pt-3 mt-3 border-t border-amber-200/50 text-xs font-black text-amber-600 uppercase tracking-tighter flex flex-col gap-2">
+                                    <div className="flex justify-between"><span>PA1</span><span>{pa1}</span></div>
+                                    <div className="flex justify-between"><span>PA2</span><span>{pa2}</span></div>
+                                    <div className="flex justify-between"><span>PA3</span><span>{pa3}</span></div>
+                                </div>
+                            </div>
                         </div>
                     </button>
 
