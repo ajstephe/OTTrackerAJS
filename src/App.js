@@ -47,22 +47,22 @@ const PAY_PERIODS = [
 
 const PAY_RATES = {
   'Constable (Joined Pre 2013)': {
-    'PC - Year 4': { r133: 25.688, r150: 28.906, r200: 38.541 },
-    'PC - Year 5': { r133: 26.470, r150: 29.787, r200: 39.715 },
-    'PC - Year 6': { r133: 28.677, r150: 32.270, r200: 43.027 },
-    'PC - Year 7+': { r133: 30.910, r150: 34.782, r200: 46.376 }
+    'PC - Year 4': { r133: 26.69, r150: 30.02, r200: 40.03 },
+    'PC - Year 5': { r133: 27.50, r150: 30.94, r200: 41.25 },
+    'PC - Year 6': { r133: 29.79, r150: 33.52, r200: 44.69 },
+    'PC - Year 7+': { r133: 32.11, r150: 36.13, r200: 48.17 }
   },
   'Constable (Joined Post 2013)': {
-    'PC - Year 3': { r133: 20.781, r150: 23.385, r200: 31.180 },
-    'PC - Year 4': { r133: 21.591, r150: 24.296, r200: 32.394 },
-    'PC - Year 5': { r133: 23.210, r150: 26.117, r200: 34.823 },
-    'PC - Year 6': { r133: 26.470, r150: 29.787, r200: 39.715 },
-    'PC - Year 7+': { r133: 30.910, r150: 34.782, r200: 46.376 }
+    'PC - Year 3': { r133: 21.59, r150: 24.29, r200: 32.39 },
+    'PC - Year 4': { r133: 22.43, r150: 25.24, r200: 33.65 },
+    'PC - Year 5': { r133: 24.11, r150: 27.13, r200: 36.17 },
+    'PC - Year 6': { r133: 27.50, r150: 30.94, r200: 41.25 },
+    'PC - Year 7+': { r133: 32.11, r150: 36.13, r200: 48.17 }
   },
   'Sergeant': {
-    'Sgt - Point 1': { r133: 32.946, r150: 37.073, r200: 49.431 },
-    'Sgt - Point 2': { r133: 33.619, r150: 37.830, r200: 50.440 },
-    'Sgt - Point 3+': { r133: 34.570, r150: 38.901, r200: 51.868 }
+    'Sgt - Point 1': { r133: 34.23, r150: 38.51, r200: 51.34 },
+    'Sgt - Point 2': { r133: 34.93, r150: 39.29, r200: 52.39 },
+    'Sgt - Point 3+': { r133: 35.92, r150: 40.40, r200: 53.87 }
   }
 };
 
@@ -239,19 +239,19 @@ export default function App() {
             <div className="space-y-3">
                 <h3 className="font-black text-gray-800 text-sm uppercase px-1 tracking-wider leading-none">Monthly Overtime Summary</h3>
                 {[totals.curr, totals.next, totals.prev].map((item, i) => item && (
-                    <div key={i} className={`rounded-2xl p-5 border flex justify-between items-center transition-all ${i === 0 ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-gray-100'}`}>
+                    <div key={i} className={`rounded-3xl p-7 border flex justify-between items-center transition-all ${i === 0 ? 'bg-blue-50 border-blue-200 shadow-md' : 'bg-white border-gray-100'}`}>
                         <div className="flex-1">
-                          <p className={`text-[9px] font-black uppercase mb-1 ${i === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                          <p className={`text-xs font-black uppercase mb-1.5 ${i === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
                             {i === 0 ? 'Current' : i === 1 ? 'Next' : 'Previous'} Pay Month
                           </p>
-                          <h4 className="font-bold text-gray-800 leading-none">{item.month}</h4>
-                          <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest mt-2 leading-none">
+                          <h4 className="font-bold text-xl text-gray-800 leading-none">{item.month}</h4>
+                          <p className="text-sm text-blue-600 font-black uppercase tracking-widest mt-2 leading-none">
                             {new Date(item.start).toLocaleDateString('en-GB', {day:'numeric', month:'short'})} - {new Date(item.end).toLocaleDateString('en-GB', {day:'numeric', month:'short'})}
                           </p>
                         </div>
                         <div className="text-right">
-                            <p className="text-xs font-black text-blue-900 mb-1 leading-none">£{item.gross.toFixed(2)} <span className="text-[9px] font-normal uppercase opacity-60 tracking-tight">Gross</span></p>
-                            <p className="text-xs font-black text-emerald-600 leading-none">£{item.net.toFixed(2)} <span className="text-[9px] font-normal uppercase opacity-60 tracking-tight">Net</span></p>
+                            <p className="text-base font-black text-blue-900 mb-1.5 leading-none">£{item.gross.toFixed(2)} <span className="text-xs font-normal uppercase opacity-60 tracking-tight">Gross</span></p>
+                            <p className="text-base font-black text-emerald-600 leading-none">£{item.net.toFixed(2)} <span className="text-xs font-normal uppercase opacity-60 tracking-tight">Net</span></p>
                         </div>
                     </div>
                 ))}
@@ -326,7 +326,7 @@ export default function App() {
         )}
 
         {activeTab === 'months' && (
-          <div className="p-4 space-y-4 pb-24 fade-in">
+          <div className="p-4 space-y-5 pb-24 fade-in">
             <h2 className="text-2xl font-black text-gray-800 px-1 tracking-tight">Breakdown</h2>
             {PAY_PERIODS.map(p => {
               const pE = fyEntries.filter(e => e.date >= p.start && e.date <= p.end);
@@ -350,48 +350,48 @@ export default function App() {
               const isExp = expandedMonth === p.month;
 
               return (
-                <div key={p.month} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <button onClick={() => setExpandedMonth(isExp ? null : p.month)} className="w-full text-left p-5 hover:bg-slate-50 transition-colors">
-                        <div className="flex justify-between items-start mb-3">
+                <div key={p.month} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <button onClick={() => setExpandedMonth(isExp ? null : p.month)} className="w-full text-left p-6 hover:bg-slate-50 transition-colors">
+                        <div className="flex justify-between items-start mb-4">
                             <div>
-                                <h3 className="font-bold text-gray-800 text-xl tracking-tight leading-none">{p.month}</h3>
-                                <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest mt-2 leading-none">
+                                <h3 className="font-bold text-gray-800 text-2xl tracking-tight leading-none">{p.month}</h3>
+                                <p className="text-xs text-blue-600 font-black uppercase tracking-widest mt-2.5 leading-none">
                                     {new Date(p.start).toLocaleDateString('en-GB', {day:'numeric', month:'short'})} - {new Date(p.end).toLocaleDateString('en-GB', {day:'numeric', month:'short'})}
                                 </p>
                             </div>
-                            <div className="flex flex-col items-center">
-                              <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-xl text-blue-700 font-black text-xs uppercase">
-                                  {(h133+h150+h200).toFixed(1)} Hours 
-                                  <ChevronRight className={`w-3 h-3 transition-transform duration-300 ${isExp ? 'rotate-90' : 'rotate-0'}`} />
-                              </div>
-                              {!isExp && <span className="text-[7px] font-black text-blue-400 uppercase mt-1 tracking-tighter">Expand</span>}
+                            <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3 py-2 rounded-xl text-blue-700 font-black uppercase shadow-sm">
+                                <div className="flex flex-col items-end">
+                                    <span className="text-sm leading-none">{(h133+h150+h200).toFixed(1)} Hours</span>
+                                    {!isExp && <span className="text-[8px] tracking-widest mt-1.5 opacity-80 leading-none">Tap to Expand</span>}
+                                </div>
+                                <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isExp ? 'rotate-90' : 'rotate-0'}`} />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div className="bg-blue-50/50 p-2.5 rounded-xl border border-blue-100/50 space-y-1">
-                                <p className="text-[9px] font-black text-blue-800 uppercase tracking-wider mb-1">Overtime Pay</p>
-                                <div className="flex justify-between text-[10px] font-bold text-blue-900">
+                        <div className="grid grid-cols-2 gap-4 mb-5">
+                            <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50 space-y-1.5">
+                                <p className="text-xs font-black text-blue-800 uppercase tracking-wider mb-2">Overtime Pay</p>
+                                <div className="flex justify-between text-xs font-bold text-blue-900">
                                     <span>Gross:</span><span>£{gOT.toFixed(2)}</span>
                                 </div>
-                                <div className="flex justify-between text-[10px] font-bold text-blue-700">
+                                <div className="flex justify-between text-xs font-bold text-blue-700">
                                     <span>Net:</span><span>£{nOT.toFixed(2)}</span>
                                 </div>
-                                <div className="pt-1.5 mt-1.5 border-t border-blue-200/50 text-[8px] font-black text-blue-600 uppercase tracking-tighter flex flex-col gap-0.5">
+                                <div className="pt-2 mt-2 border-t border-blue-200/50 text-[10px] font-black text-blue-600 uppercase tracking-tighter flex flex-col gap-1">
                                     <div>{h133}Hrs @ 1.33x = £{(h133 * (settings.rates?.r133 || 0)).toFixed(2)}</div>
                                     <div>{h150}Hrs @ 1.5x = £{(h150 * (settings.rates?.r150 || 0)).toFixed(2)}</div>
                                     <div>{h200}Hrs @ 2.0x = £{(h200 * (settings.rates?.r200 || 0)).toFixed(2)}</div>
                                 </div>
                             </div>
-                            <div className="bg-amber-50/50 p-2.5 rounded-xl border border-amber-100/50 space-y-1">
-                                <p className="text-[9px] font-black text-amber-800 uppercase tracking-wider mb-1">PA Allowance</p>
-                                <div className="flex justify-between text-[10px] font-bold text-amber-900">
+                            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50 space-y-1.5">
+                                <p className="text-xs font-black text-amber-800 uppercase tracking-wider mb-2">PA Allowance</p>
+                                <div className="flex justify-between text-xs font-bold text-amber-900">
                                     <span>Gross:</span><span>£{gPA.toFixed(2)}</span>
                                 </div>
-                                <div className="flex justify-between text-[10px] font-bold text-amber-700">
+                                <div className="flex justify-between text-xs font-bold text-amber-700">
                                     <span>Net:</span><span>£{nPA.toFixed(2)}</span>
                                 </div>
-                                <div className="pt-1.5 mt-1.5 border-t border-amber-200/50 text-[8px] font-black text-amber-600 uppercase tracking-tighter flex flex-col gap-0.5">
+                                <div className="pt-2 mt-2 border-t border-amber-200/50 text-[10px] font-black text-amber-600 uppercase tracking-tighter flex flex-col gap-1">
                                     <div>PA1 = {pa1}</div>
                                     <div>PA2 = {pa2}</div>
                                     <div>PA3 = {pa3}</div>
@@ -399,15 +399,15 @@ export default function App() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-4 mt-2">
-                            <div><p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 leading-none">Monthly Gross</p><p className="font-black text-blue-950 text-xl leading-none">£{totG.toFixed(2)}</p></div>
-                            <div className="text-right"><p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1 leading-none">Monthly Net</p><p className="font-black text-emerald-600 text-xl leading-none">£{totN.toFixed(2)}</p></div>
+                        <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-5 mt-2">
+                            <div><p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">Monthly Gross</p><p className="font-black text-blue-950 text-2xl leading-none">£{totG.toFixed(2)}</p></div>
+                            <div className="text-right"><p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1.5 leading-none">Monthly Net</p><p className="font-black text-emerald-600 text-2xl leading-none">£{totN.toFixed(2)}</p></div>
                         </div>
                     </button>
 
                     {isExp && (
-                        <div className="bg-slate-50/50 p-4 space-y-3 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
-                            {pE.length === 0 ? <p className="text-center text-xs py-8 text-gray-400 font-bold uppercase tracking-widest leading-none">No individual records yet.</p> : 
+                        <div className="bg-slate-50/50 p-5 space-y-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                            {pE.length === 0 ? <p className="text-center text-sm py-8 text-gray-400 font-bold uppercase tracking-widest leading-none">No individual records yet.</p> : 
                                 [...pE].sort((a,b) => new Date(a.date) - new Date(b.date)).map(e => {
                                     const e133 = parseFloat(e.hours133)||0, e150 = parseFloat(e.hours150)||0, e200 = parseFloat(e.hours200)||0;
                                     const val133 = e133 * (settings.rates?.r133||0);
@@ -419,29 +419,29 @@ export default function App() {
                                     const isFuture = e.date > todayStr;
 
                                     return (
-                                        <div key={e.id} className={`bg-white p-4 rounded-xl border shadow-sm space-y-3 relative ${isFuture ? 'border-blue-200 ring-1 ring-blue-50' : 'border-gray-100'}`}>
-                                            {isFuture && <div className="absolute -top-2 -right-1 bg-blue-600 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-sm">Planned</div>}
+                                        <div key={e.id} className={`bg-white p-5 rounded-2xl border shadow-sm space-y-4 relative ${isFuture ? 'border-blue-200 ring-1 ring-blue-50' : 'border-gray-100'}`}>
+                                            {isFuture && <div className="absolute -top-2 -right-1 bg-blue-600 text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm">Planned</div>}
                                             <div className="flex justify-between items-start">
-                                                <div><p className="text-sm font-black text-gray-800 leading-none">{new Date(e.date).toLocaleDateString('en-GB')}</p><p className="text-[10px] text-blue-600 font-bold mt-1.5 leading-none uppercase">{e.reason || 'Shift'}</p></div>
-                                                <div className="flex gap-1.5">
-                                                    <button onClick={() => editEntry(e)} className="p-2 text-gray-400 hover:text-blue-600 bg-slate-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                                                    <button onClick={() => deleteEntry(e.id)} className="p-2 text-gray-400 hover:text-red-600 bg-slate-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                                <div><p className="text-base font-black text-gray-800 leading-none">{new Date(e.date).toLocaleDateString('en-GB')}</p><p className="text-xs text-blue-600 font-bold mt-2 leading-none uppercase">{e.reason || 'Shift'}</p></div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => editEntry(e)} className="p-2.5 text-gray-400 hover:text-blue-600 bg-slate-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => deleteEntry(e.id)} className="p-2.5 text-gray-400 hover:text-red-600 bg-slate-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </div>
                                             
-                                            <div className="bg-slate-50 rounded-xl p-3 space-y-2 border border-slate-100">
-                                                <div className="space-y-1">
-                                                    {e133 > 0 && <p className="text-[10px] font-bold text-gray-600">1.33x @ {e133}Hrs = <span className="text-blue-900 font-black">£{val133.toFixed(2)}</span></p>}
-                                                    {e150 > 0 && <p className="text-[10px] font-bold text-gray-600">1.5x @ {e150}Hrs = <span className="text-blue-900 font-black">£{val150.toFixed(2)}</span></p>}
-                                                    {e200 > 0 && <p className="text-[10px] font-bold text-gray-600">2.0x @ {e200}Hrs = <span className="text-blue-900 font-black">£{val200.toFixed(2)}</span></p>}
-                                                    {e.paRate !== 'None' && <p className="text-[10px] font-bold text-amber-700">Allowance: 1x {e.paRate} = <span className="font-black">£{ePA.toFixed(2)}</span></p>}
+                                            <div className="bg-slate-50 rounded-xl p-4 space-y-2.5 border border-slate-100">
+                                                <div className="space-y-1.5">
+                                                    {e133 > 0 && <p className="text-xs font-bold text-gray-600">1.33x @ {e133}Hrs = <span className="text-blue-900 font-black">£{val133.toFixed(2)}</span></p>}
+                                                    {e150 > 0 && <p className="text-xs font-bold text-gray-600">1.5x @ {e150}Hrs = <span className="text-blue-900 font-black">£{val150.toFixed(2)}</span></p>}
+                                                    {e200 > 0 && <p className="text-xs font-bold text-gray-600">2.0x @ {e200}Hrs = <span className="text-blue-900 font-black">£{val200.toFixed(2)}</span></p>}
+                                                    {e.paRate !== 'None' && <p className="text-xs font-bold text-amber-700">Allowance: 1x {e.paRate} = <span className="font-black">£{ePA.toFixed(2)}</span></p>}
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-2 text-[10px] font-bold border-t border-slate-200 pt-2 mt-1">
-                                                    <div className="flex justify-between"><span>Entry Total Gross:</span> <span className="text-blue-950 font-black">£{eG.toFixed(2)}</span></div>
-                                                    <div className="flex justify-between"><span>Entry Total Net:</span> <span className="text-emerald-700 font-black">£{eN.toFixed(2)}</span></div>
+                                                <div className="grid grid-cols-2 gap-3 border-t border-slate-200 pt-3 mt-1">
+                                                    <div className="flex flex-col"><span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">Gross</span> <span className="text-blue-950 font-black text-sm">£{eG.toFixed(2)}</span></div>
+                                                    <div className="flex flex-col text-right"><span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">Net</span> <span className="text-emerald-700 font-black text-sm">£{eN.toFixed(2)}</span></div>
                                                 </div>
                                             </div>
-                                            {e.comments && <p className="text-[10px] italic text-blue-400 border-l-2 border-blue-100 pl-2 mt-1">"{e.comments}"</p>}
+                                            {e.comments && <p className="text-xs italic text-blue-400 border-l-2 border-blue-100 pl-3 mt-2">"{e.comments}"</p>}
                                         </div>
                                     );
                                 })
