@@ -47,7 +47,7 @@ const TAX_LABELS = { 20:'Basic Rate', 40:'Higher Rate', 45:'Additional' };
 // ─── storage helpers ──────────────────────────────────────────────────────────
 // Writes to BOTH localStorage and sessionStorage so a cleared localStorage
 // session still has a sessionStorage fallback for the current tab.
-const KEYS = { entries:'ajs_ot_entries', settings:'ajs_ot_settings', savedAt:'ajs_ot_savedAt', backupCount:'ajs_ot_backupCount' };
+const KEYS = { entries:'ajs_ot_entries', settings:'ajs_ot_settings', savedAt:'ajs_ot_savedAt', backupCount:'ajs_ot_backupCount', backedUpAt:'ajs_ot_backedUpAt' };
 
 function dualWrite(key, value) {
   const s = JSON.stringify(value);
@@ -129,9 +129,9 @@ export default function App() {
   const [toasts,     setToasts]     = useState([]);
   const [savedBadge, setSavedBadge] = useState(false);
   const [bannerDim,  setBannerDim]  = useState(false);
-  // autosave state
-  const [lastSaved,  setLastSaved]  = useState(()=>dualRead(KEYS.savedAt, null));
-  const [savePulse,  setSavePulse]  = useState(false); // brief flash in header
+  // autosave / backup state
+  const [lastSaved,     setLastSaved]     = useState(()=>dualRead(KEYS.savedAt, null));
+  const [lastBackedUp,  setLastBackedUp]  = useState(()=>dualRead(KEYS.backedUpAt, null));
 
   const mainRef   = useRef(null);
   const fileRef   = useRef(null);
@@ -142,16 +142,11 @@ export default function App() {
   });
 
   // ── autosave: entries ────────────────────────────────────────────────────────
-  // Writes to localStorage + sessionStorage every time entries change.
-  // Also bumps the savedAt timestamp and flashes the header indicator.
   useEffect(()=>{
     dualWrite(KEYS.entries, entries);
     const now = Date.now();
     dualWrite(KEYS.savedAt, now);
     setLastSaved(now);
-    setSavePulse(true);
-    const t = setTimeout(()=>setSavePulse(false), 1200);
-    return ()=>clearTimeout(t);
   },[entries]);
 
   // ── autosave: settings ───────────────────────────────────────────────────────
@@ -247,9 +242,12 @@ export default function App() {
   };
 
   const handleExport=()=>{
+    const now = Date.now();
     const s="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify({entries,settings,exportedAt:new Date().toISOString()}));
     Object.assign(document.createElement('a'),{href:s,download:`AJS_OT_Backup_${new Date().toISOString().split('T')[0]}.json`}).click();
-    dualWrite(KEYS.backupCount, 0); // reset nudge counter after a backup
+    dualWrite(KEYS.backupCount, 0);
+    dualWrite(KEYS.backedUpAt, now);
+    setLastBackedUp(now);
     addToast('Backup downloaded ✓');
   };
 
@@ -271,14 +269,19 @@ export default function App() {
 
   const jumpTo=month=>{ setExpanded(month); setTimeout(()=>monthRefs.current[month]?.scrollIntoView({behavior:'smooth',block:'start'}),80); };
 
-  // ── last-saved display helper ─────────────────────────────────────────────────
-  const fmtSaved = ts => {
-    if (!ts) return 'Not yet saved';
-    const diff = Math.floor((Date.now() - ts) / 1000);
-    if (diff < 5)  return 'Just now';
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-    return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  // ── last backed up display helper ────────────────────────────────────────────
+  const fmtBackedUp = ts => {
+    if (!ts) return null; // null = never
+    const now   = Date.now();
+    const diff  = Math.floor((now - ts) / 1000);
+    const date  = new Date(ts);
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+    const isYesterday = date.toDateString() === new Date(today - 86400000).toDateString();
+    if (diff < 60)        return 'Just now';
+    if (isToday)          return date.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    if (isYesterday)      return 'Yesterday';
+    return date.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
   };
 
   const fmt =n=>`£${n.toFixed(2)}`;
@@ -308,9 +311,7 @@ export default function App() {
         ::-webkit-scrollbar{display:none}
         @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes su{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         .fi{animation:fi 0.22s ease}
-        .pulse{animation:pulse 1s ease}
         input[type=number]::-webkit-outer-spin-button,
         input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
         input:focus,select:focus,textarea:focus{outline:2px solid #2563eb;outline-offset:-2px}
@@ -319,17 +320,17 @@ export default function App() {
 
       <ToastStack toasts={toasts}/>
 
-      {/* ── header with autosave indicator ── */}
+      {/* ── header with last backed up indicator ── */}
       <header style={S.hdr}>
         <div style={{fontSize:'15px',fontWeight:900,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',display:'flex',alignItems:'center',gap:'7px',letterSpacing:'-0.3px'}}>
           <Ico n="pound" s={16} c="#2563eb" w={2.5}/>
           Overtime Tracker by AJS
         </div>
-        {/* autosave pulse indicator */}
+        {/* last backed up indicator */}
         <div style={{display:'flex',alignItems:'center',gap:'5px'}}>
-          <div className={savePulse?'pulse':''} style={{width:'6px',height:'6px',borderRadius:'50%',background:savePulse?'#10b981':'#cbd5e1',transition:'background 0.4s',flexShrink:0}}/>
+          <div style={{width:'6px',height:'6px',borderRadius:'50%',background:lastBackedUp?'#10b981':'#f59e0b',flexShrink:0}}/>
           <span style={{fontSize:'9px',fontWeight:700,color:'#94a3b8',whiteSpace:'nowrap'}}>
-            {savePulse ? 'Saving…' : fmtSaved(lastSaved)}
+            {lastBackedUp ? `Backed up ${fmtBackedUp(lastBackedUp)}` : 'Not backed up'}
           </span>
         </div>
       </header>
@@ -394,7 +395,7 @@ export default function App() {
 
         {/* ══════════════════════════════════════════════════ LOG SHIFT */}
         {tab==='add'&&(
-          <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
+          <div className="fi" style={{padding:'14px',paddingBottom:'160px'}}>
             <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'18px'}}>
               {editing&&<button onClick={()=>{setEditing(null);setTab('months');}} style={{background:'#f1f5f9',border:'none',borderRadius:'10px',padding:'8px',cursor:'pointer',display:'flex'}}><Ico n="back" s={16}/></button>}
               <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:0,letterSpacing:'-0.5px'}}>{editing?'Edit Record':'Log Shift'}</h2>
@@ -445,7 +446,6 @@ export default function App() {
               </div>
             )}
 
-            <button onClick={handleSave} style={S.pBtn}><Ico n="save" s={16} c="#fff"/>{editing?'Update Record':'Save Record'}</button>
           </div>
         )}
 
@@ -696,13 +696,21 @@ export default function App() {
                 </div>
               </div>
 
-              {/* last-saved status bar */}
+              {/* last backed up status bar */}
               <div style={{background:'rgba(255,255,255,0.07)',borderRadius:'12px',padding:'10px 13px',marginBottom:'12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div style={{display:'flex',alignItems:'center',gap:'7px'}}>
-                  <div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#34d399',boxShadow:'0 0 6px #34d399'}}/>
+                  <div style={{width:'7px',height:'7px',borderRadius:'50%',background:lastBackedUp?'#34d399':'#f59e0b',boxShadow:lastBackedUp?'0 0 6px #34d399':'0 0 6px #f59e0b'}}/>
                   <div>
-                    <div style={{fontSize:'10px',fontWeight:900,color:'#fff',textTransform:'uppercase',letterSpacing:'0.5px'}}>Autosave active</div>
-                    <div style={{fontSize:'9px',color:'#93c5fd',marginTop:'1px'}}>Last saved: {fmtSaved(lastSaved)}</div>
+                    <div style={{fontSize:'10px',fontWeight:900,color:'#fff',textTransform:'uppercase',letterSpacing:'0.5px'}}>
+                      {lastBackedUp ? 'Last backed up' : 'Not yet backed up'}
+                    </div>
+                    <div style={{fontSize:'9px',color:'#93c5fd',marginTop:'1px'}}>
+                      {lastBackedUp
+                        ? fmtBackedUp(lastBackedUp) === 'Just now'
+                          ? 'Just now'
+                          : new Date(lastBackedUp).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}) + ' at ' + new Date(lastBackedUp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+                        : 'Download a backup to protect your data'}
+                    </div>
                   </div>
                 </div>
                 <div style={{fontSize:'9px',fontWeight:700,color:'rgba(147,197,253,0.6)',textAlign:'right'}}>
@@ -742,6 +750,16 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* ── floating save button (Log Shift tab only) ── */}
+      {tab==='add'&&(
+        <div style={{position:'absolute',bottom:'72px',left:'14px',right:'14px',zIndex:25}}>
+          <button onClick={handleSave} style={{width:'100%',background:'#dc2626',color:'#fff',boxShadow:'0 4px 20px rgba(220,38,38,0.5)',padding:'17px',borderRadius:'16px',border:'none',fontWeight:900,fontSize:'15px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'9px',letterSpacing:'-0.2px'}}>
+            <Ico n="save" s={18} c="#fff"/>
+            {editing?'Update Record':'Save Record'}
+          </button>
+        </div>
+      )}
 
       <nav style={S.nav}>
         {[
