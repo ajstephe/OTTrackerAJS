@@ -125,7 +125,8 @@ export default function App() {
   const [settings,   setSettings]   = useState(()=>dualRead(KEYS.settings, {rank:'',service:'',rates:{r133:0,r150:0,r200:0},taxRate:40}));
   const [expanded,   setExpanded]   = useState(null);
   const [editing,    setEditing]    = useState(null);
-  const [wipeConf,   setWipeConf]   = useState(false);
+  const [wipeConf,     setWipeConf]     = useState(false);
+  const [confirmDelete,setConfirmDelete] = useState(null); // entry id pending deletion
   const [toasts,     setToasts]     = useState([]);
   const [savedBadge, setSavedBadge] = useState(false);
   const [bannerDim,  setBannerDim]  = useState(false);
@@ -536,11 +537,23 @@ export default function App() {
                                   <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>{new Date(e.date+'T12:00:00').toLocaleDateString('en-GB')}</div>
                                   <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6',marginTop:'2px',textTransform:'uppercase'}}>{e.reason||'Shift'}</div>
                                 </div>
-                                <div style={{display:'flex',gap:'5px'}}>
-                                  <button onClick={()=>startEdit(e)} style={{background:'#f1f5f9',border:'none',borderRadius:'8px',padding:'6px',cursor:'pointer',display:'flex'}}><Ico n="edit" s={13} c="#64748b"/></button>
-                                  <button onClick={()=>delEntry(e.id)} style={{background:'#fef2f2',border:'none',borderRadius:'8px',padding:'6px',cursor:'pointer',display:'flex'}}><Ico n="trash" s={13} c="#ef4444"/></button>
+                                {/* edit + delete — wider gap to prevent mis-taps */}
+                                <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+                                  <button onClick={()=>{ setConfirmDelete(null); startEdit(e); }} style={{background:'#f1f5f9',border:'none',borderRadius:'8px',padding:'8px',cursor:'pointer',display:'flex'}}><Ico n="edit" s={14} c="#64748b"/></button>
+                                  <button onClick={()=>setConfirmDelete(confirmDelete===e.id?null:e.id)} style={{background:confirmDelete===e.id?'#fee2e2':'#fef2f2',border:confirmDelete===e.id?'1.5px solid #fca5a5':'1.5px solid transparent',borderRadius:'8px',padding:'8px',cursor:'pointer',display:'flex',transition:'all 0.15s'}}><Ico n="trash" s={14} c="#ef4444"/></button>
                                 </div>
                               </div>
+
+                              {/* inline delete confirmation — appears below header row */}
+                              {confirmDelete===e.id&&(
+                                <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'10px',padding:'11px 12px',marginBottom:'9px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'}}>
+                                  <span style={{fontSize:'12px',fontWeight:700,color:'#991b1b'}}>Delete this record?</span>
+                                  <div style={{display:'flex',gap:'7px',flexShrink:0}}>
+                                    <button onClick={()=>setConfirmDelete(null)} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'5px 12px',fontSize:'11px',fontWeight:900,color:'#64748b',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+                                    <button onClick={()=>{ setConfirmDelete(null); delEntry(e.id); }} style={{background:'#dc2626',border:'none',borderRadius:'8px',padding:'5px 12px',fontSize:'11px',fontWeight:900,color:'#fff',cursor:'pointer',fontFamily:'inherit'}}>Delete</button>
+                                  </div>
+                                </div>
+                              )}
                               <div style={{background:'#f8fafc',borderRadius:'9px',padding:'9px'}}>
                                 {e1>0&&<div style={{fontSize:'11px',fontWeight:700,color:'#475569',marginBottom:'2px'}}>1.33x@{e1}h=<strong style={{color:'#1e3a5f'}}>£{(e1*(settings.rates?.r133||0)).toFixed(2)}</strong></div>}
                                 {e2>0&&<div style={{fontSize:'11px',fontWeight:700,color:'#475569',marginBottom:'2px'}}>1.5x@{e2}h=<strong style={{color:'#1e3a5f'}}>£{(e2*(settings.rates?.r150||0)).toFixed(2)}</strong></div>}
