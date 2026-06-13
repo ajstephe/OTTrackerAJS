@@ -129,7 +129,6 @@ export default function App() {
   const [confirmDelete,setConfirmDelete] = useState(null); // entry id pending deletion
   const [toasts,     setToasts]     = useState([]);
   const [savedBadge, setSavedBadge] = useState(false);
-  const [bannerDim,  setBannerDim]  = useState(false);
   // autosave / backup state
   const [lastSaved,     setLastSaved]     = useState(()=>dualRead(KEYS.savedAt, null));
   const [lastBackedUp,  setLastBackedUp]  = useState(()=>dualRead(KEYS.backedUpAt, null));
@@ -312,7 +311,7 @@ export default function App() {
         ::-webkit-scrollbar{display:none}
         @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes su{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes gentlePulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(251,191,36,0)}60%{opacity:0.85;box-shadow:0 0 0 6px rgba(251,191,36,0.18)}}
+        @keyframes gentlePulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(217,119,6,0)}30%{opacity:0.82;box-shadow:0 0 0 7px rgba(217,119,6,0.28)}50%{opacity:1;box-shadow:0 0 0 0 rgba(217,119,6,0)}70%{opacity:0.82;box-shadow:0 0 0 7px rgba(217,119,6,0.28)}90%,100%{opacity:1;box-shadow:0 0 0 0 rgba(217,119,6,0)}}
         .fi{animation:fi 0.22s ease}
         .setup-pulse{animation:gentlePulse 2.4s ease-in-out infinite}
         input[type=number]::-webkit-outer-spin-button,
@@ -343,7 +342,7 @@ export default function App() {
         {/* ══════════════════════════════════════════════════ DASHBOARD */}
         {tab==='dashboard'&&(
           <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
-            {!settings.rank&&!bannerDim&&(
+            {!settings.rank&&(
               <div className="setup-pulse" style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'14px',padding:'13px 14px',marginBottom:'12px',display:'flex',gap:'11px',alignItems:'flex-start'}}>
                 <Ico n="uPlus" s={19} c="#d97706"/>
                 <div style={{flex:1}}>
@@ -351,7 +350,6 @@ export default function App() {
                   <div style={{color:'#b45309',fontSize:'12px',marginBottom:'8px'}}>Configure your rank and pay in Settings.</div>
                   <button onClick={()=>setTab('settings')} style={{background:'#fde68a',border:'none',borderRadius:'8px',padding:'5px 11px',fontWeight:900,fontSize:'11px',color:'#92400e',cursor:'pointer',fontFamily:'inherit'}}>Go to Settings →</button>
                 </div>
-                <button onClick={()=>setBannerDim(true)} style={{background:'none',border:'none',cursor:'pointer',padding:'2px',lineHeight:1}}><Ico n="x" s={15} c="#b45309"/></button>
               </div>
             )}
 
