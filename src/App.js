@@ -21,60 +21,215 @@ const PAY_PERIODS = [
 ];
 
 // ─── pay rates ────────────────────────────────────────────────────────────────
-// Each pay point holds pre/post rate sets (switching on RATE_CHANGE_DATE).
-// `base` is the plain hourly rate used for the 10% night enhancement.
-// Pre-Sept rates for PC 1-3 map to the old Year 3 figures (lowest available).
-// Pre-Sept Sergeant points map to the old Point 1/2/3+ figures.
+// Pre-Sept salaries are post ÷ 1.035 (3.5% pay rise from 1 Sep 2026).
+// PC 1-3 pre-Sept use their own back-calculated figures (not Year 3 mapping).
 const PAY_RATES = {
   Constable: {
     'PC 1': {
-      pre:  { base:14.95, r133:19.88, r150:22.43, r200:29.89 },
-      post: { base:15.47, r133:20.58, r150:23.21, r200:30.94 },
+      salary: { pre:31159, post:32255 },
+      pre:    { base:14.95, r133:19.88, r150:22.43, r200:29.89 },
+      post:   { base:15.47, r133:20.58, r150:23.21, r200:30.94 },
     },
     'PC 2': {
-      pre:  { base:15.57, r133:20.72, r150:23.36, r200:31.15 },
-      post: { base:16.12, r133:21.44, r150:24.18, r200:32.24 },
+      salary: { pre:32470, post:33609 },
+      pre:    { base:15.57, r133:20.72, r150:23.36, r200:31.15 },
+      post:   { base:16.12, r133:21.44, r150:24.18, r200:32.24 },
     },
     'PC 3': {
-      pre:  { base:16.20, r133:21.55, r150:24.31, r200:32.41 },
-      post: { base:16.77, r133:22.30, r150:25.16, r200:33.54 },
+      salary: { pre:33786, post:34972 },
+      pre:    { base:16.20, r133:21.55, r150:24.31, r200:32.41 },
+      post:   { base:16.77, r133:22.30, r150:25.16, r200:33.54 },
     },
     'PC 4': {
-      pre:  { base:16.86, r133:22.43, r150:25.24, r200:33.65 },
-      post: { base:17.42, r133:23.17, r150:26.13, r200:34.84 },
+      salary: { pre:35104, post:36335 },
+      pre:    { base:16.86, r133:22.43, r150:25.24, r200:33.65 },
+      post:   { base:17.42, r133:23.17, r150:26.13, r200:34.84 },
     },
     'PC 5': {
-      pre:  { base:18.13, r133:24.11, r150:27.13, r200:36.17 },
-      post: { base:18.73, r133:24.91, r150:28.10, r200:37.46 },
+      salary: { pre:37737, post:39058 },
+      pre:    { base:18.13, r133:24.11, r150:27.13, r200:36.17 },
+      post:   { base:18.73, r133:24.91, r150:28.10, r200:37.46 },
     },
     'PC 6': {
-      pre:  { base:20.68, r133:27.50, r150:30.94, r200:41.25 },
-      post: { base:21.36, r133:28.41, r150:32.04, r200:42.72 },
+      salary: { pre:43036, post:44544 },
+      pre:    { base:20.68, r133:27.50, r150:30.94, r200:41.25 },
+      post:   { base:21.36, r133:28.41, r150:32.04, r200:42.72 },
     },
     'PC 7 (top)': {
-      pre:  { base:24.14, r133:32.11, r150:36.13, r200:48.17 },
-      post: { base:24.94, r133:33.17, r150:37.41, r200:49.88 },
+      salary: { pre:50255, post:52015 },
+      pre:    { base:24.14, r133:32.11, r150:36.13, r200:48.17 },
+      post:   { base:24.94, r133:33.17, r150:37.41, r200:49.88 },
     },
   },
   Sergeant: {
     'SGT 2 (on promotion)': {
-      pre:  { base:25.73, r133:34.23, r150:38.51, r200:51.34 },
-      post: { base:26.59, r133:35.36, r150:39.89, r200:53.18 },
+      salary: { pre:53567, post:55443 },
+      pre:    { base:25.73, r133:34.23, r150:38.51, r200:51.34 },
+      post:   { base:26.59, r133:35.36, r150:39.89, r200:53.18 },
     },
     'SGT 3': {
-      pre:  { base:26.26, r133:34.93, r150:39.29, r200:52.39 },
-      post: { base:27.13, r133:36.08, r150:40.70, r200:54.26 },
+      salary: { pre:54659, post:56573 },
+      pre:    { base:26.26, r133:34.93, r150:39.29, r200:52.39 },
+      post:   { base:27.13, r133:36.08, r150:40.70, r200:54.26 },
     },
     'SGT 4 (top)': {
-      pre:  { base:27.01, r133:35.92, r150:40.40, r200:53.87 },
-      post: { base:27.90, r133:37.11, r150:41.85, r200:55.80 },
+      salary: { pre:56206, post:58175 },
+      pre:    { base:27.01, r133:35.92, r150:40.40, r200:53.87 },
+      post:   { base:27.90, r133:37.11, r150:41.85, r200:55.80 },
     },
   },
 };
 
 const PA_RATES   = { None:0, PA1:40, PA2:90, PA3:125 };
 const PA_LABELS  = { None:'—', PA1:'£40', PA2:'£90', PA3:'£125' };
-const TAX_LABELS = { 20:'Basic Rate', 40:'Higher Rate', 45:'Additional' };
+
+// ─── Met Police allowances ────────────────────────────────────────────────────
+const LONDON_WEIGHTING = { pre:3150, post:3260 }; // pre/post 1 Sep 2026
+const LONDON_ALLOWANCE = 6588;                     // fixed p.a.
+
+// ─── UK income tax bands (2026/27) ────────────────────────────────────────────
+// Used for the whole-year aggregate figure (Home dashboard top card), where a
+// proper progressive stack across bands is correct since that total naturally
+// spans from £0.
+const calcUKIncomeTax = annualGross => {
+  let pa = 12570;
+  if (annualGross > 100000) pa = Math.max(0, 12570 - Math.floor((annualGross - 100000) / 2));
+  const taxable = Math.max(0, annualGross - pa);
+  let tax = 0;
+  if (taxable > 0)      tax += Math.min(taxable, 37700)          * 0.20;
+  if (taxable > 37700)  tax += Math.min(taxable - 37700, 74870)  * 0.40;
+  if (taxable > 112570) tax += (taxable - 112570)                * 0.45;
+  return tax;
+};
+
+// Named bands, used to tell the person plainly which bracket their overtime/PA
+// lands in, rather than a blended "effective %" figure.
+const TAX_BANDS = [
+  { name:'Personal Allowance', min:0,      rate:0  },
+  { name:'Basic Rate',         min:12570,  rate:20 },
+  { name:'Higher Rate',        min:50270,  rate:40 },
+  { name:'Additional Rate',    min:125140, rate:45 },
+];
+const getTaxBand = cumulativeGross => {
+  let band = TAX_BANDS[0];
+  for (const b of TAX_BANDS) { if (cumulativeGross >= b.min) band = b; else break; }
+  return band;
+};
+
+// Calculates the actual tax due on a slice of income stacked on top of what's
+// already been earned this FY — correctly split across bands exactly as the
+// UK tax system works (e.g. if this slice crosses from Basic into Higher Rate,
+// only the portion above the threshold is taxed at 40%, not the whole slice).
+// bandName reflects the band this slice finishes in, for a clean label.
+const applyBandTax = (cumulativeBefore, amount) => {
+  if (amount <= 0) return { tax:0, net:0, rate:0, bandName:null };
+  const taxBefore = calcUKIncomeTax(cumulativeBefore);
+  const taxAfter  = calcUKIncomeTax(cumulativeBefore + amount);
+  const tax  = taxAfter - taxBefore;
+  const band = getTaxBand(cumulativeBefore + amount);
+  return { tax, net: amount - tax, rate: (tax / amount) * 100, bandName: band.name };
+};
+
+// Splits an amount of income into the portions that fall within each tax band,
+// exactly as UK progressive tax works (e.g. the first £X at 0%, next £Y at 20%,
+// remainder at 40%). Used to break overtime hours down by which band they fall in.
+const splitAcrossBands = (cumulativeBefore, amount) => {
+  let remaining = amount, cursor = cumulativeBefore;
+  const portions = [];
+  for (let i=0; i<TAX_BANDS.length && remaining>0.005; i++){
+    const bandMin = TAX_BANDS[i].min;
+    const bandMax = i+1<TAX_BANDS.length ? TAX_BANDS[i+1].min : Infinity;
+    if (cursor >= bandMax) continue;
+    const capacity = bandMax - Math.max(cursor, bandMin);
+    const take = Math.min(remaining, capacity);
+    if (take > 0.005) {
+      portions.push({ name:TAX_BANDS[i].name, rate:TAX_BANDS[i].rate, amount:take });
+      cursor += take; remaining -= take;
+    }
+  }
+  return portions;
+};
+
+const daysInclusive = (a,b) => Math.round((new Date(b) - new Date(a)) / 86400000) + 1;
+
+// ─── UK tax year (6 April – 5 April) ───────────────────────────────────────────
+// This is what actually governs personal allowance/tax band resets — it's
+// different from the force's own pay-year (which starts 9 Feb per PAY_PERIODS
+// above). For anything tax-related we anchor to the REAL tax year, not the
+// pay-year.
+const getUKTaxYearStart = dateStr => {
+  const d = new Date(dateStr);
+  const y = d.getFullYear();
+  const apr6ThisYear = `${y}-04-06`;
+  return dateStr >= apr6ThisYear ? apr6ThisYear : `${y-1}-04-06`;
+};
+const addYearMinusOneDay = dateStr => {
+  const d = new Date(dateStr);
+  d.setFullYear(d.getFullYear()+1);
+  d.setDate(d.getDate()-1);
+  return d.toISOString().split('T')[0];
+};
+
+// Salary (and similar annual amounts like London Weighting/Allowance) is paid
+// monthly in the real world, not smoothly by the day. This accrues a full
+// month's pay for every calendar month that's fully completed within the
+// given range, and pro-rates only the partially-completed edge months —
+// so the YTD figure steps up once per payday rather than creeping up daily.
+const monthlySteppedAmount = (annualAmount, rangeStartStr, rangeEndStr) => {
+  if (!rangeStartStr || !rangeEndStr || rangeEndStr < rangeStartStr) return 0;
+  const monthly = annualAmount / 12;
+  const rangeStart = new Date(rangeStartStr);
+  const rangeEnd   = new Date(rangeEndStr);
+  let total = 0;
+  let cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+  while (cursor <= rangeEnd) {
+    const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const monthEnd   = new Date(cursor.getFullYear(), cursor.getMonth()+1, 0);
+    const daysInMonth = monthEnd.getDate();
+    const clipStart = monthStart < rangeStart ? rangeStart : monthStart;
+    const clipEnd   = monthEnd > rangeEnd ? rangeEnd : monthEnd;
+    if (clipEnd >= clipStart) {
+      const isFullMonth = clipStart.getTime()===monthStart.getTime() && clipEnd.getTime()===monthEnd.getTime();
+      if (isFullMonth) {
+        total += monthly;
+      } else {
+        const daysCounted = Math.round((clipEnd - clipStart)/86400000) + 1;
+        total += monthly * (daysCounted / daysInMonth);
+      }
+    }
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1);
+  }
+  return total;
+};
+
+// Same monthly-stepped accrual, but split at the 1 Sep 2026 pay rise so each
+// side uses its own annual rate.
+const monthlySteppedSplitBySept = (annualPre, annualPost, rangeStartStr, rangeEndStr) => {
+  if (!rangeStartStr || !rangeEndStr || rangeEndStr < rangeStartStr) return 0;
+  if (rangeEndStr < RATE_CHANGE_DATE)   return monthlySteppedAmount(annualPre, rangeStartStr, rangeEndStr);
+  if (rangeStartStr >= RATE_CHANGE_DATE) return monthlySteppedAmount(annualPost, rangeStartStr, rangeEndStr);
+  const d = new Date(RATE_CHANGE_DATE); d.setDate(d.getDate()-1);
+  const dayBeforeChange = d.toISOString().split('T')[0];
+  return monthlySteppedAmount(annualPre, rangeStartStr, dayBeforeChange) + monthlySteppedAmount(annualPost, RATE_CHANGE_DATE, rangeEndStr);
+};
+
+// Salary + London Weighting + London Allowance for one pay period, pro-rated
+// across the 1 Sep 2026 rate change if the period spans it.
+const periodBaseAmount = (p, svcData) => {
+  const totalDays = daysInclusive(p.start, p.end);
+  let preDays, postDays;
+  if (p.end < RATE_CHANGE_DATE) { preDays = totalDays; postDays = 0; }
+  else if (p.start >= RATE_CHANGE_DATE) { preDays = 0; postDays = totalDays; }
+  else {
+    const d = new Date(RATE_CHANGE_DATE); d.setDate(d.getDate() - 1);
+    preDays  = daysInclusive(p.start, d.toISOString().split('T')[0]);
+    postDays = totalDays - preDays;
+  }
+  const salary = svcData ? (preDays/365)*svcData.salary.pre + (postDays/365)*svcData.salary.post : 0;
+  const lw     = (preDays/365)*LONDON_WEIGHTING.pre + (postDays/365)*LONDON_WEIGHTING.post;
+  const la     = (totalDays/365)*LONDON_ALLOWANCE;
+  return salary + lw + la;
+};
 
 // ─── rate helper ──────────────────────────────────────────────────────────────
 // Returns the correct rate set for a given pay point and entry date.
@@ -106,13 +261,13 @@ const dualRead = (key, fb) => {
 
 // Migrate settings if they contain old rank names from a previous version
 const migrateSettings = s => {
-  const def = { rank:'', service:'', taxRate:40 };
+  const def = { rank:'', service:'' };
   if (!s) return def;
   const validRanks = Object.keys(PAY_RATES);
-  if (!validRanks.includes(s.rank)) return { ...def, taxRate: s.taxRate||40 };
+  if (!validRanks.includes(s.rank)) return def;
   const validServices = Object.keys(PAY_RATES[s.rank]||{});
-  if (!validServices.includes(s.service)) return { ...def, taxRate: s.taxRate||40 };
-  return { rank:s.rank, service:s.service, taxRate:s.taxRate||40 };
+  if (!validServices.includes(s.service)) return def;
+  return { rank:s.rank, service:s.service };
 };
 
 // ─── icon component ───────────────────────────────────────────────────────────
@@ -142,6 +297,7 @@ const Ico = ({ n, s=20, c, w=2 }) => (
     {n==='dl'    &&<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>}
     {n==='ul'    &&<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>}
     {n==='moon'  &&<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>}
+    {n==='mail'  &&<><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></>}
     {n==='bell'  &&<><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>}
   </svg>
 );
@@ -195,6 +351,33 @@ export default function App() {
   useEffect(()=>{ dualWrite(KEYS.settings,settings); },[settings]);
   useEffect(()=>{ if(mainRef.current) mainRef.current.scrollTop=0; },[tab]);
 
+  // ── snap zoom back to default when switching tabs ───────────────────────────
+  // Pinch-zoom is allowed while browsing a tab. When the person switches tabs,
+  // this forces the browser to reprocess the viewport at scale=1. Simply
+  // mutating the meta tag's content attribute in place is often ignored by
+  // mobile browsers if they judge nothing "changed" — removing the tag from
+  // the DOM and reinserting it forces a genuine reprocess, which is the more
+  // reliable version of this technique. Held briefly before restoring the
+  // zoomable viewport so pinch still works next time.
+  useEffect(()=>{
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (!viewport || !viewport.parentNode) return;
+    const parent = viewport.parentNode;
+    const zoomable = 'width=device-width,initial-scale=1.0,maximum-scale=5.0,user-scalable=yes';
+    const locked   = 'width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no';
+
+    const forceReprocess = content => {
+      parent.removeChild(viewport);
+      viewport.setAttribute('content', content);
+      parent.appendChild(viewport);
+    };
+
+    forceReprocess(locked);
+    window.scrollTo(0,0);
+    const t = setTimeout(()=>{ forceReprocess(zoomable); }, 450);
+    return ()=>clearTimeout(t);
+  },[tab]);
+
   // ── toasts ─────────────────────────────────────────────────────────────────
   const addToast = useCallback((msg,type='success',action=null,dur=3500)=>{
     const id=Date.now()+Math.random();
@@ -205,7 +388,10 @@ export default function App() {
   const saveSett = s=>{ setSettings(s); setSavedBadge(true); setTimeout(()=>setSavedBadge(false),2200); };
 
   // ── entry calculator ───────────────────────────────────────────────────────
-  // Returns all components of pay for a single entry using the date-correct rates.
+  // Returns the gross pay components for a single entry using date-correct rates.
+  // Net is NOT calculated here — tax is applied per pay period on a cumulative
+  // marginal basis (see periodBreakdown in totals below), since a flat personal
+  // tax rate can't correctly reflect where each pound sits in the tax bands.
   const calcEntry = useCallback((e)=>{
     const r  = getRates(settings.rank, settings.service, e.date);
     const h1 = parseFloat(e.hours133)||0;
@@ -216,38 +402,131 @@ export default function App() {
     const night = nh * r.base * 0.10;          // 10% of base rate per night hour
     const pa    = PA_RATES[e.paRate]||0;
     const gross = ot + night + pa;
-    const net   = gross * (1 - settings.taxRate/100);
-    return { h1, h2, h3, nh, ot, night, pa, gross, net, r };
+    return { h1, h2, h3, nh, ot, night, pa, gross, r };
   },[settings]);
 
   // ── derived totals ─────────────────────────────────────────────────────────
   const fyEntries = useMemo(()=>entries.filter(e=>e.date>=FY_START&&e.date<=FY_END),[entries]);
 
   const totals = useMemo(()=>{
-    let totalGross=0, totalNet=0, totalHrs=0;
-    fyEntries.forEach(e=>{
-      const c=calcEntry(e);
-      totalGross+=c.gross; totalNet+=c.net; totalHrs+=c.h1+c.h2+c.h3;
+    const svcData = settings.rank && settings.service ? PAY_RATES[settings.rank]?.[settings.service] : null;
+
+    // ── build the period-by-period cumulative marginal cascade ────────────────
+    // For each period, in chronological order: add salary+LW+LA, then layer this
+    // period's overtime, then night enhancement, then PA on top of the running
+    // cumulative total. Each layer's tax is the difference in cumulative tax
+    // before/after it — i.e. the true marginal rate for that slice of income.
+    let cum = 0;
+    let totalGross=0, totalHrs=0;
+    const periodBreakdown = PAY_PERIODS.map(p=>{
+      const pE = fyEntries.filter(e=>e.date>=p.start&&e.date<=p.end);
+      let ot=0, night=0, pa=0, hrs=0;
+      pE.forEach(e=>{
+        const c=calcEntry(e);
+        ot+=c.ot; night+=c.night; pa+=c.pa; hrs+=c.h1+c.h2+c.h3;
+      });
+
+      const baseAmt = periodBaseAmount(p, svcData);
+      cum += baseAmt;
+      const otResult = applyBandTax(cum, ot);       cum += ot;
+      const nightResult = applyBandTax(cum, night); cum += night;
+      const paResult = applyBandTax(cum, pa);       cum += pa;
+
+      totalGross += ot+night+pa; totalHrs += hrs;
+
+      return {
+        month:p.month, start:p.start, end:p.end,
+        baseAmt, ot, night, pa,
+        otResult, nightResult, paResult,
+        combinedGross: ot+night+pa,
+        combinedNet: otResult.net+nightResult.net+paResult.net,
+        cumAfter: cum,
+      };
     });
+
+    const totalNet = periodBreakdown.reduce((s,pb)=>s+pb.combinedNet,0);
 
     const getP=i=>{
-      if(i<0||i>=PAY_PERIODS.length) return null;
-      const p=PAY_PERIODS[i], pE=fyEntries.filter(e=>e.date>=p.start&&e.date<=p.end);
-      let gr=0; pE.forEach(e=>{ gr+=calcEntry(e).gross; });
-      return{month:p.month,start:p.start,end:p.end,gross:gr,net:gr*(1-settings.taxRate/100)};
+      if(i<0||i>=periodBreakdown.length) return null;
+      const pb=periodBreakdown[i];
+      return{month:pb.month,start:pb.start,end:pb.end,gross:pb.combinedGross,net:pb.combinedNet};
     };
 
-    let cum=0;
-    const cumData=PAY_PERIODS.map(p=>{
-      const pE=fyEntries.filter(e=>e.date>=p.start&&e.date<=p.end);
-      let g=0; pE.forEach(e=>{ g+=calcEntry(e).gross; }); cum+=g;
-      return{short:p.short,cumulative:cum};
+    const cumData = periodBreakdown.map(pb=>({short:PAY_PERIODS.find(p=>p.month===pb.month).short,cumulative:pb.cumAfter}));
+
+    // ── salary + allowances YTD (for the top Home summary card) ───────────────
+    // Anchored to the REAL UK tax year (6 Apr – 5 Apr), not the force's pay
+    // year (which starts 9 Feb) — HMRC resets personal allowance/bands on
+    // 6 April regardless of when the police pay calendar happens to start.
+    // Salary/allowances accrue in proper monthly instalments (stepping up
+    // once per completed month) rather than a smooth daily creep.
+    const todayD      = new Date(todayStr);
+    const fyStartD    = new Date(FY_START);
+    const fyEndD      = new Date(FY_END);
+    const effectiveEnd = todayD <= fyEndD ? todayD : fyEndD;
+    const daysElapsed  = Math.max(0, (effectiveEnd - fyStartD) / 86400000); // still used for "days into FY" label (police pay-year)
+
+    const taxYearStart = getUKTaxYearStart(todayStr);
+    const taxYearEnd    = addYearMinusOneDay(taxYearStart);
+    const ytdRangeEnd   = todayStr <= taxYearEnd ? todayStr : taxYearEnd;
+    const taxYearDaysElapsed = Math.max(0, (new Date(ytdRangeEnd) - new Date(taxYearStart)) / 86400000);
+
+    const salaryYTD = svcData ? monthlySteppedSplitBySept(svcData.salary.pre, svcData.salary.post, taxYearStart, ytdRangeEnd) : 0;
+    const lwYTD     = monthlySteppedSplitBySept(LONDON_WEIGHTING.pre, LONDON_WEIGHTING.post, taxYearStart, ytdRangeEnd);
+    const laYTD     = monthlySteppedAmount(LONDON_ALLOWANCE, taxYearStart, ytdRangeEnd);
+
+    // Overtime/PA actually earned so far THIS TAX YEAR — excludes future-dated
+    // "Planned" entries, and excludes anything dated before the tax year
+    // started (which belongs to the previous tax year's allowance/bands).
+    let otPaidToDate = 0, otNightPaidToDate = 0, hrsToDate = 0;
+    fyEntries.forEach(e=>{
+      if (e.date >= taxYearStart && e.date <= todayStr) {
+        const c = calcEntry(e);
+        otPaidToDate += c.gross;
+        otNightPaidToDate += c.ot + c.night; // hourly-earned only, excludes flat PA
+        hrsToDate += c.h1 + c.h2 + c.h3;
+      }
     });
 
-    return{totalGross,totalNet,totalHrs,cumData,prev:getP(currPeriodIdx-1),curr:getP(currPeriodIdx),next:getP(currPeriodIdx+1)};
-  },[fyEntries,calcEntry,settings.taxRate,currPeriodIdx]);
+    // Break the to-date overtime/night money down by which tax band it falls
+    // in (stacked on top of salary+allowances), then convert each band's
+    // portion back to hours using the blended average £/hr for that money.
+    const avgHourlyRate = hrsToDate > 0 ? otNightPaidToDate / hrsToDate : 0;
+    const hoursByBand = splitAcrossBands(salaryYTD+lwYTD+laYTD, otNightPaidToDate)
+      .map(b => ({ ...b, hours: avgHourlyRate > 0 ? b.amount / avgHourlyRate : 0 }));
+
+    // Full UK tax year totals (for showing "earned so far / full year" progress),
+    // matching the same tax-year window and monthly-stepped method as above.
+    const lwAnnualTotal = monthlySteppedSplitBySept(LONDON_WEIGHTING.pre, LONDON_WEIGHTING.post, taxYearStart, taxYearEnd);
+    const laAnnualTotal = monthlySteppedAmount(LONDON_ALLOWANCE, taxYearStart, taxYearEnd);
+
+    const combinedGrossYTD = salaryYTD + lwYTD + laYTD + otPaidToDate;
+
+    // Tax on what's actually been earned so far this FY — no projection or
+    // extrapolation. This is deliberate: projecting a single early/large
+    // shift out to "if this continued for 365 days" wildly overstates the
+    // tax band. Using real cumulative money against the real annual
+    // thresholds means the band only moves once you've genuinely earned
+    // past that threshold — exactly like a payslip.
+    const ytdTax         = calcUKIncomeTax(combinedGrossYTD);
+    const combinedNetYTD = combinedGrossYTD - ytdTax;
+
+    const currentBand   = getTaxBand(combinedGrossYTD);
+    const taxBand        = currentBand.name;
+    const taxBandRate    = currentBand.rate;
+
+    return{
+      totalGross, totalNet, totalHrs, cumData, periodBreakdown,
+      prev:getP(currPeriodIdx-1), curr:getP(currPeriodIdx), next:getP(currPeriodIdx+1),
+      salaryYTD, lwYTD, laYTD, lwAnnualTotal, laAnnualTotal, combinedGrossYTD, combinedNetYTD,
+      ytdTax, taxBand, taxBandRate, daysElapsed, taxYearDaysElapsed, taxYearStart, hoursByBand,
+    };
+  },[fyEntries,calcEntry,settings,currPeriodIdx,todayStr]);
 
   // ── live form preview ──────────────────────────────────────────────────────
+  // Shows the net for this shift as if logged right now — using the tax band
+  // that applies once this shift's total is added to everything already
+  // earned this FY (salary, allowances, other OT/PA).
   const preview = useMemo(()=>{
     const r  = getRates(settings.rank, settings.service, form.date||todayStr);
     const h1 = parseFloat(form.hours133)||0;
@@ -258,8 +537,9 @@ export default function App() {
     const night = nh * r.base * 0.10;
     const pa    = PA_RATES[form.paRate]||0;
     const gross = ot + night + pa;
-    return { gross, net:gross*(1-settings.taxRate/100), night, has:gross>0 };
-  },[form, settings, todayStr]);
+    const result = applyBandTax(totals.combinedGrossYTD, gross);
+    return { gross, net:result.net, rate:result.rate, bandName:result.bandName, night, has:gross>0 };
+  },[form, settings, todayStr, totals.combinedGrossYTD]);
 
   // ── handlers ───────────────────────────────────────────────────────────────
   const handleSave=()=>{
@@ -301,13 +581,14 @@ export default function App() {
     fr.readAsText(ev.target.files[0]);
   };
 
-  const handleWipe=()=>{ setEntries([]); saveSett({rank:'',service:'',taxRate:40}); setWipeConf(false); setTab('dashboard'); };
+  const handleWipe=()=>{ setEntries([]); saveSett({rank:'',service:''}); setWipeConf(false); setTab('dashboard'); };
 
   const jumpTo=month=>{ setExpanded(month); setTimeout(()=>monthRefs.current[month]?.scrollIntoView({behavior:'smooth',block:'start'}),80); };
 
   // ── display helpers ────────────────────────────────────────────────────────
-  const fmt =n=>`£${n.toFixed(2)}`;
-  const fmtD=d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  const fmt    = n=>`£${n.toFixed(2)}`;
+  const fmtGBP = n=>`£${n.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  const fmtD   = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
   const fmtBackedUp=ts=>{
     if(!ts) return null;
     const diff=Math.floor((Date.now()-ts)/1000);
@@ -318,8 +599,7 @@ export default function App() {
     return date.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
   };
 
-  // Today's effective rates for the settings display
-  const todayRates = getRates(settings.rank, settings.service, todayStr);
+  // Today's effective rates were shown on Home; now only surfaced in Settings.
 
   // ── styles ─────────────────────────────────────────────────────────────────
   const S={
@@ -332,9 +612,9 @@ export default function App() {
     card: {background:'#fff',borderRadius:'18px',padding:'18px',boxShadow:'0 1px 6px rgba(0,0,0,0.05)',border:'1px solid #f1f5f9',marginBottom:'10px'},
     dark: {background:'#0f2744',borderRadius:'18px',padding:'22px',boxShadow:'0 8px 28px rgba(15,39,68,0.28)',marginBottom:'10px',position:'relative',overflow:'hidden'},
     lbl:  {display:'block',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'7px'},
-    inp:  {width:'100%',background:'#f8fafc',border:'none',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'14px',outline:'none',fontFamily:'inherit',boxSizing:'border-box',color:'#0f172a'},
-    ta:   {width:'100%',background:'#f8fafc',border:'none',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'14px',outline:'none',fontFamily:'inherit',resize:'none',boxSizing:'border-box',color:'#0f172a'},
-    sel:  {width:'100%',background:'#f8fafc',border:'1px solid #e2e8f0',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'14px',outline:'none',fontFamily:'inherit',boxSizing:'border-box',color:'#0f172a',appearance:'none'},
+    inp:  {width:'100%',background:'#f8fafc',border:'none',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'16px',outline:'none',fontFamily:'inherit',boxSizing:'border-box',color:'#0f172a'},
+    ta:   {width:'100%',background:'#f8fafc',border:'none',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'16px',outline:'none',fontFamily:'inherit',resize:'none',boxSizing:'border-box',color:'#0f172a'},
+    sel:  {width:'100%',background:'#f8fafc',border:'1px solid #e2e8f0',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'16px',outline:'none',fontFamily:'inherit',boxSizing:'border-box',color:'#0f172a',appearance:'none'},
   };
 
   return (
@@ -344,11 +624,12 @@ export default function App() {
         ::-webkit-scrollbar{display:none}
         @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes su{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes gentlePulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(217,119,6,0)}30%{opacity:0.82;box-shadow:0 0 0 7px rgba(217,119,6,0.28)}50%{opacity:1;box-shadow:0 0 0 0 rgba(217,119,6,0)}70%{opacity:0.82;box-shadow:0 0 0 7px rgba(217,119,6,0.28)}90%,100%{opacity:1;box-shadow:0 0 0 0 rgba(217,119,6,0)}}
+        @keyframes urgentPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}25%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}50%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}75%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}}
         .fi{animation:fi 0.22s ease}
-        .setup-pulse{animation:gentlePulse 2.4s ease-in-out infinite}
+        .setup-pulse-urgent{animation:urgentPulse 1.5s ease-in-out infinite}
         input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
         input:focus,select:focus,textarea:focus{outline:2px solid #2563eb;outline-offset:-2px}
+        input,select,textarea{font-size:16px}
         button:active{opacity:0.8;transform:scale(0.96)}
       `}</style>
 
@@ -374,54 +655,127 @@ export default function App() {
         {tab==='dashboard'&&(
           <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
             {!settings.rank&&(
-              <div className="setup-pulse" style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'14px',padding:'13px 14px',marginBottom:'12px',display:'flex',gap:'11px',alignItems:'flex-start'}}>
-                <Ico n="uPlus" s={19} c="#d97706"/>
+              <div className="setup-pulse-urgent" style={{background:'#fef2f2',border:'1.5px solid #fca5a5',borderRadius:'14px',padding:'13px 14px',marginBottom:'12px',display:'flex',gap:'11px',alignItems:'flex-start'}}>
+                <Ico n="uPlus" s={19} c="#dc2626"/>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:900,color:'#92400e',fontSize:'13px',marginBottom:'3px'}}>Setup Required</div>
-                  <div style={{color:'#b45309',fontSize:'12px',marginBottom:'8px'}}>Configure your rank and pay in Settings.</div>
-                  <button onClick={()=>setTab('settings')} style={{background:'#fde68a',border:'none',borderRadius:'8px',padding:'5px 11px',fontWeight:900,fontSize:'11px',color:'#92400e',cursor:'pointer',fontFamily:'inherit'}}>Go to Settings →</button>
+                  <div style={{fontWeight:900,color:'#991b1b',fontSize:'13px',marginBottom:'3px'}}>Setup Required</div>
+                  <div style={{color:'#b91c1c',fontSize:'12px',marginBottom:'8px'}}>Configure your rank and pay in Settings.</div>
+                  <button onClick={()=>setTab('settings')} style={{background:'#fca5a5',border:'none',borderRadius:'8px',padding:'5px 11px',fontWeight:900,fontSize:'11px',color:'#7f1d1d',cursor:'pointer',fontFamily:'inherit'}}>Go to Settings →</button>
                 </div>
               </div>
             )}
 
-            <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'8px',padding:'0 2px'}}>Monthly Summary</div>
-            {[totals.curr,totals.next,totals.prev].map((item,i)=>item&&(
-              <div key={i} style={{...S.card,background:i===0?'#eff6ff':'#fff',border:i===0?'1px solid #bfdbfe':'1px solid #f1f5f9',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'15px 17px'}}>
-                <div>
-                  <div style={{fontSize:'9px',fontWeight:900,color:i===0?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>{i===0?'Current':i===1?'Next':'Previous'} Pay Month</div>
-                  <div style={{fontWeight:900,fontSize:'17px',color:'#0f172a',marginBottom:'3px'}}>{item.month}</div>
-                  <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
-                </div>
-                <div style={{textAlign:'right'}}>
-                  <div style={{fontWeight:900,fontSize:'14px',color:'#1e3a5f',marginBottom:'3px'}}>{fmt(item.gross)} <span style={{fontSize:'9px',fontWeight:400,color:'#94a3b8'}}>gross</span></div>
-                  <div style={{fontWeight:900,fontSize:'14px',color:'#059669'}}>{fmt(item.net)} <span style={{fontSize:'9px',fontWeight:400,color:'#94a3b8'}}>net</span></div>
-                </div>
-              </div>
-            ))}
-
+            {/* ── Total combined earnings card — the main/first card ── */}
             <div style={S.dark}>
               <div style={{position:'absolute',right:'-14px',top:'-14px',width:'72px',height:'72px',background:'rgba(255,255,255,0.04)',borderRadius:'50%'}}/>
-              <div style={{fontSize:'9px',fontWeight:900,color:'#60a5fa',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>Gross Total 26/27</div>
-              <div style={{fontSize:'40px',fontWeight:900,color:'#fff',letterSpacing:'-2px',marginBottom:'16px'}}>{fmt(totals.totalGross)}</div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',borderTop:'1px solid rgba(255,255,255,0.1)',paddingTop:'13px'}}>
-                <div><div style={{fontSize:'9px',fontWeight:900,color:'#60a5fa',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Est. Net</div><div style={{fontSize:'19px',fontWeight:900,color:'#34d399'}}>{fmt(totals.totalNet)}</div></div>
-                <div><div style={{fontSize:'9px',fontWeight:900,color:'#60a5fa',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Hours</div><div style={{fontSize:'19px',fontWeight:900,color:'#fff',display:'flex',alignItems:'center',gap:'6px'}}><Ico n="clock" s={15} c="rgba(255,255,255,0.35)"/>{totals.totalHrs.toFixed(1)}</div></div>
-              </div>
-            </div>
 
-            <div style={S.card}>
-              <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'11px'}}><Ico n="trend" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Current Hourly Rates</div></div>
-              <div style={{fontSize:'13px',fontWeight:900,color:'#0f172a',marginBottom:'10px',borderBottom:'1px solid #f1f5f9',paddingBottom:'9px'}}>{settings.service||<span style={{color:'#94a3b8'}}>Not Configured</span>}</div>
-              {/* show which rate set is active */}
-              {settings.rank&&<div style={{fontSize:'9px',fontWeight:700,color:todayStr>=RATE_CHANGE_DATE?'#059669':'#d97706',marginBottom:'10px'}}>{todayStr>=RATE_CHANGE_DATE?'▲ Sept 2026 rates active':'Pre-Sept 2026 rates (new rates from 1 Sep)'}</div>}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'6px'}}>
-                {['Base','1.33x','1.5x','2.0x'].map((lbl,i)=>(
-                  <div key={lbl} style={{background:'#f8fafc',padding:'8px 4px',borderRadius:'10px',textAlign:'center'}}>
-                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',marginBottom:'2px'}}>{lbl}</div>
-                    <div style={{fontSize:'11px',fontWeight:900,color:'#1e3a5f'}}>£{(todayRates[['base','r133','r150','r200'][i]]||0).toFixed(2)}</div>
+              {/* header */}
+              <div style={{fontSize:'9px',fontWeight:900,color:'#60a5fa',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>
+                Total Gross YTD (inc. salary)
+              </div>
+              <div style={{fontSize:'38px',fontWeight:900,color:'#fff',letterSpacing:'-2px',marginBottom:'4px',lineHeight:1}}>
+                {settings.rank&&settings.service ? fmtGBP(totals.combinedGrossYTD) : '—'}
+              </div>
+              <div style={{fontSize:'9px',fontWeight:700,color:'#475569',marginBottom:'16px'}}>
+                {settings.rank&&settings.service
+                  ? `${Math.round(totals.taxYearDaysElapsed)} days into ${totals.taxYearStart.split('-')[0]}/${(parseInt(totals.taxYearStart.split('-')[0])+1).toString().slice(-2)} tax year`
+                  : 'Set your rank & pay point in Settings'}
+              </div>
+
+              {/* breakdown rows — London Weighting/Allowance shown as YTD / full year */}
+              <div style={{borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:'12px',marginBottom:'14px',display:'flex',flexDirection:'column',gap:'7px'}}>
+                {[
+                  ['Base Salary',      totals.salaryYTD, null],
+                  ['London Weighting', settings.rank&&settings.service ? totals.lwYTD : null, totals.lwAnnualTotal],
+                  ['London Allowance', settings.rank&&settings.service ? totals.laYTD : null, totals.laAnnualTotal],
+                  ['Overtime & PA',    totals.totalGross, null],
+                ].map(([label,val,fullYear])=>(
+                  <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:'11px',fontWeight:700,color:'#94a3b8'}}>{label}</span>
+                    <span style={{fontSize:'11px',fontWeight:900,color:val==null?'#475569':'#cbd5e1'}}>
+                      {val==null
+                        ? 'Set rank & pay point'
+                        : fullYear!=null
+                          ? <>{fmtGBP(val)}<span style={{color:'#64748b',fontWeight:700}}> / {fmtGBP(fullYear)}</span></>
+                          : fmtGBP(val)}
+                    </span>
                   </div>
                 ))}
               </div>
+
+              {/* net + tax info */}
+              <div style={{background:'rgba(0,0,0,0.25)',borderRadius:'14px',padding:'12px 14px'}}>
+                {settings.rank&&settings.service ? (
+                  <>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'8px'}}>
+                      <div>
+                        <div style={{fontSize:'9px',fontWeight:900,color:'#6ee7b7',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Est. Net YTD</div>
+                        <div style={{fontSize:'26px',fontWeight:900,color:'#34d399',letterSpacing:'-1px'}}>{fmtGBP(totals.combinedNetYTD)}</div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontSize:'9px',fontWeight:900,color:'#f87171',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Est. Tax YTD</div>
+                        <div style={{fontSize:'16px',fontWeight:900,color:'#fca5a5'}}>{fmtGBP(totals.ytdTax)}</div>
+                      </div>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.06)',paddingTop:'8px',marginBottom: totals.hoursByBand.length>0 ? '10px' : 0}}>
+                      <span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>Currently in:</span>
+                      <span style={{fontSize:'9px',fontWeight:900,color:'#cbd5e1'}}>{totals.taxBand} · {totals.taxBandRate}%</span>
+                    </div>
+
+                    {/* hours-by-band breakdown — how your overtime hours split across bands */}
+                    {totals.hoursByBand.length>0&&(
+                      <div style={{borderTop:'1px solid rgba(255,255,255,0.06)',paddingTop:'10px'}}>
+                        <div style={{fontSize:'8px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'7px'}}>Overtime hours by tax band</div>
+                        <div style={{display:'flex',flexDirection:'column',gap:'5px'}}>
+                          {totals.hoursByBand.map(b=>(
+                            <div key={b.name} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                              <span style={{fontSize:'10px',fontWeight:700,color:'#94a3b8'}}>{b.name} <span style={{color:'#64748b'}}>({b.rate}%)</span></span>
+                              <span style={{fontSize:'10px',fontWeight:900,color:'#cbd5e1'}}>{b.hours.toFixed(1)} hrs</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{textAlign:'center',padding:'6px 4px'}}>
+                    <div style={{fontSize:'11px',fontWeight:700,color:'#64748b',lineHeight:1.5}}>Set your rank & pay point in Settings to see estimated net pay and tax band.</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Overtime-only summary card — sits directly under Total Gross YTD, lighter blue to distinguish ── */}
+            <div style={{...S.card,background:'#2563eb',border:'none',marginBottom:'10px',boxShadow:'0 6px 20px rgba(37,99,235,0.28)'}}>
+              <div style={{fontSize:'9px',fontWeight:900,color:'#dbeafe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'10px'}}>Overtime & PA — FY 26/27</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
+                <div>
+                  <div style={{fontSize:'9px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Gross OT</div>
+                  <div style={{fontSize:'16px',fontWeight:900,color:'#fff'}}>{fmt(totals.totalGross)}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:'9px',fontWeight:900,color:'#bbf7d0',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Net OT</div>
+                  <div style={{fontSize:'16px',fontWeight:900,color:'#dcfce7'}}>{fmt(totals.totalNet)}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:'9px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Hours</div>
+                  <div style={{fontSize:'16px',fontWeight:900,color:'#fff',display:'flex',alignItems:'center',gap:'5px'}}><Ico n="clock" s={13} c="rgba(255,255,255,0.6)"/>{totals.totalHrs.toFixed(1)}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Pay period dates — simple date reference, full breakdowns live in the Breakdown tab ── */}
+            <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'8px',padding:'0 2px'}}>Pay Periods</div>
+            <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+              {[totals.curr,totals.next,totals.prev].map((item,i)=>item&&(
+                <div key={i} style={{...S.card,background:i===0?'#eff6ff':'#fff',border:i===0?'1px solid #bfdbfe':'1px solid #f1f5f9',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 17px',marginBottom:0}}>
+                  <span style={{fontSize:'9px',fontWeight:900,color:i===0?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>{i===0?'Current':i===1?'Next':'Previous'} Pay Month</span>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontWeight:900,fontSize:'14px',color:'#0f172a'}}>{item.month}</div>
+                    <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -434,6 +788,18 @@ export default function App() {
               <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:0,letterSpacing:'-0.5px'}}>{editing?'Edit Record':'Log Shift'}</h2>
             </div>
 
+            {!settings.rank||!settings.service ? (
+              /* ── blocked until rank & pay point are configured — no figures can be entered until then ── */
+              <div style={{background:'#fef2f2',border:'1.5px solid #fca5a5',borderRadius:'18px',padding:'26px 20px',textAlign:'center'}}>
+                <div style={{width:'52px',height:'52px',borderRadius:'50%',background:'#fee2e2',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
+                  <Ico n="uPlus" s={24} c="#dc2626"/>
+                </div>
+                <div style={{fontWeight:900,fontSize:'15px',color:'#991b1b',marginBottom:'6px'}}>Setup Required</div>
+                <div style={{fontSize:'12px',color:'#b91c1c',lineHeight:1.6,marginBottom:'16px'}}>You need to select your rank and pay point in Settings before you can log a shift. This ensures your pay is calculated correctly from the start.</div>
+                <button onClick={()=>setTab('settings')} style={{background:'#dc2626',border:'none',borderRadius:'11px',padding:'12px 22px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(220,38,38,0.3)'}}>Go to Settings →</button>
+              </div>
+            ) : (
+            <>
             {/* date + duty */}
             <div style={S.card}>
               <div style={{marginBottom:'13px'}}><label style={S.lbl}>Date</label><input type="date" style={S.inp} value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
@@ -472,12 +838,12 @@ export default function App() {
               </div>
             </div>
 
-            {/* night hours — two-step: total hours in window, then enhanced subset */}
+            {/* night hours — single input; every hour entered here is automatically
+                subject to the 10% enhancement, no separate confirmation step */}
             {(()=>{
-              const formRates  = getRates(settings.rank, settings.service, form.date||todayStr);
-              const nightRate  = formRates.base * 0.10;
-              const workHrs    = parseFloat(form.nightWorkHours)||0;
-              const enhHrs     = parseFloat(form.nightHours)||0;
+              const formRates = getRates(settings.rank, settings.service, form.date||todayStr);
+              const nightRate = formRates.base * 0.10;
+              const nightHrs  = parseFloat(form.nightHours)||0;
               return (
                 <div style={{background:'#0f172a',borderRadius:'16px',padding:'16px',marginBottom:'10px',border:'1px solid #1e293b'}}>
                   {/* header */}
@@ -489,59 +855,28 @@ export default function App() {
                     <div style={{fontSize:'9px',fontWeight:700,color:'#6366f1',background:'rgba(99,102,241,0.15)',padding:'3px 8px',borderRadius:'8px'}}>+10% / hr</div>
                   </div>
 
-                  {/* Step 1: total hours in window */}
-                  <div style={{marginBottom: workHrs>0 ? '12px' : 0}}>
-                    <label style={{...S.lbl,color:'#818cf8',marginBottom:'6px'}}>Step 1 — Total hours worked between 2000–0600</label>
-                    <input
-                      type="number" step="1" min="0" placeholder="0"
-                      style={{...S.inp,textAlign:'center',fontWeight:900,background:'#1e293b',fontSize:'22px',padding:'13px 8px',color:'#e0e7ff',borderRadius:'12px'}}
-                      value={form.nightWorkHours}
-                      onChange={e=>{
-                        const v=e.target.value;
-                        // auto-populate enhanced hours to match, capped at new total
-                        const newEnh = form.nightHours===''||parseFloat(form.nightHours)>=parseFloat(v||0) ? v : form.nightHours;
-                        setForm({...form, nightWorkHours:v, nightHours:newEnh});
-                      }}
-                    />
-                    <div style={{fontSize:'9px',fontWeight:700,color:'#4f46e5',marginTop:'5px',textAlign:'center'}}>Enter the total hours your shift covered this window</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',alignItems:'center'}}>
+                    <div>
+                      <label style={{...S.lbl,color:'#818cf8'}}>Hours worked (whole hours)</label>
+                      <input
+                        type="number" step="1" min="0" placeholder="0"
+                        style={{...S.inp,textAlign:'center',fontWeight:900,background:'#1e293b',fontSize:'22px',padding:'13px 8px',color:'#e0e7ff',borderRadius:'12px'}}
+                        value={form.nightHours}
+                        onChange={e=>{ const v=e.target.value; setForm({...form, nightWorkHours:v, nightHours:v}); }}
+                      />
+                    </div>
+                    <div style={{background:'rgba(99,102,241,0.12)',borderRadius:'12px',padding:'12px',textAlign:'center'}}>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#818cf8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Enhancement rate</div>
+                      <div style={{fontSize:'20px',fontWeight:900,color:'#e0e7ff'}}>£{nightRate.toFixed(2)}</div>
+                      <div style={{fontSize:'9px',color:'#6366f1',fontWeight:700,marginTop:'2px'}}>per hour</div>
+                    </div>
                   </div>
+                  <div style={{fontSize:'9px',fontWeight:700,color:'#4f46e5',marginTop:'8px',textAlign:'center'}}>All hours entered here are automatically enhanced at +10%</div>
 
-                  {/* Step 2: enhanced subset — only appears once Step 1 is filled */}
-                  {workHrs>0&&(
-                    <div style={{borderTop:'1px solid rgba(99,102,241,0.2)',paddingTop:'12px'}}>
-                      <label style={{...S.lbl,color:'#818cf8',marginBottom:'6px'}}>Step 2 — How many of those hours are enhanced at 10%?</label>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',alignItems:'center'}}>
-                        <div>
-                          <input
-                            type="number" step="1" min="0" max={workHrs} placeholder="0"
-                            style={{...S.inp,textAlign:'center',fontWeight:900,background:'#1e293b',fontSize:'22px',padding:'13px 8px',color:'#a5b4fc',borderRadius:'12px',border: enhHrs>workHrs ? '1.5px solid #f87171' : 'none'}}
-                            value={form.nightHours}
-                            onChange={e=>setForm({...form,nightHours:e.target.value})}
-                          />
-                          {enhHrs>workHrs&&<div style={{fontSize:'9px',color:'#f87171',fontWeight:700,marginTop:'4px',textAlign:'center'}}>Cannot exceed {workHrs} hrs above</div>}
-                          <div style={{fontSize:'9px',fontWeight:700,color:'#4f46e5',marginTop:'4px',textAlign:'center'}}>Max: {workHrs} hrs</div>
-                        </div>
-                        <div style={{background:'rgba(99,102,241,0.12)',borderRadius:'12px',padding:'12px',textAlign:'center'}}>
-                          <div style={{fontSize:'9px',fontWeight:900,color:'#818cf8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Enhancement rate</div>
-                          <div style={{fontSize:'20px',fontWeight:900,color:'#e0e7ff'}}>£{nightRate.toFixed(2)}</div>
-                          <div style={{fontSize:'9px',color:'#6366f1',fontWeight:700,marginTop:'2px'}}>per hour</div>
-                        </div>
-                      </div>
-
-                      {/* running calculation */}
-                      {enhHrs>0&&enhHrs<=workHrs&&(
-                        <div style={{marginTop:'10px',background:'rgba(99,102,241,0.12)',borderRadius:'10px',padding:'10px 13px'}}>
-                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'4px'}}>
-                            <span style={{fontSize:'11px',fontWeight:700,color:'#a5b4fc'}}>{enhHrs} enhanced hrs × £{nightRate.toFixed(2)}</span>
-                            <span style={{fontSize:'14px',fontWeight:900,color:'#c7d2fe'}}>£{(enhHrs*nightRate).toFixed(2)}</span>
-                          </div>
-                          {enhHrs<workHrs&&(
-                            <div style={{fontSize:'10px',fontWeight:600,color:'#6366f1',borderTop:'1px solid rgba(99,102,241,0.2)',paddingTop:'5px',marginTop:'5px'}}>
-                              {workHrs-enhHrs} hr{workHrs-enhHrs!==1?'s':''} in this window not enhanced
-                            </div>
-                          )}
-                        </div>
-                      )}
+                  {nightHrs>0&&(
+                    <div style={{marginTop:'10px',background:'rgba(99,102,241,0.12)',borderRadius:'10px',padding:'10px 13px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:'11px',fontWeight:700,color:'#a5b4fc'}}>{nightHrs} hrs × £{nightRate.toFixed(2)}</span>
+                      <span style={{fontSize:'14px',fontWeight:900,color:'#c7d2fe'}}>£{(nightHrs*nightRate).toFixed(2)}</span>
                     </div>
                   )}
                 </div>
@@ -561,7 +896,11 @@ export default function App() {
                   <div style={{fontSize:'10px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1px'}}>This Shift</div>
                   <div style={{display:'flex',gap:'18px',alignItems:'center'}}>
                     <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'0.5px'}}>Gross</div><div style={{fontSize:'18px',fontWeight:900,color:'#fff'}}>{fmt(preview.gross)}</div></div>
-                    <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#6ee7b7',textTransform:'uppercase',letterSpacing:'0.5px'}}>Net</div><div style={{fontSize:'18px',fontWeight:900,color:'#34d399'}}>{fmt(preview.net)}</div></div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#6ee7b7',textTransform:'uppercase',letterSpacing:'0.5px'}}>Net</div>
+                      <div style={{fontSize:'18px',fontWeight:900,color:'#34d399'}}>{fmt(preview.net)}</div>
+                      {preview.bandName&&<div style={{fontSize:'8px',fontWeight:700,color:'#6ee7b7',marginTop:'1px'}}>{preview.bandName} · {preview.rate.toFixed(1)}%</div>}
+                    </div>
                   </div>
                 </div>
                 {preview.night>0&&(
@@ -571,6 +910,8 @@ export default function App() {
                   </div>
                 )}
               </div>
+            )}
+            </>
             )}
           </div>
         )}
@@ -594,29 +935,28 @@ export default function App() {
 
             {PAY_PERIODS.map((p,idx)=>{
               const pE=fyEntries.filter(e=>e.date>=p.start&&e.date<=p.end);
-              // aggregate using calcEntry so rates are date-correct per entry
-              let gOT=0,gNight=0,gPA=0,h133=0,h150=0,h200=0,totalNight=0,pa1=0,pa2=0,pa3=0;
+              const pb=totals.periodBreakdown[idx];
+              let h133=0,h150=0,h200=0,totalNight=0,pa1=0,pa2=0,pa3=0;
               pE.forEach(e=>{
                 const c=calcEntry(e);
                 h133+=c.h1; h150+=c.h2; h200+=c.h3; totalNight+=c.nh;
-                gOT+=c.ot; gNight+=c.night; gPA+=c.pa;
                 if(e.paRate==='PA1')pa1++; else if(e.paRate==='PA2')pa2++; else if(e.paRate==='PA3')pa3++;
               });
-              const tx=(settings.taxRate||40)/100;
-              const totG=gOT+gNight+gPA, totN=totG*(1-tx);
+              const gOT=pb.ot, gNight=pb.night, gPA=pb.pa;
+              const totG=pb.combinedGross, totN=pb.combinedNet;
               const isExp=expanded===p.month, isCurr=idx===currPeriodIdx;
 
               return(
-                <div key={p.month} ref={el=>monthRefs.current[p.month]=el} style={{background:'#fff',borderRadius:'17px',border:isCurr?'2px solid #bfdbfe':'1px solid #f1f5f9',boxShadow:isCurr?'0 2px 14px rgba(37,99,235,0.09)':'0 1px 5px rgba(0,0,0,0.04)',marginBottom:'9px',overflow:'hidden'}}>
+                <div key={p.month} ref={el=>monthRefs.current[p.month]=el} style={{background:isCurr?'#eff6ff':'#fff',borderRadius:'17px',border:isCurr?'2px solid #2563eb':'1px solid #f1f5f9',borderLeft:isCurr?'5px solid #2563eb':'1px solid #f1f5f9',boxShadow:isCurr?'0 4px 20px rgba(37,99,235,0.18)':'0 1px 5px rgba(0,0,0,0.04)',marginBottom:'9px',overflow:'hidden'}}>
                   <button onClick={()=>setExpanded(isExp?null:p.month)} style={{width:'100%',textAlign:'left',padding:'16px',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'11px'}}>
                       <div>
-                        {isCurr&&<div style={{display:'inline-block',background:'#2563eb',color:'#fff',fontSize:'8px',fontWeight:900,padding:'2px 7px',borderRadius:'8px',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Current Period</div>}
+                        {isCurr&&<div style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'linear-gradient(135deg,#2563eb,#1d4ed8)',color:'#fff',fontSize:'8px',fontWeight:900,padding:'3px 9px',borderRadius:'8px',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'5px',boxShadow:'0 2px 6px rgba(37,99,235,0.35)'}}><span style={{width:'5px',height:'5px',borderRadius:'50%',background:'#fff'}}/>Active Month</div>}
                         <div style={{fontWeight:900,fontSize:'17px',color:'#0f172a',letterSpacing:'-0.3px'}}>{p.month}</div>
                         <div style={{fontSize:'9px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(p.start)} – {fmtD(p.end)}</div>
                       </div>
                       <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'4px'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:'4px',background:'#eff6ff',border:'1px solid #bfdbfe',padding:'5px 9px',borderRadius:'9px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:'4px',background:isCurr?'#dbeafe':'#eff6ff',border:isCurr?'1px solid #93c5fd':'1px solid #bfdbfe',padding:'5px 9px',borderRadius:'9px'}}>
                           <div style={{fontSize:'11px',fontWeight:900,color:'#1d4ed8'}}>{(h133+h150+h200).toFixed(1)} hrs</div>
                           <Ico n={isExp?'cD':'cR'} s={12} c="#3b82f6"/>
                         </div>
@@ -631,12 +971,13 @@ export default function App() {
 
                   {isExp&&(
                     <div style={{background:'#f8fafc',borderTop:'1px solid #f1f5f9',padding:'13px'}}>
-                      {/* month summary cards */}
+                      {/* month summary cards — net figures now use cumulative marginal tax, rate shown */}
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px',marginBottom:'9px'}}>
                         <div style={{background:'#fff',borderRadius:'13px',padding:'13px',border:'1px solid #dbeafe'}}>
                           <div style={{fontSize:'9px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
                           <div style={{fontSize:'12px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(gOT)}</div>
-                          <div style={{fontSize:'11px',fontWeight:700,color:'#3b82f6',marginBottom:'7px'}}>Net: {fmt(gOT*(1-tx))}</div>
+                          <div style={{fontSize:'11px',fontWeight:700,color:'#3b82f6',marginBottom:'2px'}}>Net: {fmt(pb.otResult.net)}</div>
+                          {gOT>0&&<div style={{fontSize:'9px',fontWeight:900,color:'#1d4ed8',background:'#eff6ff',display:'inline-block',padding:'2px 6px',borderRadius:'6px',marginBottom:'7px'}}>{pb.otResult.bandName} · {pb.otResult.rate.toFixed(1)}%</div>}
                           <div style={{borderTop:'1px solid #eff6ff',paddingTop:'5px'}}>
                             {h133>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{h133}h@1.33x</div>}
                             {h150>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{h150}h@1.5x</div>}
@@ -648,14 +989,16 @@ export default function App() {
                             <div style={{background:'#0f172a',borderRadius:'13px',padding:'11px',border:'1px solid #1e293b'}}>
                               <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="moon" s={11} c="#818cf8"/><div style={{fontSize:'9px',fontWeight:900,color:'#c7d2fe',textTransform:'uppercase',letterSpacing:'0.5px'}}>Night (2000–0600)</div></div>
                               <div style={{fontSize:'12px',fontWeight:700,color:'#e0e7ff',marginBottom:'1px'}}>Gross: {fmt(gNight)}</div>
-                              <div style={{fontSize:'11px',fontWeight:700,color:'#818cf8'}}>Net: {fmt(gNight*(1-tx))}</div>
+                              <div style={{fontSize:'11px',fontWeight:700,color:'#818cf8',marginBottom:'2px'}}>Net: {fmt(pb.nightResult.net)}</div>
+                              <div style={{fontSize:'9px',fontWeight:900,color:'#a5b4fc',background:'rgba(99,102,241,0.15)',display:'inline-block',padding:'2px 6px',borderRadius:'6px',marginBottom:'4px'}}>{pb.nightResult.bandName} · {pb.nightResult.rate.toFixed(1)}%</div>
                               <div style={{fontSize:'10px',fontWeight:700,color:'#6366f1',marginTop:'4px'}}>{totalNight}h @ +10%</div>
                             </div>
                           )}
                           <div style={{background:'#fff',borderRadius:'13px',padding:'11px',border:'1px solid #fde68a',flex:1}}>
                             <div style={{fontSize:'9px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'5px'}}>PA</div>
                             <div style={{fontSize:'12px',fontWeight:700,color:'#92400e',marginBottom:'1px'}}>Gross: {fmt(gPA)}</div>
-                            <div style={{fontSize:'11px',fontWeight:700,color:'#d97706',marginBottom:'4px'}}>Net: {fmt(gPA*(1-tx))}</div>
+                            <div style={{fontSize:'11px',fontWeight:700,color:'#d97706',marginBottom:'2px'}}>Net: {fmt(pb.paResult.net)}</div>
+                            {gPA>0&&<div style={{fontSize:'9px',fontWeight:900,color:'#92400e',background:'#fffbeb',display:'inline-block',padding:'2px 6px',borderRadius:'6px',marginBottom:'4px'}}>{pb.paResult.bandName} · {pb.paResult.rate.toFixed(1)}%</div>}
                             <div style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA1:{pa1} · PA2:{pa2} · PA3:{pa3}</div>
                           </div>
                         </div>
@@ -668,13 +1011,18 @@ export default function App() {
                         :[...pE].sort((a,b)=>new Date(a.date)-new Date(b.date)).map(e=>{
                           const c=calcEntry(e);
                           const isFut=e.date>todayStr;
+                          // individual records use the period-blended rate for each component
+                          const eOTNet    = c.ot>0    ? c.ot*(1-pb.otResult.rate/100)       : 0;
+                          const eNightNet = c.nh>0    ? c.night*(1-pb.nightResult.rate/100) : 0;
+                          const ePANet    = c.pa>0    ? c.pa*(1-pb.paResult.rate/100)       : 0;
+                          const eNet = eOTNet+eNightNet+ePANet;
                           return(
                             <div key={e.id} style={{background:'#fff',borderRadius:'13px',border:isFut?'1px solid #bfdbfe':'1px solid #f1f5f9',padding:'13px',marginBottom:'7px',position:'relative'}}>
                               {isFut&&<div style={{position:'absolute',top:'-6px',right:'9px',background:'#2563eb',color:'#fff',fontSize:'8px',fontWeight:900,padding:'2px 7px',borderRadius:'7px',textTransform:'uppercase',letterSpacing:'1px'}}>Planned</div>}
                               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'7px'}}>
                                 <div>
                                   <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>{new Date(e.date+'T12:00:00').toLocaleDateString('en-GB')}</div>
-                                  <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6',marginTop:'2px',textTransform:'uppercase'}}>{e.reason||'Shift'}</div>
+                                  <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6',marginTop:'2px',textTransform:'uppercase'}}>Duty/Reason: {e.reason||'Shift'}</div>
                                 </div>
                                 <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
                                   <button onClick={()=>{setConfirmDel(null);startEdit(e);}} style={{background:'#f1f5f9',border:'none',borderRadius:'8px',padding:'8px',cursor:'pointer',display:'flex'}}><Ico n="edit" s={14} c="#64748b"/></button>
@@ -693,18 +1041,45 @@ export default function App() {
                                 </div>
                               )}
 
-                              <div style={{background:'#f8fafc',borderRadius:'9px',padding:'9px'}}>
-                                {c.h1>0&&<div style={{fontSize:'11px',fontWeight:700,color:'#475569',marginBottom:'2px'}}>1.33x@{c.h1}h=<strong style={{color:'#1e3a5f'}}>£{(c.h1*c.r.r133).toFixed(2)}</strong></div>}
-                                {c.h2>0&&<div style={{fontSize:'11px',fontWeight:700,color:'#475569',marginBottom:'2px'}}>1.5x@{c.h2}h=<strong style={{color:'#1e3a5f'}}>£{(c.h2*c.r.r150).toFixed(2)}</strong></div>}
-                                {c.h3>0&&<div style={{fontSize:'11px',fontWeight:700,color:'#475569',marginBottom:'2px'}}>2.0x@{c.h3}h=<strong style={{color:'#1e3a5f'}}>£{(c.h3*c.r.r200).toFixed(2)}</strong></div>}
-                                {c.nh>0&&<div style={{fontSize:'11px',fontWeight:700,color:'#6366f1',marginBottom:'2px',display:'flex',alignItems:'center',gap:'4px'}}><Ico n="moon" s={10} c="#818cf8"/>{parseFloat(e.nightWorkHours)>0?`Night (${e.nightWorkHours}h worked, ${c.nh}h enhanced)`:`Night ${c.nh}h enhanced`} = <strong style={{color:'#4f46e5'}}>£{c.night.toFixed(2)}</strong></div>}
-                                {e.paRate!=='None'&&<div style={{fontSize:'11px',fontWeight:700,color:'#b45309',marginBottom:'2px'}}>{e.paRate}=<strong>£{c.pa.toFixed(2)}</strong></div>}
-                                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',borderTop:'1px solid #e2e8f0',paddingTop:'7px',marginTop:'4px'}}>
+                              <div style={{background:'#f8fafc',borderRadius:'11px',padding:'12px'}}>
+                                <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                                  {c.h1>0&&(
+                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>1.33x overtime <span style={{color:'#94a3b8'}}>· {c.h1}h @ £{c.r.r133.toFixed(2)}/hr</span></span>
+                                      <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{(c.h1*c.r.r133).toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                  {c.h2>0&&(
+                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>1.5x overtime <span style={{color:'#94a3b8'}}>· {c.h2}h @ £{c.r.r150.toFixed(2)}/hr</span></span>
+                                      <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{(c.h2*c.r.r150).toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                  {c.h3>0&&(
+                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>2.0x overtime <span style={{color:'#94a3b8'}}>· {c.h3}h @ £{c.r.r200.toFixed(2)}/hr</span></span>
+                                      <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{(c.h3*c.r.r200).toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                  {c.nh>0&&(
+                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#6366f1'}}>Night enhancement <span style={{color:'#94a3b8'}}>· {c.nh}h @ £{(c.r.base*0.10).toFixed(2)}/hr</span></span>
+                                      <span style={{fontSize:'12px',fontWeight:900,color:'#4f46e5'}}>£{c.night.toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                  {e.paRate!=='None'&&(
+                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#b45309'}}>{e.paRate} allowance</span>
+                                      <span style={{fontSize:'12px',fontWeight:900,color:'#92400e'}}>£{c.pa.toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',borderTop:'1px solid #e2e8f0',paddingTop:'8px',marginTop:'8px'}}>
                                   <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</div><div style={{fontWeight:900,fontSize:'13px',color:'#1e3a5f'}}>{fmt(c.gross)}</div></div>
-                                  <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px'}}>Net</div><div style={{fontWeight:900,fontSize:'13px',color:'#059669'}}>{fmt(c.net)}</div></div>
+                                  <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px'}}>Net</div><div style={{fontWeight:900,fontSize:'13px',color:'#059669'}}>{fmt(eNet)}</div></div>
                                 </div>
                               </div>
-                              {e.comments&&<div style={{fontSize:'11px',fontStyle:'italic',color:'#93c5fd',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px',marginTop:'7px'}}>"{e.comments}"</div>}
+                              {e.comments&&<div style={{fontSize:'11px',fontStyle:'italic',color:'#0f172a',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px',marginTop:'7px'}}>"{e.comments}"</div>}
                             </div>
                           );
                         })
@@ -752,11 +1127,7 @@ export default function App() {
             <div style={S.card}>
               <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'12px'}}><Ico n="bar" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Monthly Gross vs Net</div></div>
               {(()=>{
-                const data=PAY_PERIODS.map(p=>{
-                  const pE=fyEntries.filter(e=>e.date>=p.start&&e.date<=p.end);
-                  let g=0; pE.forEach(e=>{g+=calcEntry(e).gross;});
-                  return{short:p.short,gross:g,net:g*(1-(settings.taxRate||40)/100)};
-                });
+                const data=totals.periodBreakdown.map(pb=>({short:PAY_PERIODS.find(p=>p.month===pb.month).short,gross:pb.combinedGross,net:pb.combinedNet}));
                 const max=Math.max(...data.map(d=>d.gross),200);
                 const W=330,H=170,pX=34,pY=12,eW=W-pX*2,eH=H-pY*2;
                 const pts=data.map((d,i)=>({x:pX+i*(eW/(data.length-1)),yG:H-pY-(d.gross/max)*eH,yN:H-pY-(d.net/max)*eH,lbl:d.short}));
@@ -779,6 +1150,29 @@ export default function App() {
                 );
               })()}
             </div>
+
+            {/* ── Published pay scale reference table ── */}
+            <div style={S.card}>
+              <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'12px'}}><Ico n="cal" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Published Pay Scales — Annual Salary</div></div>
+              {['Constable','Sergeant'].map(rank=>(
+                <div key={rank} style={{marginBottom: rank==='Constable' ? '16px' : 0}}>
+                  <div style={{fontSize:'10px',fontWeight:900,color:'#1e3a5f',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>{rank}</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr 1fr',gap:'2px 8px',alignItems:'center'}}>
+                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',paddingBottom:'5px',borderBottom:'1px solid #f1f5f9'}}>Pay Point</div>
+                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #f1f5f9'}}>Pre-Sept</div>
+                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #f1f5f9'}}>Post-Sept</div>
+                    {Object.entries(PAY_RATES[rank]).map(([point,data])=>(
+                      <div key={point} style={{display:'contents'}}>
+                        <div style={{fontSize:'11px',fontWeight:700,color:'#0f172a',padding:'5px 0'}}>{point}</div>
+                        <div style={{fontSize:'11px',fontWeight:700,color:'#64748b',textAlign:'right',padding:'5px 0'}}>£{data.salary.pre.toLocaleString('en-GB')}</div>
+                        <div style={{fontSize:'11px',fontWeight:900,color:'#1e3a5f',textAlign:'right',padding:'5px 0'}}>£{data.salary.post.toLocaleString('en-GB')}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div style={{marginTop:'12px',fontSize:'9px',fontWeight:600,color:'#94a3b8',lineHeight:1.5}}>Excludes London Weighting (£3,150 pre-Sept / £3,260 post-Sept) and London Allowance (£6,588), which are added separately.</div>
+            </div>
           </div>
         )}
 
@@ -792,35 +1186,38 @@ export default function App() {
 
             <div style={S.card}>
               <div style={{marginBottom:'13px'}}>
-                <label style={S.lbl}>Rank</label>
-                <select style={S.sel} value={settings.rank} onChange={e=>{
-                  const r=e.target.value;
-                  if(!r) return saveSett({...settings,rank:'',service:''});
-                  saveSett({...settings,rank:r,service:''});
-                }}>
-                  <option value="">Select Rank...</option>
-                  {Object.keys(PAY_RATES).map(k=><option key={k} value={k}>{k}</option>)}
-                </select>
-              </div>
-              {settings.rank&&(
-                <div style={{marginBottom:'13px'}}>
-                  <label style={S.lbl}>Pay Point</label>
-                  <select style={S.sel} value={settings.service} onChange={e=>saveSett({...settings,service:e.target.value})}>
-                    <option value="">Select pay point...</option>
-                    {Object.keys(PAY_RATES[settings.rank]).map(p=><option key={p} value={p}>{p}</option>)}
+                <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'7px'}}>
+                  <label style={{...S.lbl,marginBottom:0}}>Rank</label>
+                  {!settings.rank&&<span style={{fontSize:'9px',fontWeight:900,color:'#dc2626',background:'#fee2e2',padding:'2px 7px',borderRadius:'6px',textTransform:'uppercase',letterSpacing:'0.5px'}}>Start here</span>}
+                </div>
+                <div className={!settings.rank?'setup-pulse-urgent':''} style={{borderRadius:'13px'}}>
+                  <select style={{...S.sel,border: !settings.rank ? '2px solid #dc2626' : '1px solid #e2e8f0',fontWeight: !settings.rank ? 900 : 700}} value={settings.rank} onChange={e=>{
+                    const r=e.target.value;
+                    if(!r) return saveSett({...settings,rank:'',service:''});
+                    saveSett({...settings,rank:r,service:''});
+                  }}>
+                    <option value="">Select Rank...</option>
+                    {Object.keys(PAY_RATES).map(k=><option key={k} value={k}>{k}</option>)}
                   </select>
                 </div>
-              )}
-              <div style={{borderTop:'1px solid #f1f5f9',paddingTop:'14px'}}>
-                <label style={S.lbl}>Tax Rate</label>
-                <div style={{display:'flex',gap:'5px',background:'#f8fafc',padding:'5px',borderRadius:'13px',border:'1px solid #f1f5f9'}}>
-                  {[20,40,45].map(rate=>(
-                    <button key={rate} onClick={()=>saveSett({...settings,taxRate:rate})} style={{flex:1,padding:'9px 4px',borderRadius:'9px',border:'none',fontFamily:'inherit',cursor:'pointer',transition:'all 0.18s',background:settings.taxRate===rate?'#2563eb':'transparent',color:settings.taxRate===rate?'#fff':'#64748b',boxShadow:settings.taxRate===rate?'0 3px 9px rgba(37,99,235,0.32)':'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'2px'}}>
-                      <span style={{fontSize:'14px',fontWeight:900}}>{rate}%</span>
-                      <span style={{fontSize:'8px',fontWeight:700,opacity:settings.taxRate===rate?0.8:0.5,textTransform:'uppercase',letterSpacing:'0.3px'}}>{TAX_LABELS[rate]}</span>
-                    </button>
-                  ))}
+              </div>
+              {settings.rank&&(
+                <div>
+                  <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'7px'}}>
+                    <label style={{...S.lbl,marginBottom:0}}>Pay Point</label>
+                    {!settings.service&&<span style={{fontSize:'9px',fontWeight:900,color:'#dc2626',background:'#fee2e2',padding:'2px 7px',borderRadius:'6px',textTransform:'uppercase',letterSpacing:'0.5px'}}>Now this</span>}
+                  </div>
+                  <div className={!settings.service?'setup-pulse-urgent':''} style={{borderRadius:'13px'}}>
+                    <select style={{...S.sel,border: !settings.service ? '2px solid #dc2626' : '1px solid #e2e8f0',fontWeight: !settings.service ? 900 : 700}} value={settings.service} onChange={e=>saveSett({...settings,service:e.target.value})}>
+                      <option value="">Select pay point...</option>
+                      {Object.keys(PAY_RATES[settings.rank]).map(p=><option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
                 </div>
+              )}
+              <div style={{borderTop:'1px solid #f1f5f9',marginTop:'14px',paddingTop:'12px',display:'flex',alignItems:'flex-start',gap:'8px'}}>
+                <Ico n="shield" s={13} c="#94a3b8"/>
+                <span style={{fontSize:'11px',fontWeight:600,color:'#64748b',lineHeight:1.5}}>Tax is calculated automatically using real UK income tax bands, applied cumulatively across your salary, allowances and overtime — no manual rate needed.</span>
               </div>
             </div>
 
@@ -845,7 +1242,7 @@ export default function App() {
                   </div>
                   <div style={{marginTop:'10px',background:'rgba(37,99,235,0.06)',borderRadius:'10px',padding:'8px 10px',display:'flex',alignItems:'center',gap:'6px'}}>
                     <Ico n="moon" s={12} c="#6366f1"/>
-                    <span style={{fontSize:'10px',fontWeight:700,color:'#4f46e5'}}>Night enhancement (from 1 Sep 2026): £{(svcData.post.base*0.10).toFixed(2)}/hr</span>
+                    <span style={{fontSize:'10px',fontWeight:700,color:'#4f46e5'}}>Night enhancement is 10% of the hourly rates: £{(svcData.post.base*0.10).toFixed(2)}/hr</span>
                   </div>
                 </div>
               );
@@ -895,12 +1292,22 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* ── Help & suggestions ── */}
+            <a href="mailto:ajstephe@me.com?subject=Overtime%20Tracker%20—%20Feedback" style={{...S.card,display:'flex',alignItems:'center',gap:'12px',textDecoration:'none',cursor:'pointer'}}>
+              <div style={{background:'#eff6ff',padding:'11px',borderRadius:'13px',flexShrink:0}}><Ico n="mail" s={19} c="#2563eb"/></div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Help & Suggestions</div>
+                <div style={{fontSize:'11px',color:'#3b82f6',fontWeight:700,marginTop:'2px'}}>ajstephe@me.com</div>
+              </div>
+              <Ico n="cR" s={16} c="#94a3b8"/>
+            </a>
           </div>
         )}
       </main>
 
-      {/* floating save button (Log Shift only) */}
-      {tab==='add'&&(
+      {/* floating save button (Log Shift only, and only once rank/pay point are set) */}
+      {tab==='add'&&settings.rank&&settings.service&&(
         <div style={{position:'absolute',bottom:'72px',left:'14px',right:'14px',zIndex:25}}>
           <button onClick={handleSave} style={{width:'100%',background:'#dc2626',color:'#fff',boxShadow:'0 4px 20px rgba(220,38,38,0.5)',padding:'17px',borderRadius:'16px',border:'none',fontWeight:900,fontSize:'15px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'9px',letterSpacing:'-0.2px'}}>
             <Ico n="save" s={18} c="#fff"/>
@@ -917,7 +1324,7 @@ export default function App() {
           {id:'graph',    n:'bar',  lbl:'Trends'},
           {id:'settings', n:'cog',  lbl:'Settings'},
         ].map(t=>(
-          <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') setForm({...blankForm,date:todayStr}); setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
+          <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') { setForm({...blankForm,date:todayStr}); } setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
             <Ico n={t.n} s={t.id==='add'?21:18} c={t.id==='add'?'#fff':tab===t.id?'#2563eb':'#94a3b8'} w={tab===t.id||t.id==='add'?2.5:2}/>
             <span style={S.nLbl}>{t.lbl}</span>
           </button>
