@@ -925,6 +925,7 @@ export default function App() {
                     </div>
                     <div style={{fontSize:'9px',fontWeight:700,color:'#6366f1',background:'rgba(99,102,241,0.15)',padding:'3px 8px',borderRadius:'8px'}}>+10% / hr</div>
                   </div>
+                  <div style={{fontSize:'9px',fontWeight:600,color:'#818cf8',textAlign:'center',marginBottom:'13px'}}>Record hours worked between 8pm and 6am only</div>
 
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
                     <div style={{background:'rgba(99,102,241,0.12)',borderRadius:'12px',padding:'12px',textAlign:'center'}}>
@@ -941,7 +942,6 @@ export default function App() {
                       <div style={{background:'#1e293b',borderRadius:'10px',padding:'8px',fontSize:'20px',fontWeight:900,color:'#e0e7ff'}}>£{nightRate.toFixed(2)}<span style={{fontSize:'11px',fontWeight:700,color:'#6366f1'}}>/hr</span></div>
                     </div>
                   </div>
-                  <div style={{fontSize:'9px',fontWeight:700,color:'#4f46e5',marginTop:'10px',textAlign:'center'}}>All hours entered here are automatically enhanced at +10%</div>
 
                   {nightHrs>0&&(
                     <div style={{marginTop:'10px',background:'rgba(99,102,241,0.12)',borderRadius:'10px',padding:'10px 13px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
