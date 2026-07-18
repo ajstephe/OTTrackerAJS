@@ -887,7 +887,7 @@ export default function App() {
 
             {/* PA allowance */}
             <div style={{...S.card,background:'#fffbeb',border:'1px solid #fde68a'}}>
-              <div style={{fontSize:'10px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'13px'}}>PA Allowance</div>
+              <div style={{fontSize:'10px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'13px'}}>Protection Allowance</div>
               <div style={{display:'flex',gap:'6px'}}>
                 {['None','PA1','PA2','PA3'].map(pa=>(
                   <button key={pa} onClick={()=>setForm({...form,paRate:pa})} style={{flex:1,paddingTop:'9px',paddingBottom:'9px',borderRadius:'11px',border:'none',fontFamily:'inherit',cursor:'pointer',transition:'all 0.14s',background:form.paRate===pa?'#f59e0b':'#fff',color:form.paRate===pa?'#fff':'#b45309',boxShadow:form.paRate===pa?'0 4px 11px rgba(245,158,11,0.38)':'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'3px'}}>
