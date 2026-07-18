@@ -676,7 +676,7 @@ export default function App() {
               <div style={{fontSize:'38px',fontWeight:900,color:'#fff',letterSpacing:'-2px',marginBottom:'4px',lineHeight:1}}>
                 {settings.rank&&settings.service ? fmtGBP(totals.combinedGrossYTD) : '—'}
               </div>
-              <div style={{fontSize:'9px',fontWeight:700,color:'#475569',marginBottom:'16px'}}>
+              <div style={{fontSize:'9px',fontWeight:700,color:'#94a3b8',marginBottom:'16px'}}>
                 {settings.rank&&settings.service
                   ? `${Math.round(totals.taxYearDaysElapsed)} days into ${totals.taxYearStart.split('-')[0]}/${(parseInt(totals.taxYearStart.split('-')[0])+1).toString().slice(-2)} tax year`
                   : 'Set your rank & pay point in Settings'}
@@ -703,43 +703,17 @@ export default function App() {
                 ))}
               </div>
 
-              {/* net + tax info */}
+              {/* tax band indicator — net/tax figures are deliberately not shown here, since
+                  this calculator doesn't account for pension, student loan or other deductions */}
               <div style={{background:'rgba(0,0,0,0.25)',borderRadius:'14px',padding:'12px 14px'}}>
                 {settings.rank&&settings.service ? (
-                  <>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'8px'}}>
-                      <div>
-                        <div style={{fontSize:'9px',fontWeight:900,color:'#6ee7b7',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Est. Net YTD</div>
-                        <div style={{fontSize:'26px',fontWeight:900,color:'#34d399',letterSpacing:'-1px'}}>{fmtGBP(totals.combinedNetYTD)}</div>
-                      </div>
-                      <div style={{textAlign:'right'}}>
-                        <div style={{fontSize:'9px',fontWeight:900,color:'#f87171',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Est. Tax YTD</div>
-                        <div style={{fontSize:'16px',fontWeight:900,color:'#fca5a5'}}>{fmtGBP(totals.ytdTax)}</div>
-                      </div>
-                    </div>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.06)',paddingTop:'8px',marginBottom: totals.hoursByBand.length>0 ? '10px' : 0}}>
-                      <span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>Currently in:</span>
-                      <span style={{fontSize:'9px',fontWeight:900,color:'#cbd5e1'}}>{totals.taxBand} · {totals.taxBandRate}%</span>
-                    </div>
-
-                    {/* hours-by-band breakdown — how your overtime hours split across bands */}
-                    {totals.hoursByBand.length>0&&(
-                      <div style={{borderTop:'1px solid rgba(255,255,255,0.06)',paddingTop:'10px'}}>
-                        <div style={{fontSize:'8px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'7px'}}>Overtime hours by tax band</div>
-                        <div style={{display:'flex',flexDirection:'column',gap:'5px'}}>
-                          {totals.hoursByBand.map(b=>(
-                            <div key={b.name} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                              <span style={{fontSize:'10px',fontWeight:700,color:'#94a3b8'}}>{b.name} <span style={{color:'#64748b'}}>({b.rate}%)</span></span>
-                              <span style={{fontSize:'10px',fontWeight:900,color:'#cbd5e1'}}>{b.hours.toFixed(1)} hrs</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>Currently in:</span>
+                    <span style={{fontSize:'9px',fontWeight:900,color:'#cbd5e1'}}>{totals.taxBand} · {totals.taxBandRate}%</span>
+                  </div>
                 ) : (
                   <div style={{textAlign:'center',padding:'6px 4px'}}>
-                    <div style={{fontSize:'11px',fontWeight:700,color:'#64748b',lineHeight:1.5}}>Set your rank & pay point in Settings to see estimated net pay and tax band.</div>
+                    <div style={{fontSize:'11px',fontWeight:700,color:'#64748b',lineHeight:1.5}}>Set your rank & pay point in Settings to see your current tax band.</div>
                   </div>
                 )}
               </div>
@@ -985,22 +959,24 @@ export default function App() {
                           </div>
                         </div>
                         <div style={{display:'flex',flexDirection:'column',gap:'9px'}}>
+                          <div style={{background:'#fff',borderRadius:'13px',padding:'11px',border:'1px solid #fde68a'}}>
+                            <div style={{fontSize:'9px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'5px'}}>PA</div>
+                            <div style={{fontSize:'12px',fontWeight:700,color:'#92400e',marginBottom:'1px'}}>Gross: {fmt(gPA)}</div>
+                            <div style={{fontSize:'11px',fontWeight:700,color:'#d97706',marginBottom:'7px'}}>Net: {fmt(pb.paResult.net)}</div>
+                            <div style={{display:'flex',justifyContent:'space-between',borderTop:'1px solid #fef3c7',paddingTop:'6px'}}>
+                              <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA1 × {pa1}</span>
+                              <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA2 × {pa2}</span>
+                              <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA3 × {pa3}</span>
+                            </div>
+                          </div>
                           {gNight>0&&(
                             <div style={{background:'#0f172a',borderRadius:'13px',padding:'11px',border:'1px solid #1e293b'}}>
                               <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="moon" s={11} c="#818cf8"/><div style={{fontSize:'9px',fontWeight:900,color:'#c7d2fe',textTransform:'uppercase',letterSpacing:'0.5px'}}>Night (2000–0600)</div></div>
                               <div style={{fontSize:'12px',fontWeight:700,color:'#e0e7ff',marginBottom:'1px'}}>Gross: {fmt(gNight)}</div>
-                              <div style={{fontSize:'11px',fontWeight:700,color:'#818cf8',marginBottom:'2px'}}>Net: {fmt(pb.nightResult.net)}</div>
-                              <div style={{fontSize:'9px',fontWeight:900,color:'#a5b4fc',background:'rgba(99,102,241,0.15)',display:'inline-block',padding:'2px 6px',borderRadius:'6px',marginBottom:'4px'}}>{pb.nightResult.bandName} · {pb.nightResult.rate.toFixed(1)}%</div>
-                              <div style={{fontSize:'10px',fontWeight:700,color:'#6366f1',marginTop:'4px'}}>{totalNight}h @ +10%</div>
+                              <div style={{fontSize:'11px',fontWeight:700,color:'#818cf8',marginBottom:'6px'}}>Net: {fmt(pb.nightResult.net)}</div>
+                              <div style={{fontSize:'10px',fontWeight:700,color:'#6366f1'}}>{totalNight}h @ +10%</div>
                             </div>
                           )}
-                          <div style={{background:'#fff',borderRadius:'13px',padding:'11px',border:'1px solid #fde68a',flex:1}}>
-                            <div style={{fontSize:'9px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'5px'}}>PA</div>
-                            <div style={{fontSize:'12px',fontWeight:700,color:'#92400e',marginBottom:'1px'}}>Gross: {fmt(gPA)}</div>
-                            <div style={{fontSize:'11px',fontWeight:700,color:'#d97706',marginBottom:'2px'}}>Net: {fmt(pb.paResult.net)}</div>
-                            {gPA>0&&<div style={{fontSize:'9px',fontWeight:900,color:'#92400e',background:'#fffbeb',display:'inline-block',padding:'2px 6px',borderRadius:'6px',marginBottom:'4px'}}>{pb.paResult.bandName} · {pb.paResult.rate.toFixed(1)}%</div>}
-                            <div style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA1:{pa1} · PA2:{pa2} · PA3:{pa3}</div>
-                          </div>
                         </div>
                       </div>
 
@@ -1022,7 +998,7 @@ export default function App() {
                               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'7px'}}>
                                 <div>
                                   <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>{new Date(e.date+'T12:00:00').toLocaleDateString('en-GB')}</div>
-                                  <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6',marginTop:'2px',textTransform:'uppercase'}}>Duty/Reason: {e.reason||'Shift'}</div>
+                                  <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6',marginTop:'2px',textTransform:'uppercase'}}>Duty / Reason: {e.reason||'Shift'}</div>
                                 </div>
                                 <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
                                   <button onClick={()=>{setConfirmDel(null);startEdit(e);}} style={{background:'#f1f5f9',border:'none',borderRadius:'8px',padding:'8px',cursor:'pointer',display:'flex'}}><Ico n="edit" s={14} c="#64748b"/></button>
@@ -1045,25 +1021,25 @@ export default function App() {
                                 <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
                                   {c.h1>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>1.33x overtime <span style={{color:'#94a3b8'}}>· {c.h1}h @ £{c.r.r133.toFixed(2)}/hr</span></span>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>{c.h1}h @ 1.33x <span style={{color:'#94a3b8'}}>(£{c.r.r133.toFixed(2)}/hr)</span></span>
                                       <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{(c.h1*c.r.r133).toFixed(2)}</span>
                                     </div>
                                   )}
                                   {c.h2>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>1.5x overtime <span style={{color:'#94a3b8'}}>· {c.h2}h @ £{c.r.r150.toFixed(2)}/hr</span></span>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>{c.h2}h @ 1.5x <span style={{color:'#94a3b8'}}>(£{c.r.r150.toFixed(2)}/hr)</span></span>
                                       <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{(c.h2*c.r.r150).toFixed(2)}</span>
                                     </div>
                                   )}
                                   {c.h3>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>2.0x overtime <span style={{color:'#94a3b8'}}>· {c.h3}h @ £{c.r.r200.toFixed(2)}/hr</span></span>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>{c.h3}h @ 2.0x <span style={{color:'#94a3b8'}}>(£{c.r.r200.toFixed(2)}/hr)</span></span>
                                       <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{(c.h3*c.r.r200).toFixed(2)}</span>
                                     </div>
                                   )}
                                   {c.nh>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#6366f1'}}>Night enhancement <span style={{color:'#94a3b8'}}>· {c.nh}h @ £{(c.r.base*0.10).toFixed(2)}/hr</span></span>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#6366f1'}}>{c.nh}h @ +10% <span style={{color:'#94a3b8'}}>(£{(c.r.base*0.10).toFixed(2)}/hr)</span></span>
                                       <span style={{fontSize:'12px',fontWeight:900,color:'#4f46e5'}}>£{c.night.toFixed(2)}</span>
                                     </div>
                                   )}
