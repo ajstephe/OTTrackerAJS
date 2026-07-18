@@ -881,7 +881,8 @@ export default function App() {
               const formRates = getRates(settings.rank, settings.service, form.date||todayStr);
               return (
                 <div style={{...S.card,background:'#eff6ff',border:'1px solid #dbeafe'}}>
-                  <div style={{fontSize:'10px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'13px'}}>Overtime Hours</div>
+                  <div style={{fontSize:'10px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'4px'}}>Overtime Hours</div>
+                  <div style={{fontSize:'9px',fontWeight:600,color:'#64748b',textAlign:'center',marginBottom:'13px'}}>Record only the hours worked on overtime — not your whole shift</div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'9px'}}>
                     {['hours133','hours150','hours200'].map((h,i)=>(
                       <div key={h} style={{textAlign:'center'}}>
