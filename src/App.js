@@ -631,6 +631,10 @@ export default function App() {
         input:focus,select:focus,textarea:focus{outline:2px solid #2563eb;outline-offset:-2px}
         input,select,textarea{font-size:16px}
         button:active{opacity:0.8;transform:scale(0.96)}
+        input[type=date]{-webkit-appearance:none;appearance:none;color-scheme:light;line-height:1.2}
+        input[type=date]::-webkit-date-and-time-value{text-align:left}
+        input[type=date]::-webkit-datetime-edit{padding:0}
+        input[type=date]::-webkit-calendar-picker-indicator{background:transparent;cursor:pointer;opacity:0.55;padding:0;margin:0}
       `}</style>
 
       <ToastStack toasts={toasts}/>
@@ -776,7 +780,7 @@ export default function App() {
             <>
             {/* date + duty */}
             <div style={S.card}>
-              <div style={{marginBottom:'13px'}}><label style={S.lbl}>Date</label><input type="date" style={S.inp} value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
+              <div style={{marginBottom:'13px'}}><label style={S.lbl}>Date</label><input type="date" style={{...S.inp,display:'block',boxSizing:'border-box',height:'46px'}} value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
               <div><label style={S.lbl}>Duty / Reason</label><input type="text" placeholder="e.g. MPL7XX, PXX" style={S.inp} value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})}/></div>
             </div>
 
@@ -829,23 +833,22 @@ export default function App() {
                     <div style={{fontSize:'9px',fontWeight:700,color:'#6366f1',background:'rgba(99,102,241,0.15)',padding:'3px 8px',borderRadius:'8px'}}>+10% / hr</div>
                   </div>
 
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',alignItems:'center'}}>
-                    <div>
-                      <label style={{...S.lbl,color:'#818cf8'}}>Hours worked (whole hours)</label>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                    <div style={{background:'rgba(99,102,241,0.12)',borderRadius:'12px',padding:'12px',textAlign:'center'}}>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#818cf8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>Hours worked</div>
                       <input
                         type="number" step="1" min="0" placeholder="0"
-                        style={{...S.inp,textAlign:'center',fontWeight:900,background:'#1e293b',fontSize:'22px',padding:'13px 8px',color:'#e0e7ff',borderRadius:'12px'}}
+                        style={{width:'100%',boxSizing:'border-box',textAlign:'center',fontWeight:900,background:'#1e293b',fontSize:'20px',padding:'8px',color:'#e0e7ff',borderRadius:'10px',border:'none',outline:'none',fontFamily:'inherit'}}
                         value={form.nightHours}
                         onChange={e=>{ const v=e.target.value; setForm({...form, nightWorkHours:v, nightHours:v}); }}
                       />
                     </div>
                     <div style={{background:'rgba(99,102,241,0.12)',borderRadius:'12px',padding:'12px',textAlign:'center'}}>
-                      <div style={{fontSize:'9px',fontWeight:900,color:'#818cf8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Enhancement rate</div>
-                      <div style={{fontSize:'20px',fontWeight:900,color:'#e0e7ff'}}>£{nightRate.toFixed(2)}</div>
-                      <div style={{fontSize:'9px',color:'#6366f1',fontWeight:700,marginTop:'2px'}}>per hour</div>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#818cf8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>Enhancement rate</div>
+                      <div style={{background:'#1e293b',borderRadius:'10px',padding:'8px',fontSize:'20px',fontWeight:900,color:'#e0e7ff'}}>£{nightRate.toFixed(2)}<span style={{fontSize:'11px',fontWeight:700,color:'#6366f1'}}>/hr</span></div>
                     </div>
                   </div>
-                  <div style={{fontSize:'9px',fontWeight:700,color:'#4f46e5',marginTop:'8px',textAlign:'center'}}>All hours entered here are automatically enhanced at +10%</div>
+                  <div style={{fontSize:'9px',fontWeight:700,color:'#4f46e5',marginTop:'10px',textAlign:'center'}}>All hours entered here are automatically enhanced at +10%</div>
 
                   {nightHrs>0&&(
                     <div style={{marginTop:'10px',background:'rgba(99,102,241,0.12)',borderRadius:'10px',padding:'10px 13px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
