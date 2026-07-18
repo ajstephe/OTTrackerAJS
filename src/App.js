@@ -1,3 +1,5 @@
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+
 // ─── financial year ───────────────────────────────────────────────────────────
 const FY_START         = '2026-02-09';
 const FY_END           = '2027-02-07';
@@ -858,7 +860,6 @@ export default function App() {
 
             {!settings.rank||!settings.service ? (
               /* ── blocked until rank & pay point are configured — no figures can be entered until then ── */
-              <>
               <div style={{background:'#fef2f2',border:'1.5px solid #fca5a5',borderRadius:'18px',padding:'26px 20px',textAlign:'center'}}>
                 <div style={{width:'52px',height:'52px',borderRadius:'50%',background:'#fee2e2',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
                   <Ico n="uPlus" s={24} c="#dc2626"/>
@@ -867,8 +868,6 @@ export default function App() {
                 <div style={{fontSize:'12px',color:'#b91c1c',lineHeight:1.6,marginBottom:'16px'}}>You need to select your rank and pay point in Settings before you can log a shift. This ensures your pay is calculated correctly from the start.</div>
                 <button onClick={()=>setTab('settings')} style={{background:'#dc2626',border:'none',borderRadius:'11px',padding:'12px 22px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(220,38,38,0.3)'}}>Go to Settings →</button>
               </div>
-              <img src="/uk_police_wave.gif" alt="Police officer waving" style={{display:'block',width:'110px',margin:'18px auto 0',imageRendering:'pixelated'}}/>
-              </>
             ) : (
             <>
             {/* date + duty */}
