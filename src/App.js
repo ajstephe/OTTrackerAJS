@@ -247,6 +247,7 @@ const getRates = (rank, service, date) => {
 const KEYS = {
   entries:'ajs_ot_entries', settings:'ajs_ot_settings',
   savedAt:'ajs_ot_savedAt', backupCount:'ajs_ot_backupCount', backedUpAt:'ajs_ot_backedUpAt',
+  lastBackupReminder:'ajs_ot_lastBackupReminder',
 };
 const dualWrite = (key, val) => {
   const s = JSON.stringify(val);
@@ -298,6 +299,7 @@ const Ico = ({ n, s=20, c, w=2 }) => (
     {n==='ul'    &&<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>}
     {n==='moon'  &&<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>}
     {n==='mail'  &&<><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></>}
+    {n==='table' &&<><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></>}
     {n==='bell'  &&<><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>}
   </svg>
 );
@@ -335,6 +337,8 @@ export default function App() {
   const [savedBadge,   setSavedBadge]   = useState(false);
   const [lastSaved,    setLastSaved]    = useState(()=>dualRead(KEYS.savedAt,null));
   const [lastBackedUp, setLastBackedUp] = useState(()=>dualRead(KEYS.backedUpAt,null));
+  const [showBackupReminder, setShowBackupReminder] = useState(false);
+  const [pulseBackupBtn, setPulseBackupBtn] = useState(false);
 
   const mainRef   = useRef(null);
   const fileRef   = useRef(null);
@@ -377,6 +381,34 @@ export default function App() {
     const t = setTimeout(()=>{ forceReprocess(zoomable); }, 450);
     return ()=>clearTimeout(t);
   },[tab]);
+
+  // ── 14-day backup reminder ───────────────────────────────────────────────────
+  // Optional and dismissible — never blocks the app. Fires roughly every 14
+  // days, measured from whichever happened more recently: an actual backup,
+  // or the last time this reminder was shown/dismissed. First-ever use just
+  // sets a baseline rather than nagging immediately.
+  useEffect(()=>{
+    if (entries.length === 0) return;
+    const REMINDER_INTERVAL = 14*24*60*60*1000;
+    const lastReminder = dualRead(KEYS.lastBackupReminder, null);
+    const lastBackup   = dualRead(KEYS.backedUpAt, null);
+    const baseline = Math.max(lastReminder||0, lastBackup||0);
+    if (baseline === 0) { dualWrite(KEYS.lastBackupReminder, Date.now()); return; }
+    if (Date.now() - baseline >= REMINDER_INTERVAL) setShowBackupReminder(true);
+  },[]);
+
+  const dismissBackupReminder = () => {
+    dualWrite(KEYS.lastBackupReminder, Date.now());
+    setShowBackupReminder(false);
+  };
+
+  const goBackupNow = () => {
+    dualWrite(KEYS.lastBackupReminder, Date.now());
+    setShowBackupReminder(false);
+    setTab('settings');
+    setPulseBackupBtn(true);
+    setTimeout(()=>setPulseBackupBtn(false), 6000);
+  };
 
   // ── toasts ─────────────────────────────────────────────────────────────────
   const addToast = useCallback((msg,type='success',action=null,dur=3500)=>{
@@ -572,7 +604,39 @@ export default function App() {
     const s="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify({entries,settings,exportedAt:new Date().toISOString()}));
     Object.assign(document.createElement('a'),{href:s,download:`AJS_OT_Backup_${new Date().toISOString().split('T')[0]}.json`}).click();
     dualWrite(KEYS.backupCount,0); dualWrite(KEYS.backedUpAt,now); setLastBackedUp(now);
+    dualWrite(KEYS.lastBackupReminder,now); setPulseBackupBtn(false);
     addToast('Backup downloaded ✓');
+  }
+
+  // Exports all logged shifts as a CSV — opens directly in Excel/Google Sheets/Numbers.
+  function handleExportCSV(){
+    const esc = v => `"${String(v??'').replace(/"/g,'""')}"`;
+    const headers = [
+      'Date','Duty/Reason','1.33x Hours','1.5x Hours','2.0x Hours',
+      'Night Hours (Enhanced)','PA Rate','Gross (£)','Net (£)','Rate Applied','Notes'
+    ];
+    const sorted = [...entries].sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const rows = sorted.map(e=>{
+      const c = calcEntry(e);
+      // Approximate the applicable band for this single entry using cumulative
+      // earnings up to (and including) it, consistent with the rest of the app.
+      const prior = entries.filter(x=>x.date<e.date || (x.date===e.date && x.id<e.id))
+        .reduce((sum,x)=>sum+calcEntry(x).gross,0);
+      const result = applyBandTax(prior, c.gross);
+      return [
+        e.date, e.reason||'', c.h1||'', c.h2||'', c.h3||'',
+        c.nh||'', e.paRate!=='None'?e.paRate:'',
+        c.gross.toFixed(2), result.net.toFixed(2),
+        result.bandName ? `${result.bandName} (${result.rate.toFixed(1)}%)` : '',
+        e.comments||''
+      ].map(esc).join(',');
+    });
+    const csv = [headers.map(esc).join(','), ...rows].join('\r\n');
+    const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'),{href:url,download:`AJS_OT_Records_${new Date().toISOString().split('T')[0]}.csv`}).click();
+    URL.revokeObjectURL(url);
+    addToast('CSV exported ✓');
   }
 
   const handleImport=ev=>{
@@ -625,6 +689,8 @@ export default function App() {
         @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @keyframes su{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes urgentPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}25%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}50%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}75%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}}
+        @keyframes backupPulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}30%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}50%{box-shadow:0 0 0 0 rgba(37,99,235,0)}70%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}}
+        .backup-pulse{animation:backupPulse 1.4s ease-in-out infinite}
         .fi{animation:fi 0.22s ease}
         .setup-pulse-urgent{animation:urgentPulse 1.5s ease-in-out infinite}
         input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
@@ -652,6 +718,22 @@ export default function App() {
           </span>
         </div>
       </header>
+
+      {/* ── 14-day backup reminder — optional, dismissible, never blocks the app ── */}
+      {showBackupReminder&&(
+        <div className="fi" style={{background:'#eff6ff',borderBottom:'1px solid #bfdbfe',padding:'12px 14px',display:'flex',alignItems:'flex-start',gap:'10px',flexShrink:0,zIndex:15}}>
+          <div style={{background:'#dbeafe',borderRadius:'10px',padding:'7px',flexShrink:0}}><Ico n="shield" s={15} c="#2563eb"/></div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:900,fontSize:'12px',color:'#1e3a5f',marginBottom:'2px'}}>Time for a backup</div>
+            <div style={{fontSize:'11px',color:'#3b82f6',lineHeight:1.4,marginBottom:'8px'}}>It's been a couple of weeks — worth downloading a fresh backup of your records.</div>
+            <div style={{display:'flex',gap:'7px'}}>
+              <button onClick={goBackupNow} style={{background:'#2563eb',border:'none',borderRadius:'8px',padding:'6px 13px',fontWeight:900,fontSize:'10px',color:'#fff',cursor:'pointer',fontFamily:'inherit'}}>Back Up Now</button>
+              <button onClick={dismissBackupReminder} style={{background:'none',border:'none',padding:'6px 4px',fontWeight:700,fontSize:'10px',color:'#64748b',cursor:'pointer',fontFamily:'inherit'}}>Not now</button>
+            </div>
+          </div>
+          <button onClick={dismissBackupReminder} style={{background:'none',border:'none',cursor:'pointer',padding:'2px',flexShrink:0}}><Ico n="x" s={15} c="#94a3b8"/></button>
+        </div>
+      )}
 
       <main ref={mainRef} style={S.main}>
 
@@ -712,7 +794,7 @@ export default function App() {
               <div style={{background:'rgba(0,0,0,0.25)',borderRadius:'14px',padding:'12px 14px'}}>
                 {settings.rank&&settings.service ? (
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>Currently in:</span>
+                    <span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>Current tax band:</span>
                     <span style={{fontSize:'9px',fontWeight:900,color:'#cbd5e1'}}>{totals.taxBand} · {totals.taxBandRate}%</span>
                   </div>
                 ) : (
@@ -1253,7 +1335,7 @@ export default function App() {
               <div style={{background:'rgba(0,0,0,0.2)',borderRadius:'13px',padding:'13px'}}>
                 <div style={{fontSize:'11px',color:'rgba(147,197,253,0.65)',fontStyle:'italic',marginBottom:'11px',lineHeight:1.5}}>Autosave protects against refreshes. Download a backup to protect against browser data being cleared.</div>
                 <div style={{display:'flex',gap:'6px',marginBottom:'11px'}}>
-                  <button onClick={handleExport} style={{flex:1,padding:'10px',background:'#2563eb',border:'none',borderRadius:'10px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="dl" s={12} c="#fff"/> Backup</button>
+                  <button onClick={handleExport} className={pulseBackupBtn?'backup-pulse':''} style={{flex:1,padding:'10px',background:'#2563eb',border:'none',borderRadius:'10px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="dl" s={12} c="#fff"/> Backup</button>
                   <button onClick={()=>fileRef.current.click()} style={{flex:1,padding:'10px',background:'rgba(255,255,255,0.1)',border:'none',borderRadius:'10px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="ul" s={12} c="#fff"/> Restore</button>
                   <input type="file" ref={fileRef} style={{display:'none'}} accept=".json" onChange={handleImport}/>
                 </div>
@@ -1270,6 +1352,20 @@ export default function App() {
                   }
                 </div>
               </div>
+            </div>
+
+            {/* ── Export to spreadsheet — separate from backup ── */}
+            <div style={S.card}>
+              <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'11px'}}>
+                <div style={{background:'#f0fdf4',padding:'9px',borderRadius:'11px'}}><Ico n="table" s={17} c="#059669"/></div>
+                <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Export to Spreadsheet</div>
+              </div>
+              <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'11px',padding:'10px 12px',marginBottom:'12px',display:'flex',gap:'8px',alignItems:'flex-start'}}>
+                <Ico n="uPlus" s={14} c="#d97706"/>
+                <div style={{fontSize:'10px',fontWeight:700,color:'#92400e',lineHeight:1.5}}>This is <strong>not a backup</strong>. It's a read-only CSV for viewing your records in Excel, Google Sheets or Numbers — use the Backup button above to protect your data.</div>
+              </div>
+              <button onClick={handleExportCSV} disabled={entries.length===0} style={{width:'100%',padding:'12px',background: entries.length===0 ? '#f1f5f9' : '#10b981',border:'none',borderRadius:'11px',color: entries.length===0 ? '#94a3b8' : '#fff',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor: entries.length===0 ? 'default' : 'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',textTransform:'uppercase',letterSpacing:'1px',boxShadow: entries.length===0 ? 'none' : '0 4px 14px rgba(16,185,129,0.3)'}}><Ico n="table" s={13} c={entries.length===0?'#94a3b8':'#fff'}/> Export to CSV</button>
+              {entries.length===0&&<div style={{fontSize:'10px',color:'#94a3b8',textAlign:'center',marginTop:'8px',fontWeight:600}}>Log a shift first to enable export</div>}
             </div>
 
             {/* ── Help & suggestions ── */}
