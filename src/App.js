@@ -933,10 +933,11 @@ export default function App() {
               </div>
             ) : (
             <>
-            {/* date + duty */}
+            {/* date + duty + notes */}
             <div style={S.card}>
               <div style={{marginBottom:'13px'}}><label style={S.lbl}>Date</label><input type="date" style={{...S.inp,display:'block',boxSizing:'border-box',height:'46px'}} value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
-              <div><label style={S.lbl}>Duty / Reason</label><input type="text" placeholder="e.g. MPL7XX, PXX" style={S.inp} value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})}/></div>
+              <div style={{marginBottom:'13px'}}><label style={S.lbl}>Duty / Reason</label><input type="text" placeholder="e.g. MPL7XX, PXX" style={S.inp} value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})}/></div>
+              <div><label style={S.lbl}>Notes</label><textarea rows="2" placeholder="Shift notes or incident details..." style={S.ta} value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})}/></div>
             </div>
 
             {/* overtime hours */}
@@ -1016,12 +1017,6 @@ export default function App() {
               );
             })()}
 
-            {/* notes */}
-            <div style={S.card}>
-              <label style={S.lbl}>Notes</label>
-              <textarea rows="2" placeholder="Shift notes or incident details..." style={S.ta} value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})}/>
-            </div>
-
             {/* live preview */}
             {preview.has&&(
               <div style={{background:'linear-gradient(135deg,#1e3a5f,#1d4ed8)',borderRadius:'15px',padding:'14px 18px',marginBottom:'11px'}}>
@@ -1054,10 +1049,12 @@ export default function App() {
           <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
             <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',marginBottom:'12px',letterSpacing:'-0.5px'}}>Breakdown</h2>
 
-            {/* List / Calendar view toggle */}
-            <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',marginBottom:'14px'}}>
-              <button onClick={()=>setBreakdownView('list')} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>List View</button>
-              <button onClick={()=>{ setBreakdownView('calendar'); if(calPeriodIdx===null) setCalPeriodIdx(currPeriodIdx); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>Calendar View</button>
+            {/* List / Calendar view toggle — sticky, floats at top while scrolling */}
+            <div style={{position:'sticky',top:0,zIndex:20,background:'#f8fafc',paddingTop:'6px',paddingBottom:'8px',marginTop:'-6px',marginBottom:'6px'}}>
+              <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',boxShadow:'0 4px 14px rgba(15,23,42,0.08)'}}>
+                <button onClick={()=>setBreakdownView('list')} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>List View</button>
+                <button onClick={()=>{ setBreakdownView('calendar'); if(calPeriodIdx===null) setCalPeriodIdx(currPeriodIdx); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>Calendar View</button>
+              </div>
             </div>
 
             {breakdownView==='list' ? (
@@ -1244,17 +1241,30 @@ export default function App() {
               const cPeriod = PAY_PERIODS[cIdx];
               const cEntries = fyEntries.filter(e=>e.date>=cPeriod.start&&e.date<=cPeriod.end);
               const cTotalHrs = cEntries.reduce((s,e)=>{ const c=calcEntry(e); return s+c.h1+c.h2+c.h3; },0);
-              const cDaysWorked = new Set(cEntries.map(e=>e.date)).size;
               const weeks = buildCalendarWeeks(cPeriod);
+
+              // period-level totals for the breakdown boxes (mirrors List View)
+              const pb = totals.periodBreakdown[cIdx];
+              let ph133=0, ph150=0, ph200=0, pNight=0, ppa1=0, ppa2=0, ppa3=0;
+              cEntries.forEach(e=>{
+                const c = calcEntry(e);
+                ph133+=c.h1; ph150+=c.h2; ph200+=c.h3; pNight+=c.nh;
+                if(e.paRate==='PA1')ppa1++; else if(e.paRate==='PA2')ppa2++; else if(e.paRate==='PA3')ppa3++;
+              });
 
               const dayInfo = (date) => {
                 if (!date) return null;
                 const ds = date.toISOString().split('T')[0];
                 const dEntries = cEntries.filter(e=>e.date===ds);
-                const totalHrs = dEntries.reduce((s,e)=>{ const c=calcEntry(e); return s+c.h1+c.h2+c.h3; },0);
+                let h1=0,h2=0,h3=0;
+                dEntries.forEach(e=>{ const c=calcEntry(e); h1+=c.h1; h2+=c.h2; h3+=c.h3; });
+                const totalHrs = h1+h2+h3;
                 const hasNight = dEntries.some(e=>parseFloat(e.nightHours)>0);
                 const hasPA = dEntries.some(e=>e.paRate&&e.paRate!=='None');
-                return { ds, dEntries, totalHrs, hasNight, hasPA, hasOT: dEntries.length>0, periodIdx: cIdx };
+                // build a compact rate label — single rate shows e.g. "1.33x", mixed rates omitted for space
+                const ratesUsed = [h1>0&&'1.33x', h2>0&&'1.5x', h3>0&&'2.0x'].filter(Boolean);
+                const rateLabel = ratesUsed.length===1 ? ratesUsed[0] : null;
+                return { ds, dEntries, totalHrs, hasNight, hasPA, hasOT: dEntries.length>0, periodIdx: cIdx, rateLabel };
               };
 
               return (
@@ -1305,7 +1315,7 @@ export default function App() {
                                   cursor: info.hasOT?'pointer':'default', padding:'2px', fontFamily:'inherit',
                                 }}>
                                 <span style={{fontSize:'14px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1'}}>{date.getDate()}</span>
-                                {info.hasOT&&<span style={{fontSize:'9px',fontWeight:900,color:'#2563eb',marginTop:'1px'}}>{info.totalHrs}h</span>}
+                                {info.totalHrs>0&&<span style={{fontSize:'8px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.1,textAlign:'center'}}>{info.totalHrs}h{info.rateLabel?`@${info.rateLabel}`:''}</span>}
                                 <div style={{display:'flex',gap:'2px',marginTop:'2px',height:'5px'}}>
                                   {info.hasNight&&<div style={{width:'5px',height:'5px',borderRadius:'50%',background:'#818cf8'}}/>}
                                   {info.hasPA&&<div style={{width:'5px',height:'5px',borderRadius:'50%',background:'#f59e0b'}}/>}
@@ -1325,7 +1335,50 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'4px'}}>Tap a highlighted day to see shift details</div>
+                  <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'4px',marginBottom:'14px'}}>Tap a highlighted day to see shift details</div>
+
+                  {/* period breakdown boxes — same layout as List View */}
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
+                    <div style={{background:'#fff',borderRadius:'13px',padding:'13px',border:'1px solid #dbeafe'}}>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
+                      <div style={{fontSize:'12px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(pb.ot)}</div>
+                      <div style={{fontSize:'11px',fontWeight:700,color:'#3b82f6',marginBottom:'2px'}}>Net: {fmt(pb.otResult.net)}</div>
+                      {pb.ot>0&&<div style={{fontSize:'9px',fontWeight:900,color:'#1d4ed8',background:'#eff6ff',display:'inline-block',padding:'2px 6px',borderRadius:'6px',marginBottom:'7px'}}>{pb.otResult.bandName} · {pb.otResult.rate.toFixed(1)}%</div>}
+                      <div style={{borderTop:'1px solid #eff6ff',paddingTop:'5px'}}>
+                        {ph133>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph133}h@1.33x</div>}
+                        {ph150>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph150}h@1.5x</div>}
+                        {ph200>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b'}}>{ph200}h@2.0x</div>}
+                      </div>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:'9px'}}>
+                      <div style={{background:'#fff',borderRadius:'13px',padding:'11px',border:'1px solid #fde68a'}}>
+                        <div style={{fontSize:'9px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'5px'}}>PA</div>
+                        <div style={{fontSize:'12px',fontWeight:700,color:'#92400e',marginBottom:'1px'}}>Gross: {fmt(pb.pa)}</div>
+                        <div style={{fontSize:'11px',fontWeight:700,color:'#d97706',marginBottom:'7px'}}>Net: {fmt(pb.paResult.net)}</div>
+                        <div style={{display:'flex',justifyContent:'space-between',borderTop:'1px solid #fef3c7',paddingTop:'6px'}}>
+                          <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA1 × {ppa1}</span>
+                          <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA2 × {ppa2}</span>
+                          <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA3 × {ppa3}</span>
+                        </div>
+                      </div>
+                      {pb.night>0&&(
+                        <div style={{background:'#0f172a',borderRadius:'13px',padding:'11px',border:'1px solid #1e293b'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="moon" s={11} c="#818cf8"/><div style={{fontSize:'9px',fontWeight:900,color:'#c7d2fe',textTransform:'uppercase',letterSpacing:'0.5px'}}>Night (2000–0600)</div></div>
+                          <div style={{fontSize:'12px',fontWeight:700,color:'#e0e7ff',marginBottom:'1px'}}>Gross: {fmt(pb.night)}</div>
+                          <div style={{fontSize:'11px',fontWeight:700,color:'#818cf8',marginBottom:'6px'}}>Net: {fmt(pb.nightResult.net)}</div>
+                          <div style={{fontSize:'10px',fontWeight:700,color:'#6366f1'}}>{pNight}h @ +10%</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* month total — same layout as the List View card header */}
+                  <div style={{...S.card,marginTop:'9px'}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
+                      <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Gross</div><div style={{fontWeight:900,fontSize:'17px',color:'#1e3a5f'}}>{fmt(pb.combinedGross)}</div></div>
+                      <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'17px',color:'#059669'}}>{fmt(pb.combinedNet)}</div></div>
+                    </div>
+                  </div>
                 </>
               );
             })()}
@@ -1621,3 +1674,4 @@ export default function App() {
     </div>
   );
 }
+
