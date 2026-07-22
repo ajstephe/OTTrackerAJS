@@ -426,6 +426,18 @@ export default function App() {
   useEffect(()=>{ dualWrite(KEYS.settings,settings); },[settings]);
   useEffect(()=>{ if(mainRef.current) mainRef.current.scrollTop=0; },[tab]);
 
+  // Opening the Breakdown tab always returns to the starred default view.
+  // Switching views is treated as a temporary look, not a lasting preference —
+  // only the star changes what Breakdown opens on. The ref lets handleSave
+  // bypass this, since it deliberately targets a specific view and entry.
+  const skipBreakdownReset = useRef(false);
+  useEffect(()=>{
+    if(tab!=='months') return;
+    if(skipBreakdownReset.current){ skipBreakdownReset.current=false; return; }
+    setBreakdownView(defaultBreakdownView);
+    if(defaultBreakdownView==='calendar') setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0);
+  },[tab]);
+
   // ── snap zoom back to default when switching tabs ───────────────────────────
   // Pinch-zoom is allowed while browsing a tab. When the person switches tabs,
   // this forces the browser to reprocess the viewport at scale=1. Simply
@@ -658,14 +670,16 @@ export default function App() {
     }
 
     const targetDate = form.date;
-    let savedId;
+    let savedId, updatedEntries;
     if(editing){
       savedId = editing.id;
-      setEntries(entries.map(e=>e.id===editing.id?{...form,id:e.id}:e));
+      updatedEntries = entries.map(e=>e.id===editing.id?{...form,id:e.id}:e);
+      setEntries(updatedEntries);
       addToast('Record updated');
     } else {
       savedId = Date.now().toString();
-      setEntries(prev=>[...prev,{...form,id:savedId}]);
+      updatedEntries = [...entries,{...form,id:savedId}];
+      setEntries(updatedEntries);
       addToast('Overtime logged ✓');
       // nudge backup every 5 entries
       const count=(dualRead(KEYS.backupCount,0)||0)+1;
@@ -673,11 +687,34 @@ export default function App() {
       if(count%5===0) setTimeout(()=>addToast(`${count} records logged — download a backup?`,'warn',{label:'Backup now',fn:handleExport},8000),800);
     }
 
-    // Show the person the record they just saved, in context.
-    const period = PAY_PERIODS.find(p=>targetDate>=p.start&&targetDate<=p.end);
-    setBreakdownView('list');
-    if(period) setExpanded(period.month);
-    setFocusEntryId(savedId);
+    // Show the person the record they just saved, in whichever Breakdown view
+    // they've set as their default.
+    const periodIdx = PAY_PERIODS.findIndex(p=>targetDate>=p.start&&targetDate<=p.end);
+    const period = periodIdx>=0 ? PAY_PERIODS[periodIdx] : null;
+    skipBreakdownReset.current = true; // this navigation targets a specific entry
+
+    if(defaultBreakdownView==='calendar' && period){
+      setBreakdownView('calendar');
+      setCalPeriodIdx(periodIdx);
+      // open that day's detail popover so the entry is visible straight away
+      const dEntries = updatedEntries.filter(e=>e.date===targetDate);
+      const dayTotals = dEntries.reduce((acc,e)=>{
+        const c=calcEntry(e);
+        acc.hrs += c.h1+c.h2+c.h3;
+        if(c.nh>0) acc.night = true;
+        if(e.paRate && e.paRate!=='None') acc.pa = true;
+        return acc;
+      },{hrs:0,night:false,pa:false});
+      setSelectedCalDay({
+        ds: targetDate, dEntries, periodIdx,
+        totalHrs: dayTotals.hrs, hasNight: dayTotals.night, hasPA: dayTotals.pa, hasOT: true,
+      });
+      if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'auto'});
+    } else {
+      setBreakdownView('list');
+      if(period) setExpanded(period.month);
+      setFocusEntryId(savedId);
+    }
     setTab('months');
 
     setForm({...blankForm,date:todayStr}); setEditing(null);
@@ -1882,7 +1919,7 @@ export default function App() {
           {id:'graph',    n:'bar',  lbl:'Trends'},
           {id:'settings', n:'cog',  lbl:'Settings'},
         ].map(t=>(
-          <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') { setForm({...blankForm,date:todayStr}); } if(t.id==='months'&&breakdownView==='list') snapToActiveMonth(false,140); setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
+          <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') { setForm({...blankForm,date:todayStr}); } if(t.id==='months'&&defaultBreakdownView==='list') snapToActiveMonth(false,140); setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
             <Ico n={t.n} s={t.id==='add'?21:18} c={t.id==='add'?'#fff':tab===t.id?'#2563eb':'#94a3b8'} w={tab===t.id||t.id==='add'?2.5:2}/>
             <span style={S.nLbl}>{t.lbl}</span>
           </button>
@@ -1891,3 +1928,4 @@ export default function App() {
     </div>
   );
 }
+
