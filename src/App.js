@@ -301,6 +301,7 @@ const Ico = ({ n, s=20, c, w=2 }) => (
     {n==='cR'    &&<polyline points="9 18 15 12 9 6"/>}
     {n==='cL'    &&<polyline points="15 18 9 12 15 6"/>}
     {n==='cD'    &&<polyline points="6 9 12 15 18 9"/>}
+    {n==='cU'    &&<polyline points="18 15 12 9 6 15"/>}
     {n==='cal'   &&<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}
     {n==='bar'   &&<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>}
     {n==='uPlus' &&<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></>}
@@ -1094,6 +1095,21 @@ export default function App() {
                   })}
                 </div>
               )}
+
+              {/* month pills — Calendar View equivalent, selects the period being viewed */}
+              {breakdownView==='calendar'&&(
+                <div style={{display:'flex',gap:'5px',overflowX:'auto',paddingTop:'8px',scrollbarWidth:'none',msOverflowStyle:'none'}}>
+                  {PAY_PERIODS.map((p,idx)=>{
+                    const isCurr=idx===currPeriodIdx;
+                    const isSel=(calPeriodIdx===null?currPeriodIdx:calPeriodIdx)===idx;
+                    return(
+                      <button key={p.short} onClick={()=>{ setCalPeriodIdx(idx); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'smooth'}); }} style={{flexShrink:0,padding:'4px 10px',borderRadius:'18px',border:isCurr?'1.5px solid #2563eb':'1px solid #e2e8f0',background:isSel?'#2563eb':isCurr?'#eff6ff':'#fff',color:isSel?'#fff':isCurr?'#2563eb':'#64748b',fontSize:'11px',fontWeight:900,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',transition:'all 0.14s',display:'flex',alignItems:'center',gap:'4px'}}>
+                        {p.short}{isCurr&&!isSel&&<span style={{display:'inline-block',width:'4px',height:'4px',borderRadius:'50%',background:'#2563eb'}}/>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {breakdownView==='list' ? (
@@ -1123,7 +1139,6 @@ export default function App() {
                       <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'4px'}}>
                         <div style={{display:'flex',alignItems:'center',gap:'4px',background:isCurr?'#dbeafe':'#eff6ff',border:isCurr?'1px solid #93c5fd':'1px solid #bfdbfe',padding:'5px 9px',borderRadius:'9px'}}>
                           <div style={{fontSize:'11px',fontWeight:900,color:'#1d4ed8'}}>{(h133+h150+h200).toFixed(1)} hrs</div>
-                          <Ico n={isExp?'cD':'cR'} s={12} c="#3b82f6"/>
                         </div>
                         <div style={{fontSize:'9px',fontWeight:700,color:'#94a3b8'}}>{pE.length} record{pE.length!==1?'s':''}</div>
                       </div>
@@ -1132,6 +1147,9 @@ export default function App() {
                       <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Gross</div><div style={{fontWeight:900,fontSize:'17px',color:'#1e3a5f'}}>{fmt(totG)}</div></div>
                       <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'17px',color:'#059669'}}>{fmt(totN)}</div></div>
                     </div>
+                    {!isExp&&(
+                      <div style={{fontSize:'10px',fontWeight:700,color:'#94a3b8',textAlign:'center',marginTop:'11px',paddingTop:'9px',borderTop:'1px solid #f1f5f9'}}>Tap to see more</div>
+                    )}
                   </button>
 
                   {isExp&&(
@@ -1250,7 +1268,7 @@ export default function App() {
                         })
                       }
                       <button onClick={()=>setExpanded(null)} style={{width:'100%',marginTop:'4px',padding:'9px',background:'#fff',border:'1px solid #e2e8f0',borderRadius:'11px',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:'4px'}}>
-                        Close <Ico n="cD" s={12} c="#94a3b8"/>
+                        Close <Ico n="cU" s={12} c="#94a3b8"/>
                       </button>
                     </div>
                   )}
