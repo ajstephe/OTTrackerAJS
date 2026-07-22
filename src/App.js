@@ -264,6 +264,7 @@ const KEYS = {
   entries:'ajs_ot_entries', settings:'ajs_ot_settings',
   savedAt:'ajs_ot_savedAt', backupCount:'ajs_ot_backupCount', backedUpAt:'ajs_ot_backedUpAt',
   lastBackupReminder:'ajs_ot_lastBackupReminder',
+  defaultBreakdownView:'ajs_ot_defaultBreakdownView',
 };
 const dualWrite = (key, val) => {
   const s = JSON.stringify(val);
@@ -288,8 +289,8 @@ const migrateSettings = s => {
 };
 
 // ─── icon component ───────────────────────────────────────────────────────────
-const Ico = ({ n, s=20, c, w=2 }) => (
-  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c||'currentColor'}
+const Ico = ({ n, s=20, c, w=2, f='none' }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill={f} stroke={c||'currentColor'}
        strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
     {n==='home'  &&<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>}
     {n==='plus'  &&<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>}
@@ -303,6 +304,7 @@ const Ico = ({ n, s=20, c, w=2 }) => (
     {n==='cD'    &&<polyline points="6 9 12 15 18 9"/>}
     {n==='cU'    &&<polyline points="18 15 12 9 6 15"/>}
     {n==='list'  &&<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>}
+    {n==='star'  &&<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>}
     {n==='cal'   &&<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}
     {n==='bar'   &&<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>}
     {n==='uPlus' &&<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></>}
@@ -392,9 +394,11 @@ export default function App() {
   const [entries,      setEntries]      = useState(()=>dualRead(KEYS.entries,[]));
   const [settings,     setSettings]     = useState(()=>migrateSettings(dualRead(KEYS.settings,null)));
   const [expanded,     setExpanded]     = useState(null);
-  const [breakdownView, setBreakdownView] = useState('list'); // 'list' | 'calendar'
+  const [defaultBreakdownView, setDefaultBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list'));
+  const [breakdownView, setBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list')); // 'list' | 'calendar'
   const [calPeriodIdx, setCalPeriodIdx] = useState(null); // set to currPeriodIdx on first render
   const [selectedCalDay, setSelectedCalDay] = useState(null);
+  const [focusEntryId, setFocusEntryId] = useState(null);
   const [editing,      setEditing]      = useState(null);
   const [wipeConf,     setWipeConf]     = useState(false);
   const [confirmDel,   setConfirmDel]   = useState(null);
@@ -409,6 +413,7 @@ export default function App() {
   const fileRef   = useRef(null);
   const monthRefs = useRef({});
   const stickyRef = useRef(null);
+  const entryRefs = useRef({});
 
   const blankForm = { date:todayStr, reason:'', hours133:'', hours150:'', hours200:'', nightWorkHours:'', nightHours:'', paRate:'None', comments:'' };
   const [form, setForm] = useState(blankForm);
@@ -642,18 +647,39 @@ export default function App() {
   // ── handlers ───────────────────────────────────────────────────────────────
   const handleSave=()=>{
     if(!form.date) return;
+
+    // One entry per date — if the date is already taken, point the person at
+    // the existing record rather than silently creating a second one.
+    const dupe = entries.find(e=>e.date===form.date && (!editing || e.id!==editing.id));
+    if(dupe){
+      const dStr = new Date(form.date+'T12:00:00').toLocaleDateString('en-GB');
+      addToast(`An entry already exists for ${dStr} — edit that one instead.`,'warn',{label:'Edit it',fn:()=>startEdit(dupe)},7000);
+      return;
+    }
+
+    const targetDate = form.date;
+    let savedId;
     if(editing){
+      savedId = editing.id;
       setEntries(entries.map(e=>e.id===editing.id?{...form,id:e.id}:e));
-      setTab('months'); addToast('Record updated');
+      addToast('Record updated');
     } else {
-      setEntries(prev=>[...prev,{...form,id:Date.now().toString()}]);
-      addToast('Shift logged ✓');
+      savedId = Date.now().toString();
+      setEntries(prev=>[...prev,{...form,id:savedId}]);
+      addToast('Overtime logged ✓');
       // nudge backup every 5 entries
       const count=(dualRead(KEYS.backupCount,0)||0)+1;
       dualWrite(KEYS.backupCount,count);
       if(count%5===0) setTimeout(()=>addToast(`${count} records logged — download a backup?`,'warn',{label:'Backup now',fn:handleExport},8000),800);
-      if(mainRef.current) mainRef.current.scrollTop=0;
     }
+
+    // Show the person the record they just saved, in context.
+    const period = PAY_PERIODS.find(p=>targetDate>=p.start&&targetDate<=p.end);
+    setBreakdownView('list');
+    if(period) setExpanded(period.month);
+    setFocusEntryId(savedId);
+    setTab('months');
+
     setForm({...blankForm,date:todayStr}); setEditing(null);
   };
 
@@ -776,6 +802,23 @@ export default function App() {
 
   const jumpTo=month=>{ setExpanded(month); setTimeout(()=>scrollToMonth(month),80); };
 
+  // After saving, scroll the newly created/updated record into view and give it
+  // a brief highlight, so the person can see their entry landed correctly.
+  useEffect(()=>{
+    if(!focusEntryId || tab!=='months' || breakdownView!=='list') return;
+    const t = setTimeout(()=>{
+      const el = entryRefs.current[focusEntryId];
+      const cont = mainRef.current;
+      if(el && cont){
+        const stickyH = stickyRef.current ? stickyRef.current.offsetHeight : 58;
+        const top = cont.scrollTop + el.getBoundingClientRect().top - cont.getBoundingClientRect().top - stickyH - 12;
+        cont.scrollTo({ top: Math.max(0, top), behavior:'smooth' });
+      }
+      setTimeout(()=>setFocusEntryId(null), 2200);
+    }, 220);
+    return ()=>clearTimeout(t);
+  },[focusEntryId, tab, breakdownView]);
+
   // ── display helpers ────────────────────────────────────────────────────────
   const fmt    = n=>`£${n.toFixed(2)}`;
   const fmtGBP = n=>`£${n.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
@@ -818,6 +861,10 @@ export default function App() {
         @keyframes urgentPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}25%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}50%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}75%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}}
         @keyframes backupPulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}30%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}50%{box-shadow:0 0 0 0 rgba(37,99,235,0)}70%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}}
         @keyframes subtlePulse{0%{opacity:0.5}20%{opacity:1}40%{opacity:0.5}60%{opacity:1}80%,100%{opacity:0.5}}
+        @keyframes entryFlash{0%{box-shadow:0 0 0 0 rgba(37,99,235,0.45)}60%{box-shadow:0 0 0 10px rgba(37,99,235,0)}100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}}
+        .entry-flash{animation:entryFlash 1.4s ease-out 2}
+        .star-tap{transition:transform 0.12s}
+        .star-tap:active{transform:scale(1.35)}
         .hint-pulse{animation:subtlePulse 1.8s ease-in-out infinite}
         .backup-pulse{animation:backupPulse 1.4s ease-in-out infinite}
         .fi{animation:fi 0.22s ease}
@@ -974,7 +1021,7 @@ export default function App() {
           <div className="fi" style={{padding:'14px',paddingBottom:'160px'}}>
             <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'18px'}}>
               {editing&&<button onClick={()=>{setEditing(null);setTab('months');}} style={{background:'#f1f5f9',border:'none',borderRadius:'10px',padding:'8px',cursor:'pointer',display:'flex'}}><Ico n="back" s={16}/></button>}
-              <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:0,letterSpacing:'-0.5px'}}>{editing?'Edit Record':'Log Shift'}</h2>
+              <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:0,letterSpacing:'-0.5px'}}>{editing?'Edit Record':'Log Overtime'}</h2>
             </div>
 
             {!settings.rank||!settings.service ? (
@@ -984,7 +1031,7 @@ export default function App() {
                   <Ico n="uPlus" s={24} c="#dc2626"/>
                 </div>
                 <div style={{fontWeight:900,fontSize:'15px',color:'#991b1b',marginBottom:'6px'}}>Setup Required</div>
-                <div style={{fontSize:'12px',color:'#b91c1c',lineHeight:1.6,marginBottom:'16px'}}>You need to select your rank and pay point in Settings before you can log a shift. This ensures your pay is calculated correctly from the start.</div>
+                <div style={{fontSize:'12px',color:'#b91c1c',lineHeight:1.6,marginBottom:'16px'}}>You need to select your rank and pay point in Settings before you can log overtime. This ensures your pay is calculated correctly from the start.</div>
                 <button onClick={()=>setTab('settings')} style={{background:'#dc2626',border:'none',borderRadius:'11px',padding:'12px 22px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(220,38,38,0.3)'}}>Go to Settings →</button>
               </div>
             ) : (
@@ -993,7 +1040,7 @@ export default function App() {
             <div style={S.card}>
               <div style={{marginBottom:'13px'}}><label style={S.lbl}>Date</label><input type="date" style={{...S.inp,display:'block',boxSizing:'border-box',height:'46px'}} value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
               <div style={{marginBottom:'13px'}}><label style={S.lbl}>Duty / Reason</label><input type="text" placeholder="e.g. MPL7XX, PXX" style={S.inp} value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})}/></div>
-              <div><label style={S.lbl}>Notes</label><textarea rows="4" placeholder="Shift notes or incident details...&#10;Line breaks are preserved." style={{...S.ta,lineHeight:1.5}} value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})}/></div>
+              <div><label style={S.lbl}>Notes</label><textarea rows="4" placeholder="Shift notes or incident details..." style={{...S.ta,lineHeight:1.5}} value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})}/></div>
             </div>
 
             {/* overtime hours */}
@@ -1107,12 +1154,31 @@ export default function App() {
             <div ref={stickyRef} style={{position:'sticky',top:0,zIndex:20,background:'#f8fafc',paddingTop:'6px',paddingBottom:'8px',marginTop:'-14px',marginBottom:'6px'}}>
               <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:'0 0 10px',letterSpacing:'-0.5px'}}>Breakdown</h2>
               <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',boxShadow:'0 4px 14px rgba(15,23,42,0.08)'}}>
-                <button onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
-                  <Ico n="list" s={13} c={breakdownView==='list'?'#fff':'#64748b'} w={2.5}/>List View
-                </button>
-                <button onClick={()=>{ setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'auto'}); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
-                  <Ico n="cal" s={13} c={breakdownView==='calendar'?'#fff':'#64748b'} w={2.5}/>Calendar View
-                </button>
+                {/* Each half is a div rather than a button so the star can be its own
+                    tap target inside it — nesting buttons isn't valid HTML. */}
+                <div onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px 6px',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',gap:'4px',userSelect:'none'}}>
+                  <span style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+                    <Ico n="list" s={13} c={breakdownView==='list'?'#fff':'#64748b'} w={2.5}/>List View
+                  </span>
+                  <span onClick={e=>{ e.stopPropagation(); setDefaultBreakdownView('list'); dualWrite(KEYS.defaultBreakdownView,'list'); }} className="star-tap" style={{flexShrink:0,display:'flex',alignItems:'center',padding:'4px 5px',cursor:'pointer'}}>
+                    <Ico n="star" s={17} w={1.8}
+                      c={defaultBreakdownView==='list'?'#fbbf24':(breakdownView==='list'?'rgba(255,255,255,0.5)':'#cbd5e1')}
+                      f={defaultBreakdownView==='list'?'#fbbf24':'none'}/>
+                  </span>
+                </div>
+                <div onClick={()=>{ setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'auto'}); }} style={{flex:1,padding:'9px 6px',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',gap:'4px',userSelect:'none'}}>
+                  <span style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+                    <Ico n="cal" s={13} c={breakdownView==='calendar'?'#fff':'#64748b'} w={2.5}/>Calendar View
+                  </span>
+                  <span onClick={e=>{ e.stopPropagation(); setDefaultBreakdownView('calendar'); dualWrite(KEYS.defaultBreakdownView,'calendar'); }} className="star-tap" style={{flexShrink:0,display:'flex',alignItems:'center',padding:'4px 5px',cursor:'pointer'}}>
+                    <Ico n="star" s={17} w={1.8}
+                      c={defaultBreakdownView==='calendar'?'#fbbf24':(breakdownView==='calendar'?'rgba(255,255,255,0.5)':'#cbd5e1')}
+                      f={defaultBreakdownView==='calendar'?'#fbbf24':'none'}/>
+                  </span>
+                </div>
+              </div>
+              <div style={{fontSize:'9.5px',fontWeight:600,color:'#94a3b8',textAlign:'center',marginTop:'6px',lineHeight:1.4}}>
+                {defaultBreakdownView==='list'?'List View':'Calendar View'} opens by default · tap ★ to change
               </div>
 
               {/* month jump pills — part of the sticky header in List View */}
@@ -1233,7 +1299,7 @@ export default function App() {
                           const ePANet    = c.pa>0    ? c.pa*(1-pb.paResult.rate/100)       : 0;
                           const eNet = eOTNet+eNightNet+ePANet;
                           return(
-                            <div key={e.id} style={{background:'#fff',borderRadius:'13px',border:isFut?'1px solid #bfdbfe':'1px solid #f1f5f9',padding:'13px',marginBottom:'7px',position:'relative'}}>
+                            <div key={e.id} ref={el=>entryRefs.current[e.id]=el} className={focusEntryId===e.id?'entry-flash':''} style={{background:focusEntryId===e.id?'#eff6ff':'#fff',borderRadius:'13px',border:focusEntryId===e.id?'2px solid #2563eb':isFut?'1px solid #bfdbfe':'1px solid #f1f5f9',padding:'13px',marginBottom:'7px',position:'relative',transition:'background 0.4s ease, border-color 0.4s ease'}}>
                               {isFut&&<div style={{position:'absolute',top:'-6px',right:'9px',background:'#2563eb',color:'#fff',fontSize:'8px',fontWeight:900,padding:'2px 7px',borderRadius:'7px',textTransform:'uppercase',letterSpacing:'1px'}}>Planned</div>}
                               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'7px'}}>
                                 <div>
@@ -1812,7 +1878,7 @@ export default function App() {
         {[
           {id:'dashboard',n:'home', lbl:'Home'},
           {id:'months',   n:'cal',  lbl:'Breakdown'},
-          {id:'add',      n:'plus', lbl:'Log Shift'},
+          {id:'add',      n:'plus', lbl:'Log Overtime'},
           {id:'graph',    n:'bar',  lbl:'Trends'},
           {id:'settings', n:'cog',  lbl:'Settings'},
         ].map(t=>(
@@ -1825,4 +1891,3 @@ export default function App() {
     </div>
   );
 }
-
