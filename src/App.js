@@ -302,6 +302,7 @@ const Ico = ({ n, s=20, c, w=2 }) => (
     {n==='cL'    &&<polyline points="15 18 9 12 15 6"/>}
     {n==='cD'    &&<polyline points="6 9 12 15 18 9"/>}
     {n==='cU'    &&<polyline points="18 15 12 9 6 15"/>}
+    {n==='list'  &&<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>}
     {n==='cal'   &&<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}
     {n==='bar'   &&<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>}
     {n==='uPlus' &&<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></>}
@@ -1106,8 +1107,12 @@ export default function App() {
             <div ref={stickyRef} style={{position:'sticky',top:0,zIndex:20,background:'#f8fafc',paddingTop:'6px',paddingBottom:'8px',marginTop:'-14px',marginBottom:'6px'}}>
               <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:'0 0 10px',letterSpacing:'-0.5px'}}>Breakdown</h2>
               <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',boxShadow:'0 4px 14px rgba(15,23,42,0.08)'}}>
-                <button onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>List View</button>
-                <button onClick={()=>{ setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'auto'}); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>Calendar View</button>
+                <button onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+                  <Ico n="list" s={13} c={breakdownView==='list'?'#fff':'#64748b'} w={2.5}/>List View
+                </button>
+                <button onClick={()=>{ setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'auto'}); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+                  <Ico n="cal" s={13} c={breakdownView==='calendar'?'#fff':'#64748b'} w={2.5}/>Calendar View
+                </button>
               </div>
 
               {/* month jump pills — part of the sticky header in List View */}
@@ -1731,16 +1736,27 @@ export default function App() {
                     </div>
                   )}
 
-                  {c.h1>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h1}h @ 1.33x <span style={{color:'#94a3b8'}}>(£{c.r.r133.toFixed(2)}/hr)</span></div>}
-                  {c.h2>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h2}h @ 1.5x <span style={{color:'#94a3b8'}}>(£{c.r.r150.toFixed(2)}/hr)</span></div>}
-                  {c.h3>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h3}h @ 2.0x <span style={{color:'#94a3b8'}}>(£{c.r.r200.toFixed(2)}/hr)</span></div>}
-                  {c.nh>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#6366f1',marginBottom:'3px'}}>{c.nh}h @ +10% <span style={{color:'#94a3b8'}}>(£{(c.r.base*0.10).toFixed(2)}/hr)</span></div>}
-                  {e.paRate!=='None'&&<div style={{fontSize:'12px',fontWeight:700,color:'#b45309',marginBottom:'3px'}}>{e.paRate} allowance</div>}
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',borderTop:'1px solid #e2e8f0',paddingTop:'8px',marginTop:'6px'}}>
-                    <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</div><div style={{fontWeight:900,fontSize:'13px',color:'#1e3a5f'}}>{fmt(c.gross)}</div></div>
-                    <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px'}}>Net</div><div style={{fontWeight:900,fontSize:'13px',color:'#059669'}}>{fmt(eNet)}</div></div>
+                  {/* notes — sits directly under Duty/Reason, separated from the pay breakdown below.
+                      Skipped entirely when there are no notes, so no empty labelled block appears. */}
+                  {e.comments&&(
+                    <div style={{borderTop:'1px solid #e2e8f0',paddingTop:'10px',marginBottom:'10px'}}>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Notes</div>
+                      <div style={{fontSize:'11px',fontStyle:'italic',color:'#0f172a',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px'}}>"{e.comments}"</div>
+                    </div>
+                  )}
+
+                  {/* pay breakdown */}
+                  <div style={{borderTop:'1px solid #e2e8f0',paddingTop:'10px'}}>
+                    {c.h1>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h1}h @ 1.33x <span style={{color:'#94a3b8'}}>(£{c.r.r133.toFixed(2)}/hr)</span></div>}
+                    {c.h2>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h2}h @ 1.5x <span style={{color:'#94a3b8'}}>(£{c.r.r150.toFixed(2)}/hr)</span></div>}
+                    {c.h3>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h3}h @ 2.0x <span style={{color:'#94a3b8'}}>(£{c.r.r200.toFixed(2)}/hr)</span></div>}
+                    {c.nh>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#6366f1',marginBottom:'3px'}}>{c.nh}h @ +10% <span style={{color:'#94a3b8'}}>(£{(c.r.base*0.10).toFixed(2)}/hr)</span></div>}
+                    {e.paRate!=='None'&&<div style={{fontSize:'12px',fontWeight:700,color:'#b45309',marginBottom:'3px'}}>{e.paRate} allowance</div>}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',borderTop:'1px solid #e2e8f0',paddingTop:'8px',marginTop:'6px'}}>
+                      <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</div><div style={{fontWeight:900,fontSize:'13px',color:'#1e3a5f'}}>{fmt(c.gross)}</div></div>
+                      <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px'}}>Net</div><div style={{fontWeight:900,fontSize:'13px',color:'#059669'}}>{fmt(eNet)}</div></div>
+                    </div>
                   </div>
-                  {e.comments&&<div style={{fontSize:'11px',fontStyle:'italic',color:'#0f172a',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px',marginTop:'8px'}}>"{e.comments}"</div>}
                 </div>
               );
             })}
@@ -1775,6 +1791,3 @@ export default function App() {
     </div>
   );
 }
-
-
-
