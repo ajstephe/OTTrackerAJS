@@ -763,6 +763,8 @@ export default function App() {
         @keyframes su{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes urgentPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}25%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}50%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}75%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}}
         @keyframes backupPulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}30%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}50%{box-shadow:0 0 0 0 rgba(37,99,235,0)}70%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}}
+        @keyframes subtlePulse{0%,100%{opacity:0.55}50%{opacity:1}}
+        .hint-pulse{animation:subtlePulse 2.2s ease-in-out infinite}
         .backup-pulse{animation:backupPulse 1.4s ease-in-out infinite}
         .fi{animation:fi 0.22s ease}
         .setup-pulse-urgent{animation:urgentPulse 1.5s ease-in-out infinite}
@@ -1315,7 +1317,7 @@ export default function App() {
                                   cursor: info.hasOT?'pointer':'default', padding:'2px', fontFamily:'inherit',
                                 }}>
                                 <span style={{fontSize:'14px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1'}}>{date.getDate()}</span>
-                                {info.totalHrs>0&&<span style={{fontSize:'8px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.1,textAlign:'center'}}>{info.totalHrs}h{info.rateLabel?`@${info.rateLabel}`:''}</span>}
+                                {info.totalHrs>0&&<span style={{fontSize:'9.5px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.1,textAlign:'center'}}>{info.totalHrs}h{info.rateLabel?`@${info.rateLabel}`:''}</span>}
                                 <div style={{display:'flex',gap:'2px',marginTop:'2px',height:'5px'}}>
                                   {info.hasNight&&<div style={{width:'5px',height:'5px',borderRadius:'50%',background:'#818cf8'}}/>}
                                   {info.hasPA&&<div style={{width:'5px',height:'5px',borderRadius:'50%',background:'#f59e0b'}}/>}
@@ -1335,7 +1337,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'4px',marginBottom:'14px'}}>Tap a highlighted day to see shift details</div>
+                  <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'4px',marginBottom:'14px'}}>Tap a highlighted day to see shift details</div>
 
                   {/* period breakdown boxes — same layout as List View */}
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
@@ -1674,4 +1676,3 @@ export default function App() {
     </div>
   );
 }
-
