@@ -1257,6 +1257,14 @@ export default function App() {
                                 </div>
                               )}
 
+                              {/* notes — sits under Duty/Reason with separators, matching the Calendar View popover */}
+                              {e.comments&&(
+                                <div style={{borderTop:'1px solid #e2e8f0',paddingTop:'10px',marginBottom:'10px'}}>
+                                  <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Notes</div>
+                                  <div style={{fontSize:'11px',fontStyle:'italic',color:'#0f172a',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px'}}>"{e.comments}"</div>
+                                </div>
+                              )}
+
                               <div style={{background:'#f8fafc',borderRadius:'11px',padding:'12px'}}>
                                 <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
                                   {c.h1>0&&(
@@ -1295,7 +1303,6 @@ export default function App() {
                                   <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px'}}>Net</div><div style={{fontWeight:900,fontSize:'13px',color:'#059669'}}>{fmt(eNet)}</div></div>
                                 </div>
                               </div>
-                              {e.comments&&<div style={{fontSize:'11px',fontStyle:'italic',color:'#0f172a',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px',marginTop:'7px'}}>"{e.comments}"</div>}
                             </div>
                           );
                         })
@@ -1745,14 +1752,41 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* pay breakdown */}
+                  {/* pay breakdown — each line shows its own value, matching List View */}
                   <div style={{borderTop:'1px solid #e2e8f0',paddingTop:'10px'}}>
-                    {c.h1>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h1}h @ 1.33x <span style={{color:'#94a3b8'}}>(£{c.r.r133.toFixed(2)}/hr)</span></div>}
-                    {c.h2>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h2}h @ 1.5x <span style={{color:'#94a3b8'}}>(£{c.r.r150.toFixed(2)}/hr)</span></div>}
-                    {c.h3>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h3}h @ 2.0x <span style={{color:'#94a3b8'}}>(£{c.r.r200.toFixed(2)}/hr)</span></div>}
-                    {c.nh>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#6366f1',marginBottom:'3px'}}>{c.nh}h @ +10% <span style={{color:'#94a3b8'}}>(£{(c.r.base*0.10).toFixed(2)}/hr)</span></div>}
-                    {e.paRate!=='None'&&<div style={{fontSize:'12px',fontWeight:700,color:'#b45309',marginBottom:'3px'}}>{e.paRate} allowance</div>}
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',borderTop:'1px solid #e2e8f0',paddingTop:'8px',marginTop:'6px'}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                      {c.h1>0&&(
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                          <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>{c.h1}h @ 1.33x <span style={{color:'#94a3b8'}}>(£{c.r.r133.toFixed(2)}/hr)</span></span>
+                          <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{(c.h1*c.r.r133).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {c.h2>0&&(
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                          <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>{c.h2}h @ 1.5x <span style={{color:'#94a3b8'}}>(£{c.r.r150.toFixed(2)}/hr)</span></span>
+                          <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{(c.h2*c.r.r150).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {c.h3>0&&(
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                          <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>{c.h3}h @ 2.0x <span style={{color:'#94a3b8'}}>(£{c.r.r200.toFixed(2)}/hr)</span></span>
+                          <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{(c.h3*c.r.r200).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {c.nh>0&&(
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                          <span style={{fontSize:'11px',fontWeight:700,color:'#6366f1'}}>{c.nh}h @ +10% <span style={{color:'#94a3b8'}}>(£{(c.r.base*0.10).toFixed(2)}/hr)</span></span>
+                          <span style={{fontSize:'12px',fontWeight:900,color:'#4f46e5'}}>£{c.night.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {e.paRate!=='None'&&(
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                          <span style={{fontSize:'11px',fontWeight:700,color:'#b45309'}}>{e.paRate} allowance</span>
+                          <span style={{fontSize:'12px',fontWeight:900,color:'#92400e'}}>£{c.pa.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',borderTop:'1px solid #e2e8f0',paddingTop:'8px',marginTop:'8px'}}>
                       <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</div><div style={{fontWeight:900,fontSize:'13px',color:'#1e3a5f'}}>{fmt(c.gross)}</div></div>
                       <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px'}}>Net</div><div style={{fontWeight:900,fontSize:'13px',color:'#059669'}}>{fmt(eNet)}</div></div>
                     </div>
@@ -1791,3 +1825,4 @@ export default function App() {
     </div>
   );
 }
+
