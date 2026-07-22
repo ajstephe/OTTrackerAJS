@@ -742,7 +742,7 @@ export default function App() {
   const S={
     wrap: {display:'flex',flexDirection:'column',height:'100dvh',maxWidth:'430px',margin:'0 auto',background:'#f8fafc',fontFamily:"'DM Sans',system-ui,sans-serif",color:'#0f172a',position:'relative',boxShadow:'0 0 60px rgba(0,0,0,0.14)',overflow:'hidden'},
     hdr:  {background:'#fff',padding:'13px 18px',borderBottom:'1px solid #e2e8f0',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,zIndex:10},
-    main: {flex:1,overflowY:'auto',scrollbarWidth:'none',msOverflowStyle:'none'},
+    main: {flex:1,overflowY:'auto',overflowX:'hidden',minWidth:0,scrollbarWidth:'none',msOverflowStyle:'none'},
     nav:  {background:'rgba(255,255,255,0.96)',backdropFilter:'blur(14px)',borderTop:'1px solid #e2e8f0',position:'absolute',bottom:0,width:'100%',padding:'7px 4px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',zIndex:20},
     nBtn: (a,add)=>({display:'flex',flexDirection:'column',alignItems:'center',gap:'3px',padding:add?'9px 11px':'6px 8px',background:add?'#10b981':'transparent',color:add?'#fff':a?'#2563eb':'#94a3b8',borderRadius:add?'13px':'8px',border:'none',cursor:'pointer',transition:'all 0.18s',fontFamily:'inherit',boxShadow:add?'0 4px 14px rgba(16,185,129,0.4)':'none'}),
     nLbl: {fontSize:'8px',fontWeight:900,textTransform:'uppercase',letterSpacing:'0.5px'},
@@ -1295,17 +1295,19 @@ export default function App() {
                   </div>
 
                   {/* calendar grid */}
-                  <div style={S.card}>
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'8px'}}>
+                  <div style={{...S.card,overflow:'hidden'}}>
+                    {/* minmax(0,1fr) is essential — plain '1fr' lets long cell text (e.g. "5h@1.33x")
+                        force columns wider than their share, which pushed the grid past the screen edge */}
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(0,1fr))',gap:'3px',marginBottom:'8px'}}>
                       {['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>(
-                        <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase'}}>{d}</div>
+                        <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',minWidth:0,overflow:'hidden'}}>{d}</div>
                       ))}
                     </div>
-                    <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:'3px'}}>
                       {weeks.map((week,wi)=>(
-                        <div key={wi} style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px'}}>
+                        <div key={wi} style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(0,1fr))',gap:'3px'}}>
                           {week.map((date,di)=>{
-                            if (!date) return <div key={di}/>;
+                            if (!date) return <div key={di} style={{minWidth:0}}/>;
                             const info = dayInfo(date);
                             const isToday = info.ds===todayStr;
                             return (
@@ -1314,13 +1316,18 @@ export default function App() {
                                   aspectRatio:'1', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
                                   borderRadius:'10px', border: isToday?'2px solid #2563eb':info.hasOT?'1px solid #bfdbfe':'1px solid transparent',
                                   background: info.hasOT ? '#eff6ff' : 'transparent',
-                                  cursor: info.hasOT?'pointer':'default', padding:'2px', fontFamily:'inherit',
+                                  cursor: info.hasOT?'pointer':'default', padding:'1px', fontFamily:'inherit',
+                                  minWidth:0, width:'100%', overflow:'hidden', boxSizing:'border-box',
                                 }}>
-                                <span style={{fontSize:'14px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1'}}>{date.getDate()}</span>
-                                {info.totalHrs>0&&<span style={{fontSize:'9.5px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.1,textAlign:'center'}}>{info.totalHrs}h{info.rateLabel?`@${info.rateLabel}`:''}</span>}
-                                <div style={{display:'flex',gap:'2px',marginTop:'2px',height:'5px'}}>
-                                  {info.hasNight&&<div style={{width:'5px',height:'5px',borderRadius:'50%',background:'#818cf8'}}/>}
-                                  {info.hasPA&&<div style={{width:'5px',height:'5px',borderRadius:'50%',background:'#f59e0b'}}/>}
+                                <span style={{fontSize:'13px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1',lineHeight:1}}>{date.getDate()}</span>
+                                {info.totalHrs>0&&(
+                                  <span style={{fontSize:'8px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.05,textAlign:'center',maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'clip'}}>
+                                    {info.totalHrs}h{info.rateLabel?<><br/>{info.rateLabel}</>:''}
+                                  </span>
+                                )}
+                                <div style={{display:'flex',gap:'2px',marginTop:'1px',height:'4px'}}>
+                                  {info.hasNight&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#818cf8'}}/>}
+                                  {info.hasPA&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#f59e0b'}}/>}
                                 </div>
                               </button>
                             );
@@ -1676,3 +1683,4 @@ export default function App() {
     </div>
   );
 }
+
