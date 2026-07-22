@@ -664,23 +664,52 @@ export default function App() {
     addToast('Record deleted','undo',{label:'Undo',fn:()=>setEntries(prev=>[...prev,d])},5000);
   };
 
-  // Standard backup filename convention: OTbackup + day + 3-letter month + 2-digit year
-  // e.g. 18 July 2026 -> "OTbackup18Jul26"
+  // Standard backup filename convention: OTbackup + day + 3-letter month +
+  // 2-digit year + 24hr time. e.g. 21 Sept 2026 at 15:15 -> "OTbackup21Sep261515"
   const backupFileStamp = () => {
     const d = new Date();
-    const day = String(d.getDate()).padStart(2,'0');
+    const pad = n => String(n).padStart(2,'0');
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const year = String(d.getFullYear()).slice(-2);
-    return `${day}${months[d.getMonth()]}${year}`;
+    return `${pad(d.getDate())}${months[d.getMonth()]}${String(d.getFullYear()).slice(-2)}${pad(d.getHours())}${pad(d.getMinutes())}`;
   };
 
-  function handleExport(){
+  async function handleExport(){
     const now=Date.now();
-    const s="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify({entries,settings,exportedAt:new Date().toISOString()}));
-    Object.assign(document.createElement('a'),{href:s,download:`OTbackup${backupFileStamp()}.json`}).click();
-    dualWrite(KEYS.backupCount,0); dualWrite(KEYS.backedUpAt,now); setLastBackedUp(now);
-    dualWrite(KEYS.lastBackupReminder,now); setPulseBackupBtn(false);
-    addToast('Backup downloaded ✓');
+    const filename = `OTbackup${backupFileStamp()}.json`;
+    const json = JSON.stringify({entries,settings,exportedAt:new Date().toISOString()}, null, 2);
+
+    const markSaved = () => {
+      dualWrite(KEYS.backupCount,0); dualWrite(KEYS.backedUpAt,now); setLastBackedUp(now);
+      dualWrite(KEYS.lastBackupReminder,now); setPulseBackupBtn(false);
+      addToast('Backup saved ✓');
+    };
+
+    // Where supported (Chrome/Edge desktop), let the person choose the folder
+    // and confirm the filename. iOS Safari doesn't implement this API, so we
+    // fall back to a normal download — which on iOS still opens the share
+    // sheet and lets you pick Files/iCloud anyway.
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description:'Overtime Tracker backup', accept:{ 'application/json':['.json'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        markSaved();
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // person cancelled the dialog
+        // any other failure falls through to the standard download below
+      }
+    }
+
+    const blob = new Blob([json], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'),{href:url,download:filename}).click();
+    URL.revokeObjectURL(url);
+    markSaved();
   }
 
   // Exports all logged shifts as a CSV — opens directly in Excel/Google Sheets/Numbers.
@@ -1073,10 +1102,9 @@ export default function App() {
         {/* ══════════════════════════════════════════ BREAKDOWN */}
         {tab==='months'&&(
           <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
-            <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',marginBottom:'12px',letterSpacing:'-0.5px'}}>Breakdown</h2>
-
-            {/* Sticky header — toggle plus (in List View) the month pills, so both float together */}
-            <div ref={stickyRef} style={{position:'sticky',top:0,zIndex:20,background:'#f8fafc',paddingTop:'6px',paddingBottom:'8px',marginTop:'-6px',marginBottom:'6px'}}>
+            {/* Sticky header — heading, toggle and month pills all float together */}
+            <div ref={stickyRef} style={{position:'sticky',top:0,zIndex:20,background:'#f8fafc',paddingTop:'6px',paddingBottom:'8px',marginTop:'-14px',marginBottom:'6px'}}>
+              <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:'0 0 10px',letterSpacing:'-0.5px'}}>Breakdown</h2>
               <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',boxShadow:'0 4px 14px rgba(15,23,42,0.08)'}}>
                 <button onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>List View</button>
                 <button onClick={()=>{ setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'auto'}); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>Calendar View</button>
@@ -1148,7 +1176,7 @@ export default function App() {
                       <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'17px',color:'#059669'}}>{fmt(totN)}</div></div>
                     </div>
                     {!isExp&&(
-                      <div style={{fontSize:'10px',fontWeight:700,color:'#94a3b8',textAlign:'center',marginTop:'11px',paddingTop:'9px',borderTop:'1px solid #f1f5f9'}}>Tap to see more</div>
+                      <div style={{fontSize:'10px',fontWeight:700,color:isCurr?'#64748b':'#94a3b8',textAlign:'center',marginTop:'11px',paddingTop:'9px',borderTop:isCurr?'1px solid #bfdbfe':'1px solid #f1f5f9'}}>Tap to see more</div>
                     )}
                   </button>
 
@@ -1389,9 +1417,10 @@ export default function App() {
                       <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#818cf8'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>Night</span></div>
                       <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#f59e0b'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>PA</span></div>
                     </div>
-                  </div>
 
-                  <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'4px',marginBottom:'14px'}}>Tap a highlighted day to see shift details</div>
+                    {/* hint sits inside the calendar card, under the legend */}
+                    <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'10px',paddingTop:'10px',borderTop:'1px solid #f1f5f9'}}>Tap a highlighted day to see shift details</div>
+                  </div>
 
                   {/* period breakdown boxes — same layout as List View */}
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
@@ -1746,5 +1775,6 @@ export default function App() {
     </div>
   );
 }
+
 
 
