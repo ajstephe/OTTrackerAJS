@@ -1254,36 +1254,31 @@ export default function App() {
                 const totalHrs = dEntries.reduce((s,e)=>{ const c=calcEntry(e); return s+c.h1+c.h2+c.h3; },0);
                 const hasNight = dEntries.some(e=>parseFloat(e.nightHours)>0);
                 const hasPA = dEntries.some(e=>e.paRate&&e.paRate!=='None');
-                return { ds, dEntries, totalHrs, hasNight, hasPA, hasOT: dEntries.length>0 };
+                return { ds, dEntries, totalHrs, hasNight, hasPA, hasOT: dEntries.length>0, periodIdx: cIdx };
               };
 
               return (
                 <>
                   {/* period navigator */}
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
-                    <button onClick={()=>setCalPeriodIdx(i=>Math.max(0,(i===null?currPeriodIdx:i)-1))} disabled={cIdx===0} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'9px 14px',cursor:cIdx===0?'default':'pointer',opacity:cIdx===0?0.3:1}}><Ico n="cL" s={16} c="#2563eb"/></button>
+                    <button onClick={()=>setCalPeriodIdx(i=>Math.max(0,(i===null?currPeriodIdx:i)-1))} disabled={cIdx===0} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'9px 14px',cursor:cIdx===0?'default':'pointer',opacity:cIdx===0?0.3:1}}><Ico n="cL" s={18} c="#2563eb"/></button>
                     <div style={{textAlign:'center'}}>
-                      <div style={{fontWeight:900,fontSize:'17px',color:'#0f172a'}}>{cPeriod.month}</div>
-                      <div style={{fontSize:'11px',fontWeight:700,color:'#3b82f6'}}>{fmtD(cPeriod.start)} – {fmtD(cPeriod.end)}</div>
+                      <div style={{fontWeight:900,fontSize:'19px',color:'#0f172a'}}>{cPeriod.month}</div>
+                      <div style={{fontSize:'12px',fontWeight:700,color:'#3b82f6'}}>{fmtD(cPeriod.start)} – {fmtD(cPeriod.end)}</div>
                     </div>
-                    <button onClick={()=>setCalPeriodIdx(i=>Math.min(11,(i===null?currPeriodIdx:i)+1))} disabled={cIdx===11} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'9px 14px',cursor:cIdx===11?'default':'pointer',opacity:cIdx===11?0.3:1}}><Ico n="cR" s={16} c="#2563eb"/></button>
+                    <button onClick={()=>setCalPeriodIdx(i=>Math.min(11,(i===null?currPeriodIdx:i)+1))} disabled={cIdx===11} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'9px 14px',cursor:cIdx===11?'default':'pointer',opacity:cIdx===11?0.3:1}}><Ico n="cR" s={18} c="#2563eb"/></button>
                   </div>
 
-                  {/* stats strip */}
-                  <div style={{...S.card,display:'flex',justifyContent:'space-around',padding:'14px'}}>
+                  {/* stats strip — Total Hours and Shifts only */}
+                  <div style={{...S.card,display:'flex',justifyContent:'space-around',padding:'16px'}}>
                     <div style={{textAlign:'center'}}>
-                      <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Overtime Days</div>
-                      <div style={{fontSize:'20px',fontWeight:900,color:'#1e3a5f'}}>{cDaysWorked}</div>
+                      <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Total Hours</div>
+                      <div style={{fontSize:'24px',fontWeight:900,color:'#1e3a5f'}}>{cTotalHrs}</div>
                     </div>
                     <div style={{width:'1px',background:'#f1f5f9'}}/>
                     <div style={{textAlign:'center'}}>
-                      <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Total Hours</div>
-                      <div style={{fontSize:'20px',fontWeight:900,color:'#1e3a5f'}}>{cTotalHrs}</div>
-                    </div>
-                    <div style={{width:'1px',background:'#f1f5f9'}}/>
-                    <div style={{textAlign:'center'}}>
-                      <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Shifts</div>
-                      <div style={{fontSize:'20px',fontWeight:900,color:'#1e3a5f'}}>{cEntries.length}</div>
+                      <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Shifts</div>
+                      <div style={{fontSize:'24px',fontWeight:900,color:'#1e3a5f'}}>{cEntries.length}</div>
                     </div>
                   </div>
 
@@ -1291,7 +1286,7 @@ export default function App() {
                   <div style={S.card}>
                     <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'8px'}}>
                       {['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>(
-                        <div key={d} style={{textAlign:'center',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase'}}>{d}</div>
+                        <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase'}}>{d}</div>
                       ))}
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
@@ -1309,11 +1304,11 @@ export default function App() {
                                   background: info.hasOT ? '#eff6ff' : 'transparent',
                                   cursor: info.hasOT?'pointer':'default', padding:'2px', fontFamily:'inherit',
                                 }}>
-                                <span style={{fontSize:'11px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1'}}>{date.getDate()}</span>
-                                {info.hasOT&&<span style={{fontSize:'7px',fontWeight:900,color:'#2563eb',marginTop:'1px'}}>{info.totalHrs}h</span>}
-                                <div style={{display:'flex',gap:'2px',marginTop:'2px',height:'4px'}}>
-                                  {info.hasNight&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#818cf8'}}/>}
-                                  {info.hasPA&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#f59e0b'}}/>}
+                                <span style={{fontSize:'14px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1'}}>{date.getDate()}</span>
+                                {info.hasOT&&<span style={{fontSize:'9px',fontWeight:900,color:'#2563eb',marginTop:'1px'}}>{info.totalHrs}h</span>}
+                                <div style={{display:'flex',gap:'2px',marginTop:'2px',height:'5px'}}>
+                                  {info.hasNight&&<div style={{width:'5px',height:'5px',borderRadius:'50%',background:'#818cf8'}}/>}
+                                  {info.hasPA&&<div style={{width:'5px',height:'5px',borderRadius:'50%',background:'#f59e0b'}}/>}
                                 </div>
                               </button>
                             );
@@ -1324,13 +1319,13 @@ export default function App() {
 
                     {/* legend */}
                     <div style={{display:'flex',justifyContent:'center',gap:'16px',marginTop:'14px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'10px',height:'10px',borderRadius:'3px',background:'#eff6ff',border:'1px solid #bfdbfe'}}/><span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>OT logged</span></div>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'6px',height:'6px',borderRadius:'50%',background:'#818cf8'}}/><span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>Night</span></div>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'6px',height:'6px',borderRadius:'50%',background:'#f59e0b'}}/><span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>PA</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'11px',height:'11px',borderRadius:'3px',background:'#eff6ff',border:'1px solid #bfdbfe'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>OT logged</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#818cf8'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>Night</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#f59e0b'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>PA</span></div>
                     </div>
                   </div>
 
-                  <div style={{fontSize:'10px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'4px'}}>Tap a highlighted day to see shift details</div>
+                  <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'4px'}}>Tap a highlighted day to see shift details</div>
                 </>
               );
             })()}
@@ -1574,6 +1569,11 @@ export default function App() {
             </div>
             {selectedCalDay.dEntries.map(e=>{
               const c = calcEntry(e);
+              const pb = totals.periodBreakdown[selectedCalDay.periodIdx];
+              const eOTNet    = c.h1+c.h2+c.h3>0 ? c.ot*(1-pb.otResult.rate/100)       : 0;
+              const eNightNet = c.nh>0           ? c.night*(1-pb.nightResult.rate/100) : 0;
+              const ePANet    = c.pa>0           ? c.pa*(1-pb.paResult.rate/100)       : 0;
+              const eNet = eOTNet+eNightNet+ePANet;
               return (
                 <div key={e.id} style={{background:'#f8fafc',borderRadius:'13px',padding:'13px',marginBottom:'8px'}}>
                   <div style={{fontWeight:900,fontSize:'12px',color:'#3b82f6',marginBottom:'8px',textTransform:'uppercase'}}>Duty / Reason: {e.reason||'Shift'}</div>
@@ -1584,6 +1584,7 @@ export default function App() {
                   {e.paRate!=='None'&&<div style={{fontSize:'12px',fontWeight:700,color:'#b45309',marginBottom:'3px'}}>{e.paRate} allowance</div>}
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',borderTop:'1px solid #e2e8f0',paddingTop:'8px',marginTop:'6px'}}>
                     <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</div><div style={{fontWeight:900,fontSize:'13px',color:'#1e3a5f'}}>{fmt(c.gross)}</div></div>
+                    <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px'}}>Net</div><div style={{fontWeight:900,fontSize:'13px',color:'#059669'}}>{fmt(eNet)}</div></div>
                   </div>
                   {e.comments&&<div style={{fontSize:'11px',fontStyle:'italic',color:'#0f172a',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px',marginTop:'8px'}}>"{e.comments}"</div>}
                 </div>
