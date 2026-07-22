@@ -152,6 +152,22 @@ const splitAcrossBands = (cumulativeBefore, amount) => {
 
 const daysInclusive = (a,b) => Math.round((new Date(b) - new Date(a)) / 86400000) + 1;
 
+// Builds a Monday-start week grid for a pay period, with null padding cells
+// before/after so the days line up correctly under Mo-Su column headers.
+const buildCalendarWeeks = (period) => {
+  const start = new Date(period.start+'T12:00:00');
+  const end   = new Date(period.end+'T12:00:00');
+  const startDow = (start.getDay()+6)%7; // Monday=0
+  const days = [];
+  for (let i=0;i<startDow;i++) days.push(null);
+  let cursor = new Date(start);
+  while (cursor <= end) { days.push(new Date(cursor)); cursor.setDate(cursor.getDate()+1); }
+  while (days.length%7!==0) days.push(null);
+  const weeks = [];
+  for (let i=0;i<days.length;i+=7) weeks.push(days.slice(i,i+7));
+  return weeks;
+};
+
 // ─── UK tax year (6 April – 5 April) ───────────────────────────────────────────
 // This is what actually governs personal allowance/tax band resets — it's
 // different from the force's own pay-year (which starts 9 Feb per PAY_PERIODS
@@ -283,6 +299,7 @@ const Ico = ({ n, s=20, c, w=2 }) => (
     {n==='save'  &&<><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>}
     {n==='clock' &&<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>}
     {n==='cR'    &&<polyline points="9 18 15 12 9 6"/>}
+    {n==='cL'    &&<polyline points="15 18 9 12 15 6"/>}
     {n==='cD'    &&<polyline points="6 9 12 15 18 9"/>}
     {n==='cal'   &&<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>}
     {n==='bar'   &&<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>}
@@ -305,6 +322,49 @@ const Ico = ({ n, s=20, c, w=2 }) => (
 );
 
 // ─── toast stack ──────────────────────────────────────────────────────────────
+// Original cartoon-style £50 note icon for the header. Deliberately generic —
+// no portrait, no Bank of England insignia, no reproduced security features —
+// just enough banknote "character" (gradient, see-through window motif,
+// guilloche-style texture, serif denomination) to read clearly at a glance.
+function BanknoteIcon({ width=34, height=21 }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 48 30" style={{flexShrink:0}}>
+      <defs>
+        <linearGradient id="noteGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#9d2235"/>
+          <stop offset="55%" stopColor="#7c1a2a"/>
+          <stop offset="100%" stopColor="#5c1220"/>
+        </linearGradient>
+        <linearGradient id="windowGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#e0f2fe" stopOpacity="0.85"/>
+          <stop offset="100%" stopColor="#7dd3fc" stopOpacity="0.55"/>
+        </linearGradient>
+      </defs>
+
+      <rect x="1" y="1" width="46" height="28" rx="3" fill="url(#noteGrad)" stroke="#3f0d16" strokeWidth="0.8"/>
+
+      <g opacity="0.18" stroke="#fecdd3" strokeWidth="0.4" fill="none">
+        <path d="M2 6 Q8 3 14 6 T26 6 T38 6 T46 6"/>
+        <path d="M2 11 Q8 8 14 11 T26 11 T38 11 T46 11"/>
+        <path d="M2 24 Q8 21 14 24 T26 24 T38 24 T46 24"/>
+      </g>
+
+      <rect x="3.5" y="3.5" width="41" height="23" rx="2" fill="none" stroke="#fbcfe8" strokeWidth="0.6" opacity="0.7"/>
+
+      <ellipse cx="38" cy="15" rx="6.5" ry="10.5" fill="url(#windowGrad)"/>
+      <ellipse cx="38" cy="15" rx="6.5" ry="10.5" fill="none" stroke="#fff" strokeWidth="0.6" opacity="0.8"/>
+      <circle cx="38" cy="15" r="3" fill="none" stroke="#fff" strokeWidth="0.5" opacity="0.6"/>
+
+      <text x="5" y="10" fontFamily="Georgia,'Times New Roman',serif" fontSize="6.5" fontWeight="700" fill="#fecdd3">50</text>
+      <text x="5" y="26.5" fontFamily="Georgia,'Times New Roman',serif" fontSize="6.5" fontWeight="700" fill="#fecdd3">50</text>
+
+      <text x="9" y="19" fontFamily="Georgia,'Times New Roman',serif" fontSize="12.5" fontWeight="900" fill="#fff5f7">£50</text>
+
+      <rect x="9" y="21" width="17" height="0.6" fill="#fecdd3" opacity="0.6"/>
+    </svg>
+  );
+}
+
 function ToastStack({ toasts }) {
   return (
     <div style={{position:'absolute',bottom:'80px',left:'50%',transform:'translateX(-50%)',zIndex:999,display:'flex',flexDirection:'column',gap:'7px',width:'calc(100% - 24px)',maxWidth:'390px',pointerEvents:'none'}}>
@@ -330,6 +390,9 @@ export default function App() {
   const [entries,      setEntries]      = useState(()=>dualRead(KEYS.entries,[]));
   const [settings,     setSettings]     = useState(()=>migrateSettings(dualRead(KEYS.settings,null)));
   const [expanded,     setExpanded]     = useState(null);
+  const [breakdownView, setBreakdownView] = useState('list'); // 'list' | 'calendar'
+  const [calPeriodIdx, setCalPeriodIdx] = useState(null); // set to currPeriodIdx on first render
+  const [selectedCalDay, setSelectedCalDay] = useState(null);
   const [editing,      setEditing]      = useState(null);
   const [wipeConf,     setWipeConf]     = useState(false);
   const [confirmDel,   setConfirmDel]   = useState(null);
@@ -718,7 +781,7 @@ export default function App() {
       {/* ── header ── */}
       <header style={S.hdr}>
         <div style={{fontSize:'19px',fontWeight:900,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',display:'flex',alignItems:'center',gap:'8px',letterSpacing:'-0.5px'}}>
-          <Ico n="pound" s={19} c="#2563eb" w={2.5}/>
+          <BanknoteIcon width={30} height={19}/>
           Overtime Tracker by AJS
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'5px'}}>
@@ -991,6 +1054,14 @@ export default function App() {
           <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
             <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',marginBottom:'12px',letterSpacing:'-0.5px'}}>Breakdown</h2>
 
+            {/* List / Calendar view toggle */}
+            <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',marginBottom:'14px'}}>
+              <button onClick={()=>setBreakdownView('list')} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>List View</button>
+              <button onClick={()=>{ setBreakdownView('calendar'); if(calPeriodIdx===null) setCalPeriodIdx(currPeriodIdx); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>Calendar View</button>
+            </div>
+
+            {breakdownView==='list' ? (
+            <>
             {/* month jump pills */}
             <div style={{display:'flex',gap:'5px',overflowX:'auto',paddingBottom:'9px',marginBottom:'5px',scrollbarWidth:'none',msOverflowStyle:'none'}}>
               {PAY_PERIODS.map((p,idx)=>{
@@ -1164,6 +1235,107 @@ export default function App() {
                 </div>
               );
             })}
+            </>
+            ) : (
+            <>
+            {/* ══════════════════ CALENDAR VIEW (Overtime Visualiser) ══════════════════ */}
+            {(()=>{
+              const cIdx = calPeriodIdx===null ? currPeriodIdx : calPeriodIdx;
+              const cPeriod = PAY_PERIODS[cIdx];
+              const cEntries = fyEntries.filter(e=>e.date>=cPeriod.start&&e.date<=cPeriod.end);
+              const cTotalHrs = cEntries.reduce((s,e)=>{ const c=calcEntry(e); return s+c.h1+c.h2+c.h3; },0);
+              const cDaysWorked = new Set(cEntries.map(e=>e.date)).size;
+              const weeks = buildCalendarWeeks(cPeriod);
+
+              const dayInfo = (date) => {
+                if (!date) return null;
+                const ds = date.toISOString().split('T')[0];
+                const dEntries = cEntries.filter(e=>e.date===ds);
+                const totalHrs = dEntries.reduce((s,e)=>{ const c=calcEntry(e); return s+c.h1+c.h2+c.h3; },0);
+                const hasNight = dEntries.some(e=>parseFloat(e.nightHours)>0);
+                const hasPA = dEntries.some(e=>e.paRate&&e.paRate!=='None');
+                return { ds, dEntries, totalHrs, hasNight, hasPA, hasOT: dEntries.length>0 };
+              };
+
+              return (
+                <>
+                  {/* period navigator */}
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
+                    <button onClick={()=>setCalPeriodIdx(i=>Math.max(0,(i===null?currPeriodIdx:i)-1))} disabled={cIdx===0} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'9px 14px',cursor:cIdx===0?'default':'pointer',opacity:cIdx===0?0.3:1}}><Ico n="cL" s={16} c="#2563eb"/></button>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontWeight:900,fontSize:'17px',color:'#0f172a'}}>{cPeriod.month}</div>
+                      <div style={{fontSize:'11px',fontWeight:700,color:'#3b82f6'}}>{fmtD(cPeriod.start)} – {fmtD(cPeriod.end)}</div>
+                    </div>
+                    <button onClick={()=>setCalPeriodIdx(i=>Math.min(11,(i===null?currPeriodIdx:i)+1))} disabled={cIdx===11} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'9px 14px',cursor:cIdx===11?'default':'pointer',opacity:cIdx===11?0.3:1}}><Ico n="cR" s={16} c="#2563eb"/></button>
+                  </div>
+
+                  {/* stats strip */}
+                  <div style={{...S.card,display:'flex',justifyContent:'space-around',padding:'14px'}}>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Overtime Days</div>
+                      <div style={{fontSize:'20px',fontWeight:900,color:'#1e3a5f'}}>{cDaysWorked}</div>
+                    </div>
+                    <div style={{width:'1px',background:'#f1f5f9'}}/>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Total Hours</div>
+                      <div style={{fontSize:'20px',fontWeight:900,color:'#1e3a5f'}}>{cTotalHrs}</div>
+                    </div>
+                    <div style={{width:'1px',background:'#f1f5f9'}}/>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Shifts</div>
+                      <div style={{fontSize:'20px',fontWeight:900,color:'#1e3a5f'}}>{cEntries.length}</div>
+                    </div>
+                  </div>
+
+                  {/* calendar grid */}
+                  <div style={S.card}>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'8px'}}>
+                      {['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>(
+                        <div key={d} style={{textAlign:'center',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase'}}>{d}</div>
+                      ))}
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                      {weeks.map((week,wi)=>(
+                        <div key={wi} style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px'}}>
+                          {week.map((date,di)=>{
+                            if (!date) return <div key={di}/>;
+                            const info = dayInfo(date);
+                            const isToday = info.ds===todayStr;
+                            return (
+                              <button key={di} onClick={()=>info.hasOT&&setSelectedCalDay(info)}
+                                style={{
+                                  aspectRatio:'1', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                                  borderRadius:'10px', border: isToday?'2px solid #2563eb':info.hasOT?'1px solid #bfdbfe':'1px solid transparent',
+                                  background: info.hasOT ? '#eff6ff' : 'transparent',
+                                  cursor: info.hasOT?'pointer':'default', padding:'2px', fontFamily:'inherit',
+                                }}>
+                                <span style={{fontSize:'11px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1'}}>{date.getDate()}</span>
+                                {info.hasOT&&<span style={{fontSize:'7px',fontWeight:900,color:'#2563eb',marginTop:'1px'}}>{info.totalHrs}h</span>}
+                                <div style={{display:'flex',gap:'2px',marginTop:'2px',height:'4px'}}>
+                                  {info.hasNight&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#818cf8'}}/>}
+                                  {info.hasPA&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#f59e0b'}}/>}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* legend */}
+                    <div style={{display:'flex',justifyContent:'center',gap:'16px',marginTop:'14px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'10px',height:'10px',borderRadius:'3px',background:'#eff6ff',border:'1px solid #bfdbfe'}}/><span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>OT logged</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'6px',height:'6px',borderRadius:'50%',background:'#818cf8'}}/><span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>Night</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'6px',height:'6px',borderRadius:'50%',background:'#f59e0b'}}/><span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>PA</span></div>
+                    </div>
+                  </div>
+
+                  <div style={{fontSize:'10px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'4px'}}>Tap a highlighted day to see shift details</div>
+                </>
+              );
+            })()}
+            </>
+            )}
           </div>
         )}
 
@@ -1391,6 +1563,35 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Calendar View — day detail popover */}
+      {selectedCalDay&&(
+        <div onClick={()=>setSelectedCalDay(null)} style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.4)',display:'flex',alignItems:'flex-end',justifyContent:'center',zIndex:40}}>
+          <div onClick={e=>e.stopPropagation()} className="fi" style={{background:'#fff',borderRadius:'20px 20px 0 0',padding:'20px',width:'100%',maxWidth:'430px',maxHeight:'70%',overflowY:'auto'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+              <div style={{fontWeight:900,fontSize:'16px',color:'#0f172a'}}>{new Date(selectedCalDay.ds+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</div>
+              <button onClick={()=>setSelectedCalDay(null)} style={{background:'#f1f5f9',border:'none',borderRadius:'8px',padding:'8px',cursor:'pointer'}}><Ico n="x" s={16} c="#64748b"/></button>
+            </div>
+            {selectedCalDay.dEntries.map(e=>{
+              const c = calcEntry(e);
+              return (
+                <div key={e.id} style={{background:'#f8fafc',borderRadius:'13px',padding:'13px',marginBottom:'8px'}}>
+                  <div style={{fontWeight:900,fontSize:'12px',color:'#3b82f6',marginBottom:'8px',textTransform:'uppercase'}}>Duty / Reason: {e.reason||'Shift'}</div>
+                  {c.h1>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h1}h @ 1.33x <span style={{color:'#94a3b8'}}>(£{c.r.r133.toFixed(2)}/hr)</span></div>}
+                  {c.h2>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h2}h @ 1.5x <span style={{color:'#94a3b8'}}>(£{c.r.r150.toFixed(2)}/hr)</span></div>}
+                  {c.h3>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'3px'}}>{c.h3}h @ 2.0x <span style={{color:'#94a3b8'}}>(£{c.r.r200.toFixed(2)}/hr)</span></div>}
+                  {c.nh>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#6366f1',marginBottom:'3px'}}>{c.nh}h @ +10% <span style={{color:'#94a3b8'}}>(£{(c.r.base*0.10).toFixed(2)}/hr)</span></div>}
+                  {e.paRate!=='None'&&<div style={{fontSize:'12px',fontWeight:700,color:'#b45309',marginBottom:'3px'}}>{e.paRate} allowance</div>}
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',borderTop:'1px solid #e2e8f0',paddingTop:'8px',marginTop:'6px'}}>
+                    <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</div><div style={{fontWeight:900,fontSize:'13px',color:'#1e3a5f'}}>{fmt(c.gross)}</div></div>
+                  </div>
+                  {e.comments&&<div style={{fontSize:'11px',fontStyle:'italic',color:'#0f172a',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px',marginTop:'8px'}}>"{e.comments}"</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* floating save button (Log Shift only, and only once rank/pay point are set) */}
       {tab==='add'&&settings.rank&&settings.service&&(
