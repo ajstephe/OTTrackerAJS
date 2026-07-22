@@ -720,7 +720,26 @@ export default function App() {
 
   const handleWipe=()=>{ setEntries([]); saveSett({rank:'',service:''}); setWipeConf(false); setTab('dashboard'); };
 
-  const jumpTo=month=>{ setExpanded(month); setTimeout(()=>monthRefs.current[month]?.scrollIntoView({behavior:'smooth',block:'start'}),80); };
+  // Scrolls the main container so a month card sits just below the sticky
+  // List/Calendar toggle. Uses container-relative maths rather than
+  // scrollIntoView so the sticky bar doesn't cover the card's header.
+  const STICKY_OFFSET = 58;
+  const scrollToMonth = (month, smooth=true) => {
+    const el = monthRefs.current[month];
+    const cont = mainRef.current;
+    if (!el || !cont) return;
+    const top = cont.scrollTop + el.getBoundingClientRect().top - cont.getBoundingClientRect().top - STICKY_OFFSET;
+    cont.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
+  };
+
+  // Snaps List View to whichever period we're currently in.
+  const snapToActiveMonth = (smooth=true) => {
+    if (currPeriodIdx < 0) return; // today falls outside this financial year
+    const month = PAY_PERIODS[currPeriodIdx].month;
+    setTimeout(()=>scrollToMonth(month, smooth), 60);
+  };
+
+  const jumpTo=month=>{ setExpanded(month); setTimeout(()=>scrollToMonth(month),80); };
 
   // ── display helpers ────────────────────────────────────────────────────────
   const fmt    = n=>`£${n.toFixed(2)}`;
@@ -1054,8 +1073,8 @@ export default function App() {
             {/* List / Calendar view toggle — sticky, floats at top while scrolling */}
             <div style={{position:'sticky',top:0,zIndex:20,background:'#f8fafc',paddingTop:'6px',paddingBottom:'8px',marginTop:'-6px',marginBottom:'6px'}}>
               <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',boxShadow:'0 4px 14px rgba(15,23,42,0.08)'}}>
-                <button onClick={()=>setBreakdownView('list')} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>List View</button>
-                <button onClick={()=>{ setBreakdownView('calendar'); if(calPeriodIdx===null) setCalPeriodIdx(currPeriodIdx); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>Calendar View</button>
+                <button onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>List View</button>
+                <button onClick={()=>{ setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); }} style={{flex:1,padding:'9px',border:'none',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s'}}>Calendar View</button>
               </div>
             </div>
 
@@ -1284,13 +1303,14 @@ export default function App() {
                     <button onClick={()=>setCalPeriodIdx(i=>Math.min(11,(i===null?currPeriodIdx:i)+1))} disabled={cIdx===11} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'9px 14px',cursor:cIdx===11?'default':'pointer',opacity:cIdx===11?0.3:1}}><Ico n="cR" s={18} c="#2563eb"/></button>
                   </div>
 
-                  {/* stats strip — Total Hours and Shifts only */}
+                  {/* stats strip — OT Total Hours and Shifts only */}
                   <div style={{...S.card,display:'flex',justifyContent:'space-around',padding:'16px',background:cIdx===currPeriodIdx?'#eff6ff':'#fff',border:cIdx===currPeriodIdx?'2px solid #2563eb':'1px solid #f1f5f9',boxShadow:cIdx===currPeriodIdx?'0 4px 20px rgba(37,99,235,0.18)':'0 1px 6px rgba(0,0,0,0.05)'}}>
                     <div style={{textAlign:'center'}}>
-                      <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Total Hours</div>
+                      <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>OT Total Hours</div>
                       <div style={{fontSize:'24px',fontWeight:900,color:'#1e3a5f'}}>{cTotalHrs}</div>
                     </div>
-                    <div style={{width:'1px',background:'#f1f5f9'}}/>
+                    {/* separator needs a darker tone on the active month, since #f1f5f9 is invisible against the blue tint */}
+                    <div style={{width:'1px',background:cIdx===currPeriodIdx?'#bfdbfe':'#f1f5f9'}}/>
                     <div style={{textAlign:'center'}}>
                       <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Shifts</div>
                       <div style={{fontSize:'24px',fontWeight:900,color:'#1e3a5f'}}>{cEntries.length}</div>
@@ -1693,7 +1713,7 @@ export default function App() {
           {id:'graph',    n:'bar',  lbl:'Trends'},
           {id:'settings', n:'cog',  lbl:'Settings'},
         ].map(t=>(
-          <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') { setForm({...blankForm,date:todayStr}); } setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
+          <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') { setForm({...blankForm,date:todayStr}); } if(t.id==='months'&&breakdownView==='list') snapToActiveMonth(false); setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
             <Ico n={t.n} s={t.id==='add'?21:18} c={t.id==='add'?'#fff':tab===t.id?'#2563eb':'#94a3b8'} w={tab===t.id||t.id==='add'?2.5:2}/>
             <span style={S.nLbl}>{t.lbl}</span>
           </button>
@@ -1702,3 +1722,4 @@ export default function App() {
     </div>
   );
 }
+
