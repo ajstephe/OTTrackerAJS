@@ -88,18 +88,38 @@ const LONDON_WEIGHTING = { pre:3150, post:3260 }; // pre/post 1 Sep 2026
 const LONDON_ALLOWANCE = 6588;                     // fixed p.a.
 
 // ─── UK income tax bands (2026/27) ────────────────────────────────────────────
-// Used for the whole-year aggregate figure (Home dashboard top card), where a
-// proper progressive stack across bands is correct since that total naturally
-// spans from £0.
-const calcUKIncomeTax = annualGross => {
-  let pa = 12570;
-  if (annualGross > 100000) pa = Math.max(0, 12570 - Math.floor((annualGross - 100000) / 2));
-  const taxable = Math.max(0, annualGross - pa);
+// Thresholds are pro-rated to the pay period, mirroring how cumulative PAYE
+// actually works: by period 6 you've had 6/12 of your personal allowance and
+// 6/12 of each band. Comparing cumulative pay against FULL annual thresholds
+// (the old approach) understated tax badly until the very end of the year.
+const calcUKIncomeTax = (cumGross, periodsElapsed=12) => {
+  const f = Math.max(1, Math.min(12, periodsElapsed)) / 12;
+  // The £100k personal-allowance taper is an annual rule, so judge it on the
+  // annualised run-rate, then pro-rate the resulting allowance.
+  const annualised = cumGross / f;
+  let paAnnual = 12570;
+  if (annualised > 100000) paAnnual = Math.max(0, 12570 - Math.floor((annualised - 100000) / 2));
+  const pa = paAnnual * f;
+  const taxable = Math.max(0, cumGross - pa);
+  const basic = 37700 * f, higher = 74870 * f;
   let tax = 0;
-  if (taxable > 0)      tax += Math.min(taxable, 37700)          * 0.20;
-  if (taxable > 37700)  tax += Math.min(taxable - 37700, 74870)  * 0.40;
-  if (taxable > 112570) tax += (taxable - 112570)                * 0.45;
+  if (taxable > 0)             tax += Math.min(taxable, basic)          * 0.20;
+  if (taxable > basic)         tax += Math.min(taxable - basic, higher) * 0.40;
+  if (taxable > basic + higher) tax += (taxable - basic - higher)       * 0.45;
   return tax;
+};
+
+// ─── National Insurance (Class 1 employee, 2026/27) ───────────────────────────
+// Unlike income tax, NI for ordinary employees is worked out on each pay
+// period in isolation — it doesn't run cumulatively — so it's assessed on
+// that period's gross against per-period thresholds.
+const NI_PT  = 12570 / 12;  // primary threshold, monthly
+const NI_UEL = 50270 / 12;  // upper earnings limit, monthly
+const calcNI = periodGross => {
+  let ni = 0;
+  if (periodGross > NI_PT)  ni += Math.min(periodGross - NI_PT, NI_UEL - NI_PT) * 0.08;
+  if (periodGross > NI_UEL) ni += (periodGross - NI_UEL) * 0.02;
+  return ni;
 };
 
 // Named bands, used to tell the person plainly which bracket their overtime/PA
@@ -110,24 +130,30 @@ const TAX_BANDS = [
   { name:'Higher Rate',        min:50270,  rate:40 },
   { name:'Additional Rate',    min:125140, rate:45 },
 ];
-const getTaxBand = cumulativeGross => {
+const getTaxBand = (cumulativeGross, periodsElapsed=12) => {
+  const f = Math.max(1, Math.min(12, periodsElapsed)) / 12;
   let band = TAX_BANDS[0];
-  for (const b of TAX_BANDS) { if (cumulativeGross >= b.min) band = b; else break; }
+  for (const b of TAX_BANDS) { if (cumulativeGross >= b.min * f) band = b; else break; }
   return band;
 };
 
-// Calculates the actual tax due on a slice of income stacked on top of what's
-// already been earned this FY — correctly split across bands exactly as the
-// UK tax system works (e.g. if this slice crosses from Basic into Higher Rate,
-// only the portion above the threshold is taxed at 40%, not the whole slice).
-// bandName reflects the band this slice finishes in, for a clean label.
-const applyBandTax = (cumulativeBefore, amount) => {
-  if (amount <= 0) return { tax:0, net:0, rate:0, bandName:null };
-  const taxBefore = calcUKIncomeTax(cumulativeBefore);
-  const taxAfter  = calcUKIncomeTax(cumulativeBefore + amount);
-  const tax  = taxAfter - taxBefore;
-  const band = getTaxBand(cumulativeBefore + amount);
-  return { tax, net: amount - tax, rate: (tax / amount) * 100, bandName: band.name };
+// Calculates the actual deductions on a slice of income stacked on top of what's
+// already been earned — split across bands exactly as the UK system works (if a
+// slice crosses from Basic into Higher Rate, only the portion above the
+// threshold is taxed at 40%, not the whole slice).
+//
+// Tax runs cumulatively across the year; NI is assessed on the pay period in
+// isolation. Both are layered the same way so the rate shown reflects what
+// actually comes off this money.
+const applyBandTax = (cumulativeBefore, amount, periodsElapsed=12, periodGrossBefore=null) => {
+  if (amount <= 0) return { tax:0, ni:0, net:0, rate:0, bandName:null };
+  const tax = calcUKIncomeTax(cumulativeBefore + amount, periodsElapsed)
+            - calcUKIncomeTax(cumulativeBefore, periodsElapsed);
+  const pg  = periodGrossBefore==null ? null : periodGrossBefore;
+  const ni  = pg==null ? 0 : (calcNI(pg + amount) - calcNI(pg));
+  const total = tax + ni;
+  const band = getTaxBand(cumulativeBefore + amount, periodsElapsed);
+  return { tax, ni, net: amount - total, rate: (total / amount) * 100, bandName: band.name };
 };
 
 // Splits an amount of income into the portions that fall within each tax band,
@@ -561,7 +587,7 @@ export default function App() {
     // before/after it — i.e. the true marginal rate for that slice of income.
     let cum = 0;
     let totalGross=0, totalHrs=0;
-    const periodBreakdown = PAY_PERIODS.map(p=>{
+    const periodBreakdown = PAY_PERIODS.map((p,pIdx)=>{
       const pE = fyEntries.filter(e=>e.date>=p.start&&e.date<=p.end);
       let ot=0, night=0, pa=0, hrs=0;
       pE.forEach(e=>{
@@ -569,11 +595,14 @@ export default function App() {
         ot+=c.ot; night+=c.night; pa+=c.pa; hrs+=c.h1+c.h2+c.h3;
       });
 
+      const periodNo = pIdx + 1;                  // 1-12, drives threshold pro-rating
       const baseAmt = periodBaseAmount(p, svcData);
       cum += baseAmt;
-      const otResult = applyBandTax(cum, ot);       cum += ot;
-      const nightResult = applyBandTax(cum, night); cum += night;
-      const paResult = applyBandTax(cum, pa);       cum += pa;
+      let pGross = baseAmt;                       // this period's gross so far, for NI
+
+      const otResult    = applyBandTax(cum, ot,    periodNo, pGross); cum += ot;    pGross += ot;
+      const nightResult = applyBandTax(cum, night, periodNo, pGross); cum += night; pGross += night;
+      const paResult    = applyBandTax(cum, pa,    periodNo, pGross); cum += pa;    pGross += pa;
 
       totalGross += ot+night+pa; totalHrs += hrs;
 
@@ -645,16 +674,19 @@ export default function App() {
 
     const combinedGrossYTD = salaryYTD + lwYTD + laYTD + otPaidToDate;
 
-    // Tax on what's actually been earned so far this FY — no projection or
-    // extrapolation. This is deliberate: projecting a single early/large
-    // shift out to "if this continued for 365 days" wildly overstates the
-    // tax band. Using real cumulative money against the real annual
-    // thresholds means the band only moves once you've genuinely earned
-    // past that threshold — exactly like a payslip.
-    const ytdTax         = calcUKIncomeTax(combinedGrossYTD);
-    const combinedNetYTD = combinedGrossYTD - ytdTax;
+    // Deductions on what's actually been earned so far — no projection or
+    // extrapolation. Thresholds are pro-rated to how far through the year we
+    // are, exactly as cumulative PAYE does it, so mid-year figures track a
+    // real payslip rather than only converging at year end.
+    const periodsElapsed = currPeriodIdx >= 0 ? currPeriodIdx + 1 : 12;
+    const ytdTax = calcUKIncomeTax(combinedGrossYTD, periodsElapsed);
+    // NI is assessed per pay period, so sum each completed period rather than
+    // running it against the cumulative total.
+    const ytdNI = periodBreakdown.slice(0, periodsElapsed)
+      .reduce((s,pb)=>s + calcNI(pb.baseAmt + pb.ot + pb.night + pb.pa), 0);
+    const combinedNetYTD = combinedGrossYTD - ytdTax - ytdNI;
 
-    const currentBand   = getTaxBand(combinedGrossYTD);
+    const currentBand   = getTaxBand(combinedGrossYTD, periodsElapsed);
     const taxBand        = currentBand.name;
     const taxBandRate    = currentBand.rate;
 
@@ -680,9 +712,16 @@ export default function App() {
     const night = nh * r.base * 0.10;
     const pa    = PA_RATES[form.paRate]||0;
     const gross = ot + night + pa;
-    const result = applyBandTax(totals.combinedGrossYTD, gross);
+    // Use the pay period this shift falls in, so both the pro-rated tax
+    // thresholds and the period-based NI reflect the right point in the year.
+    const d = form.date||todayStr;
+    const pIdx = PAY_PERIODS.findIndex(p=>d>=p.start&&d<=p.end);
+    const periodNo = pIdx>=0 ? pIdx+1 : (currPeriodIdx>=0?currPeriodIdx+1:12);
+    const pb = pIdx>=0 ? totals.periodBreakdown[pIdx] : null;
+    const periodGrossBefore = pb ? pb.baseAmt + pb.ot + pb.night + pb.pa : 0;
+    const result = applyBandTax(totals.combinedGrossYTD, gross, periodNo, periodGrossBefore);
     return { gross, net:result.net, rate:result.rate, bandName:result.bandName, night, has:gross>0 };
-  },[form, settings, todayStr, totals.combinedGrossYTD]);
+  },[form, settings, todayStr, totals.combinedGrossYTD, totals.periodBreakdown, currPeriodIdx]);
 
   // ── handlers ───────────────────────────────────────────────────────────────
   const handleSave=()=>{
@@ -820,11 +859,15 @@ export default function App() {
     const sorted = [...entries].sort((a,b)=>new Date(a.date)-new Date(b.date));
     const rows = sorted.map(e=>{
       const c = calcEntry(e);
-      // Approximate the applicable band for this single entry using cumulative
-      // earnings up to (and including) it, consistent with the rest of the app.
+      // Use the pay period this entry falls in so the exported figures match
+      // what the app displays (pro-rated tax thresholds + period-based NI).
+      const pIdx = PAY_PERIODS.findIndex(p=>e.date>=p.start&&e.date<=p.end);
+      const periodNo = pIdx>=0 ? pIdx+1 : 12;
+      const pb = pIdx>=0 ? totals.periodBreakdown[pIdx] : null;
       const prior = entries.filter(x=>x.date<e.date || (x.date===e.date && x.id<e.id))
         .reduce((sum,x)=>sum+calcEntry(x).gross,0);
-      const result = applyBandTax(prior, c.gross);
+      const periodGrossBefore = pb ? pb.baseAmt : 0;
+      const result = applyBandTax(prior, c.gross, periodNo, periodGrossBefore);
       return [
         e.date, e.reason||'', c.h1||'', c.h2||'', c.h3||'',
         c.nh||'', e.paRate!=='None'?e.paRate:'',
@@ -1042,7 +1085,7 @@ export default function App() {
                 {settings.rank&&settings.service ? (
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>Current tax band:</span>
-                    <span style={{fontSize:'9px',fontWeight:900,color:'#cbd5e1'}}>{totals.taxBand} · {totals.taxBandRate}%</span>
+                    <span style={{fontSize:'9px',fontWeight:900,color:'#cbd5e1'}}>{totals.taxBand}</span>
                   </div>
                 ) : (
                   <div style={{textAlign:'center',padding:'6px 4px'}}>
@@ -1962,5 +2005,3 @@ export default function App() {
     </div>
   );
 }
-
-
