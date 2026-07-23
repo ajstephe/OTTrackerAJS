@@ -1227,16 +1227,6 @@ export default function App() {
               <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',boxShadow:'0 4px 14px rgba(15,23,42,0.08)'}}>
                 {/* Each half is a div rather than a button so the star can be its own
                     tap target inside it — nesting buttons isn't valid HTML. */}
-                <div onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px 6px',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',gap:'4px',userSelect:'none'}}>
-                  <span style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
-                    <Ico n="list" s={13} c={breakdownView==='list'?'#fff':'#64748b'} w={2.5}/>List View
-                  </span>
-                  <span onClick={e=>{ e.stopPropagation(); setDefaultBreakdownView('list'); dualWrite(KEYS.defaultBreakdownView,'list'); }} className="star-tap" style={{flexShrink:0,display:'flex',alignItems:'center',padding:'4px 5px',cursor:'pointer'}}>
-                    <Ico n="star" s={17} w={1.8}
-                      c={defaultBreakdownView==='list'?'#fbbf24':(breakdownView==='list'?'rgba(255,255,255,0.5)':'#cbd5e1')}
-                      f={defaultBreakdownView==='list'?'#fbbf24':'none'}/>
-                  </span>
-                </div>
                 <div onClick={()=>{ setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'auto'}); }} style={{flex:1,padding:'9px 6px',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',gap:'4px',userSelect:'none'}}>
                   <span style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
                     <Ico n="cal" s={13} c={breakdownView==='calendar'?'#fff':'#64748b'} w={2.5}/>Calendar View
@@ -1245,6 +1235,16 @@ export default function App() {
                     <Ico n="star" s={17} w={1.8}
                       c={defaultBreakdownView==='calendar'?'#fbbf24':(breakdownView==='calendar'?'rgba(255,255,255,0.5)':'#cbd5e1')}
                       f={defaultBreakdownView==='calendar'?'#fbbf24':'none'}/>
+                  </span>
+                </div>
+                <div onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px 6px',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',gap:'4px',userSelect:'none'}}>
+                  <span style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+                    <Ico n="list" s={13} c={breakdownView==='list'?'#fff':'#64748b'} w={2.5}/>List View
+                  </span>
+                  <span onClick={e=>{ e.stopPropagation(); setDefaultBreakdownView('list'); dualWrite(KEYS.defaultBreakdownView,'list'); }} className="star-tap" style={{flexShrink:0,display:'flex',alignItems:'center',padding:'4px 5px',cursor:'pointer'}}>
+                    <Ico n="star" s={17} w={1.8}
+                      c={defaultBreakdownView==='list'?'#fbbf24':(breakdownView==='list'?'rgba(255,255,255,0.5)':'#cbd5e1')}
+                      f={defaultBreakdownView==='list'?'#fbbf24':'none'}/>
                   </span>
                 </div>
               </div>
@@ -1962,4 +1962,5 @@ export default function App() {
     </div>
   );
 }
+
 
