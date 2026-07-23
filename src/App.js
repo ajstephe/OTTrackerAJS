@@ -369,7 +369,7 @@ function BanknoteIcon({ width=34, height=21 }) {
   );
 }
 
-function ToastStack({ toasts }) {
+function ToastStack({ toasts, onDismiss }) {
   return (
     <div style={{position:'absolute',bottom:'80px',left:'50%',transform:'translateX(-50%)',zIndex:999,display:'flex',flexDirection:'column',gap:'7px',width:'calc(100% - 24px)',maxWidth:'390px',pointerEvents:'none'}}>
       {toasts.map(t=>{
@@ -388,6 +388,10 @@ function ToastStack({ toasts }) {
                   {t.title&&<div style={{fontSize:'14px',fontWeight:900,marginBottom:'3px'}}>{t.title}</div>}
                   <div style={{fontSize:'12px',fontWeight:600,color:'#cbd5e1',lineHeight:1.45}}>{t.message}</div>
                 </div>
+                {/* dismiss — purely to get the banner out of the way */}
+                <button onClick={()=>onDismiss&&onDismiss(t.id)} aria-label="Dismiss" style={{background:'rgba(255,255,255,0.1)',border:'none',borderRadius:'8px',padding:'6px',cursor:'pointer',flexShrink:0,display:'flex',alignSelf:'flex-start'}}>
+                  <Ico n="x" s={14} c="#94a3b8"/>
+                </button>
               </div>
               {t.action&&<button onClick={t.action.fn} style={{background:'#ef4444',border:'none',borderRadius:'9px',padding:'10px',color:'#fff',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',textTransform:'uppercase',letterSpacing:'0.5px',width:'100%'}}>{t.action.label}</button>}
             </div>
@@ -521,6 +525,8 @@ export default function App() {
     setToasts(t=>[...t,{id,message:msg,type,action,title}]);
     setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),dur);
   },[]);
+
+  const dismissToast = useCallback(id=>setToasts(t=>t.filter(x=>x.id!==id)),[]);
 
   const saveSett = s=>{ setSettings(s); setSavedBadge(true); setTimeout(()=>setSavedBadge(false),2200); };
 
@@ -944,7 +950,7 @@ export default function App() {
         input[type=date]::-webkit-calendar-picker-indicator{background:transparent;cursor:pointer;opacity:0.55;padding:0;margin:0}
       `}</style>
 
-      <ToastStack toasts={toasts}/>
+      <ToastStack toasts={toasts} onDismiss={dismissToast}/>
 
       {/* ── header ── */}
       <header style={S.hdr}>
@@ -1956,3 +1962,4 @@ export default function App() {
     </div>
   );
 }
+
