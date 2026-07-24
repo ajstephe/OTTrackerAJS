@@ -802,12 +802,14 @@ export default function App() {
   };
 
   // Standard backup filename convention: OTbackup + day + 3-letter month +
-  // 2-digit year + 24hr time. e.g. 21 Sept 2026 at 15:15 -> "OTbackup21Sep261515"
+  // 2-digit year. e.g. 21 Sept 2026 -> "OTbackup21Sep26"
+  // Deliberately date-only: a second backup on the same day replaces the
+  // first, so you keep one current file per day rather than a cluttered folder.
   const backupFileStamp = () => {
     const d = new Date();
     const pad = n => String(n).padStart(2,'0');
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return `${pad(d.getDate())}${months[d.getMonth()]}${String(d.getFullYear()).slice(-2)}${pad(d.getHours())}${pad(d.getMinutes())}`;
+    return `${pad(d.getDate())}${months[d.getMonth()]}${String(d.getFullYear()).slice(-2)}`;
   };
 
   async function handleExport(){
@@ -2005,3 +2007,4 @@ export default function App() {
     </div>
   );
 }
+
