@@ -83,13 +83,6 @@ const PAY_RATES = {
 const PA_RATES   = { None:0, PA1:40, PA2:90, PA3:125 };
 
 // ─── Record Shift Times (optional Notes convenience) ──────────────────────────
-// 15-minute time slots, 24hr clock — built once rather than per-render.
-const TIME_OPTIONS = (()=>{
-  const opts = [];
-  for (let h=0; h<24; h++) for (let m=0; m<60; m+=15) opts.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
-  return opts;
-})();
-
 const toMinutesOfDay = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
 
 // A blank end-time equal to or earlier than start is treated as finishing the
@@ -434,6 +427,36 @@ function BanknoteIcon({ width=34, height=21 }) {
 
       <rect x="9" y="21" width="17" height="0.6" fill="#fecdd3" opacity="0.6"/>
     </svg>
+  );
+}
+
+const TIME_HOURS = Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));
+const TIME_MINUTES = ['00','15','30','45'];
+
+// Two small selects (hour, then minute) rather than one 96-option list —
+// picking "21" then "45" is much faster than scrolling to find "21:45".
+// Combines back into the same "HH:MM" string the rest of the app expects,
+// so nothing downstream needs to know the UI is split.
+function TimeSelect({ value, onChange }) {
+  const [h,m] = value ? value.split(':') : ['',''];
+  const selStyle = {flex:1,background:'#fff',border:'1px solid #dbeafe',padding:'9px 6px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'};
+  return (
+    <div style={{display:'flex',gap:'6px'}}>
+      <select style={selStyle} value={h} onChange={e=>{
+        const newH = e.target.value;
+        onChange(newH ? `${newH}:${m||'00'}` : (m ? `00:${m}` : ''));
+      }}>
+        <option value="">HH</option>
+        {TIME_HOURS.map(t=><option key={t} value={t}>{t}</option>)}
+      </select>
+      <select style={selStyle} value={m} onChange={e=>{
+        const newM = e.target.value;
+        onChange(h ? `${h}:${newM||'00'}` : (newM ? `00:${newM}` : ''));
+      }}>
+        <option value="">MM</option>
+        {TIME_MINUTES.map(t=><option key={t} value={t}>{t}</option>)}
+      </select>
+    </div>
   );
 }
 
@@ -1217,18 +1240,10 @@ export default function App() {
                     </div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px',marginBottom:'5px'}}>
                       <div><label style={{...S.lbl,marginBottom:'5px'}}>Start</label>
-                        <select style={{width:'100%',background:'#fff',border:'1px solid #dbeafe',padding:'9px 8px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'}}
-                          value={form.rosteredStart} onChange={e=>setForm(f=>syncShiftTimesIntoForm({...f,rosteredStart:e.target.value}))}>
-                          <option value="">--:--</option>
-                          {TIME_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
-                        </select>
+                        <TimeSelect value={form.rosteredStart} onChange={v=>setForm(f=>syncShiftTimesIntoForm({...f,rosteredStart:v}))}/>
                       </div>
                       <div><label style={{...S.lbl,marginBottom:'5px'}}>End</label>
-                        <select style={{width:'100%',background:'#fff',border:'1px solid #dbeafe',padding:'9px 8px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'}}
-                          value={form.rosteredEnd} onChange={e=>setForm(f=>syncShiftTimesIntoForm({...f,rosteredEnd:e.target.value}))}>
-                          <option value="">--:--</option>
-                          {TIME_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
-                        </select>
+                        <TimeSelect value={form.rosteredEnd} onChange={v=>setForm(f=>syncShiftTimesIntoForm({...f,rosteredEnd:v}))}/>
                       </div>
                     </div>
                     {form.rosteredStart&&form.rosteredEnd&&toMinutesOfDay(form.rosteredEnd)<=toMinutesOfDay(form.rosteredStart)&&(
@@ -1241,18 +1256,10 @@ export default function App() {
                     </div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
                       <div><label style={{...S.lbl,marginBottom:'5px'}}>Start</label>
-                        <select style={{width:'100%',background:'#fff',border:'1px solid #dbeafe',padding:'9px 8px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'}}
-                          value={form.actualStart} onChange={e=>setForm(f=>syncShiftTimesIntoForm({...f,actualStart:e.target.value}))}>
-                          <option value="">--:--</option>
-                          {TIME_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
-                        </select>
+                        <TimeSelect value={form.actualStart} onChange={v=>setForm(f=>syncShiftTimesIntoForm({...f,actualStart:v}))}/>
                       </div>
                       <div><label style={{...S.lbl,marginBottom:'5px'}}>End</label>
-                        <select style={{width:'100%',background:'#fff',border:'1px solid #dbeafe',padding:'9px 8px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'}}
-                          value={form.actualEnd} onChange={e=>setForm(f=>syncShiftTimesIntoForm({...f,actualEnd:e.target.value}))}>
-                          <option value="">--:--</option>
-                          {TIME_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
-                        </select>
+                        <TimeSelect value={form.actualEnd} onChange={v=>setForm(f=>syncShiftTimesIntoForm({...f,actualEnd:v}))}/>
                       </div>
                     </div>
                     {form.actualStart&&form.actualEnd&&toMinutesOfDay(form.actualEnd)<=toMinutesOfDay(form.actualStart)&&(
