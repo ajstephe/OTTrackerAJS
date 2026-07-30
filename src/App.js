@@ -596,8 +596,8 @@ export default function App() {
       });
 
       const periodNo = pIdx + 1;                  // 1-12, drives threshold pro-rating
-      const baseAmt = periodBaseAmount(p, svcData);
-      cum += baseAmt;
+      const baseAmt = periodBaseAmount(p, svcData); // salary + London Weighting + London Allowance
+      cum += baseAmt;                             // taxed first, so OT stacks on top of it
       let pGross = baseAmt;                       // this period's gross so far, for NI
 
       const otResult    = applyBandTax(cum, ot,    periodNo, pGross); cum += ot;    pGross += ot;
@@ -1061,7 +1061,7 @@ export default function App() {
               </div>
 
               {/* breakdown rows — London Weighting/Allowance shown as YTD / full year */}
-              <div style={{borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:'12px',marginBottom:'14px',display:'flex',flexDirection:'column',gap:'7px'}}>
+              <div style={{borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:'12px',display:'flex',flexDirection:'column',gap:'7px'}}>
                 {[
                   ['Base Salary',      totals.salaryYTD, null],
                   ['London Weighting', settings.rank&&settings.service ? totals.lwYTD : null, totals.lwAnnualTotal],
@@ -1079,21 +1079,6 @@ export default function App() {
                     </span>
                   </div>
                 ))}
-              </div>
-
-              {/* tax band indicator — net/tax figures are deliberately not shown here, since
-                  this calculator doesn't account for pension, student loan or other deductions */}
-              <div style={{background:'rgba(0,0,0,0.25)',borderRadius:'14px',padding:'12px 14px'}}>
-                {settings.rank&&settings.service ? (
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={{fontSize:'9px',fontWeight:700,color:'#64748b'}}>Current tax band:</span>
-                    <span style={{fontSize:'9px',fontWeight:900,color:'#cbd5e1'}}>{totals.taxBand}</span>
-                  </div>
-                ) : (
-                  <div style={{textAlign:'center',padding:'6px 4px'}}>
-                    <div style={{fontSize:'11px',fontWeight:700,color:'#64748b',lineHeight:1.5}}>Set your rank & pay point in Settings to see your current tax band.</div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -2007,4 +1992,5 @@ export default function App() {
     </div>
   );
 }
+
 
