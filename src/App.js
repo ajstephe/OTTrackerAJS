@@ -81,6 +81,48 @@ const PAY_RATES = {
 };
 
 const PA_RATES   = { None:0, PA1:40, PA2:90, PA3:125 };
+
+// ─── Record Shift Times (optional Notes convenience) ──────────────────────────
+// 15-minute time slots, 24hr clock — built once rather than per-render.
+const TIME_OPTIONS = (()=>{
+  const opts = [];
+  for (let h=0; h<24; h++) for (let m=0; m<60; m+=15) opts.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+  return opts;
+})();
+
+const toMinutesOfDay = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+
+// A blank end-time equal to or earlier than start is treated as finishing the
+// following day — matches how the app already handles overnight night-work.
+const fmtShiftRange = (start, end) => {
+  if (!start || !end) return null;
+  const overnight = toMinutesOfDay(end) <= toMinutesOfDay(start);
+  return `${start}–${end}${overnight ? ' (next day)' : ''}`;
+};
+
+const SHIFT_TIMES_MARKER = '⏱ ';
+
+const generateShiftTimesLine = f => {
+  if (!f.recordShiftTimes) return null;
+  const r = fmtShiftRange(f.rosteredStart, f.rosteredEnd);
+  const a = fmtShiftRange(f.actualStart, f.actualEnd);
+  if (!r && !a) return null;
+  const parts = [];
+  if (r) parts.push(`Rostered: ${r}`);
+  if (a) parts.push(`Actual: ${a}`);
+  return SHIFT_TIMES_MARKER + parts.join('  |  ');
+};
+
+// Keeps the auto-generated shift-times line in sync with the top of Notes,
+// without disturbing anything else the person has typed underneath it.
+const syncShiftTimesIntoForm = f => {
+  const lines = (f.comments||'').split('\n');
+  const hasMarker = lines[0] && lines[0].startsWith(SHIFT_TIMES_MARKER);
+  const rest = hasMarker ? lines.slice(1).join('\n').replace(/^\n+/,'') : (f.comments||'');
+  const line = generateShiftTimesLine(f);
+  const comments = line ? (rest ? `${line}\n\n${rest}` : line) : rest;
+  return { ...f, comments };
+};
 const PA_LABELS  = { None:'—', PA1:'£40', PA2:'£90', PA3:'£125' };
 
 // ─── Met Police allowances ────────────────────────────────────────────────────
@@ -467,7 +509,7 @@ export default function App() {
   const stickyRef = useRef(null);
   const entryRefs = useRef({});
 
-  const blankForm = { date:todayStr, reason:'', hours133:'', hours150:'', hours200:'', nightWorkHours:'', nightHours:'', paRate:'None', comments:'' };
+  const blankForm = { date:todayStr, reason:'', hours133:'', hours150:'', hours200:'', nightWorkHours:'', nightHours:'', paRate:'None', comments:'', recordShiftTimes:false, rosteredStart:'', rosteredEnd:'', actualStart:'', actualEnd:'' };
   const [form, setForm] = useState(blankForm);
 
   // ── persist ────────────────────────────────────────────────────────────────
@@ -977,6 +1019,8 @@ export default function App() {
         @keyframes urgentPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}25%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}50%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}75%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}}
         @keyframes backupPulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}30%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}50%{box-shadow:0 0 0 0 rgba(37,99,235,0)}70%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}}
         @keyframes subtlePulse{0%{opacity:0.5}20%{opacity:1}40%{opacity:0.5}60%{opacity:1}80%,100%{opacity:0.5}}
+        @keyframes iconPulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,0.45)}50%{box-shadow:0 0 0 6px rgba(37,99,235,0)}}
+        .icon-pulse{animation:iconPulse 2s ease-in-out infinite}
         @keyframes entryFlash{0%{box-shadow:0 0 0 0 rgba(37,99,235,0.45)}60%{box-shadow:0 0 0 10px rgba(37,99,235,0)}100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}}
         .entry-flash{animation:entryFlash 1.4s ease-out 2}
         .star-tap{transition:transform 0.12s}
@@ -1141,6 +1185,83 @@ export default function App() {
             <div style={S.card}>
               <div style={{marginBottom:'13px'}}><label style={S.lbl}>Date</label><input type="date" style={{...S.inp,display:'block',boxSizing:'border-box',height:'46px'}} value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
               <div style={{marginBottom:'13px'}}><label style={S.lbl}>Duty / Reason</label><input type="text" placeholder="e.g. MPL7XX, PXX" style={S.inp} value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})}/></div>
+
+              {/* Record Shift Times — optional, writes a clean line into Notes.
+                  Purely a record-keeping convenience: it never touches how
+                  overtime hours, rates or pay are calculated. */}
+              <div style={{marginBottom:'13px'}}>
+                <div onClick={()=>{
+                    const on = !form.recordShiftTimes;
+                    setForm(f=>syncShiftTimesIntoForm({...f, recordShiftTimes:on}));
+                  }} style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',background:'#eff6ff',border:'1.5px solid #bfdbfe',borderRadius:'13px',padding:'12px 13px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                    <div className={form.recordShiftTimes?'':'icon-pulse'} style={{background:'#2563eb',borderRadius:'10px',width:'34px',height:'34px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <Ico n="clock" s={17} c="#fff" w={2.4}/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f',marginBottom:'1px'}}>Record Shift Times <span style={{color:'#94a3b8',fontWeight:700}}>(Optional)</span></div>
+                      <div style={{fontSize:'9.5px',fontWeight:600,color:'#3b82f6'}}>Log your rostered vs actual times</div>
+                    </div>
+                  </div>
+                  <div style={{width:'40px',height:'23px',borderRadius:'12px',position:'relative',flexShrink:0,transition:'background 0.2s',background:form.recordShiftTimes?'#2563eb':'#e2e8f0'}}>
+                    <div style={{width:'19px',height:'19px',borderRadius:'50%',background:'#fff',position:'absolute',top:'2px',transition:'left 0.2s',left:form.recordShiftTimes?'19px':'2px',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
+                  </div>
+                </div>
+
+                {form.recordShiftTimes&&(
+                  <div style={{background:'#eff6ff',border:'1.5px solid #bfdbfe',borderTop:'none',borderRadius:'0 0 13px 13px',marginTop:'-13px',padding:'15px 13px 13px'}}>
+                    <div style={{height:'2px'}}/>
+                    <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px'}}>
+                      <div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#94a3b8'}}/>
+                      <div style={{fontWeight:900,fontSize:'11px',color:'#0f172a'}}>Rostered Shift</div>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px',marginBottom:'5px'}}>
+                      <div><label style={{...S.lbl,marginBottom:'5px'}}>Start</label>
+                        <select style={{width:'100%',background:'#fff',border:'1px solid #dbeafe',padding:'9px 8px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'}}
+                          value={form.rosteredStart} onChange={e=>setForm(f=>syncShiftTimesIntoForm({...f,rosteredStart:e.target.value}))}>
+                          <option value="">--:--</option>
+                          {TIME_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div><label style={{...S.lbl,marginBottom:'5px'}}>End</label>
+                        <select style={{width:'100%',background:'#fff',border:'1px solid #dbeafe',padding:'9px 8px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'}}
+                          value={form.rosteredEnd} onChange={e=>setForm(f=>syncShiftTimesIntoForm({...f,rosteredEnd:e.target.value}))}>
+                          <option value="">--:--</option>
+                          {TIME_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    {form.rosteredStart&&form.rosteredEnd&&toMinutesOfDay(form.rosteredEnd)<=toMinutesOfDay(form.rosteredStart)&&(
+                      <div style={{fontSize:'9.5px',fontWeight:700,color:'#2563eb',marginBottom:'12px'}}>↷ Ends the next day</div>
+                    )}
+
+                    <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px',marginTop: form.rosteredStart&&form.rosteredEnd&&toMinutesOfDay(form.rosteredEnd)<=toMinutesOfDay(form.rosteredStart) ? 0 : '12px'}}>
+                      <div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#2563eb'}}/>
+                      <div style={{fontWeight:900,fontSize:'11px',color:'#0f172a'}}>Actual Shift Worked</div>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
+                      <div><label style={{...S.lbl,marginBottom:'5px'}}>Start</label>
+                        <select style={{width:'100%',background:'#fff',border:'1px solid #dbeafe',padding:'9px 8px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'}}
+                          value={form.actualStart} onChange={e=>setForm(f=>syncShiftTimesIntoForm({...f,actualStart:e.target.value}))}>
+                          <option value="">--:--</option>
+                          {TIME_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div><label style={{...S.lbl,marginBottom:'5px'}}>End</label>
+                        <select style={{width:'100%',background:'#fff',border:'1px solid #dbeafe',padding:'9px 8px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'}}
+                          value={form.actualEnd} onChange={e=>setForm(f=>syncShiftTimesIntoForm({...f,actualEnd:e.target.value}))}>
+                          <option value="">--:--</option>
+                          {TIME_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    {form.actualStart&&form.actualEnd&&toMinutesOfDay(form.actualEnd)<=toMinutesOfDay(form.actualStart)&&(
+                      <div style={{fontSize:'9.5px',fontWeight:700,color:'#2563eb',marginTop:'7px'}}>↷ Ends the next day</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div><label style={S.lbl}>Notes</label><textarea rows="4" placeholder="Shift notes or incident details..." style={{...S.ta,lineHeight:1.5}} value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})}/></div>
             </div>
 
@@ -1992,5 +2113,3 @@ export default function App() {
     </div>
   );
 }
-
-
