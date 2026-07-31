@@ -1124,7 +1124,7 @@ export default function App() {
     fr.readAsText(ev.target.files[0]);
   };
 
-  const handleWipe=()=>{ setEntries([]); saveSett({rank:'',service:''}); setWipeConf(false); setTab('dashboard'); };
+  const handleWipe=()=>{ setEntries([]); setToilTaken([]); saveSett({rank:'',service:''}); setWipeConf(false); setTab('dashboard'); };
 
   // Scrolls the main container so a month card sits just below the sticky
   // header. The header's height is measured live (it changes between views,
@@ -2151,15 +2151,19 @@ export default function App() {
                 {toilLedger.rows.length===0 ? (
                   <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',padding:'20px'}}>No TOIL activity yet</div>
                 ) : toilLedger.rows.map(l=>(
-                  <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 4px',borderBottom:'1px solid #f1f5f9'}}>
-                    <div>
+                  <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 4px',borderBottom:'1px solid #f1f5f9',gap:'10px'}}>
+                    <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:'11.5px',fontWeight:700,color:'#334155'}}>{l.note}</div>
-                      <div style={{fontSize:'9.5px',color:'#94a3b8',display:'flex',alignItems:'center',gap:'6px'}}>
-                        {new Date(l.date+'T12:00:00').toLocaleDateString('en-GB')}
-                        {l.type==='taken'&&<span onClick={()=>deleteToilTaken(l.rawId)} style={{color:'#94a3b8',cursor:'pointer'}}>✕ remove</span>}
+                      <div style={{display:'flex',alignItems:'center',gap:'8px',marginTop:'4px'}}>
+                        <span style={{fontSize:'9.5px',color:'#94a3b8'}}>{new Date(l.date+'T12:00:00').toLocaleDateString('en-GB')}</span>
+                        {l.type==='taken'&&(
+                          <button onClick={()=>deleteToilTaken(l.rawId)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:'3px',background:'#fef2f2',border:'1.5px solid #fecaca',borderRadius:'7px',padding:'3px 7px',color:'#dc2626',fontWeight:800,fontSize:'9px',fontFamily:'inherit',cursor:'pointer'}}>
+                            <Ico n="trash" s={10} c="#dc2626"/> Remove
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div style={{textAlign:'right'}}>
+                    <div style={{textAlign:'right',flexShrink:0}}>
                       <div style={{fontSize:'13px',fontWeight:900,color:l.type==='earned'?'#059669':'#dc2626'}}>{l.hours>=0?'+':''}{l.hours.toFixed(2).replace(/\.00$/,'')}h</div>
                       <div style={{fontSize:'9px',color:'#94a3b8'}}>bal: {l.balanceAfter.toFixed(2).replace(/\.00$/,'')}h</div>
                     </div>
@@ -2353,7 +2357,7 @@ export default function App() {
                   {!wipeConf
                     ?<button onClick={()=>setWipeConf(true)} style={{width:'100%',padding:'10px',background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:'10px',color:'#fca5a5',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="trash" s={12} c="#fca5a5"/> Wipe All Data</button>
                     :<div style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'12px',padding:'12px'}}>
-                        <div style={{textAlign:'center',color:'#fca5a5',fontWeight:700,fontSize:'12px',marginBottom:'9px',lineHeight:1.4}}>Are you absolutely sure?<br/><span style={{fontSize:'10px',fontWeight:400,color:'rgba(252,165,165,0.7)'}}>This cannot be undone.</span></div>
+                        <div style={{textAlign:'center',color:'#fca5a5',fontWeight:700,fontSize:'12px',marginBottom:'9px',lineHeight:1.4}}>Are you absolutely sure?<br/><span style={{fontSize:'10px',fontWeight:400,color:'rgba(252,165,165,0.7)'}}>Deletes every logged shift and all TOIL data (balance, ledger, everything). This cannot be undone.</span></div>
                         <div style={{display:'flex',gap:'6px'}}>
                           <button onClick={handleWipe} style={{flex:1,padding:'9px',background:'#dc2626',border:'none',borderRadius:'8px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px'}}>Yes, Delete</button>
                           <button onClick={()=>setWipeConf(false)} style={{flex:1,padding:'9px',background:'rgba(255,255,255,0.1)',border:'none',borderRadius:'8px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px'}}>Cancel</button>
