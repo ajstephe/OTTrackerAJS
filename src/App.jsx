@@ -1007,15 +1007,17 @@ export default function App() {
     addToast('Record deleted','undo',{label:'Undo',fn:()=>setEntries(prev=>[...prev,d])},5000);
   };
 
-  const [toilTakenForm, setToilTakenForm] = useState({date:todayStr, hours:'', note:''});
+  const [toilTakenForm, setToilTakenForm] = useState({date:todayStr, hours:'', minutes:'00', note:''});
   const addToilTaken = () => {
-    const hrs = parseFloat(toilTakenForm.hours)||0;
+    const wholeHours = parseInt(toilTakenForm.hours,10)||0;
+    const mins = parseInt(toilTakenForm.minutes,10)||0;
+    const hrs = wholeHours + mins/60;
     if (!toilTakenForm.date || hrs<=0) { addToast('Enter a date and a positive number of hours','warn'); return; }
     const resultingBalance = toilLedger.balance - hrs;
     setToilTaken(prev=>[...prev, { id:Date.now().toString(), date:toilTakenForm.date, hours:hrs, note:toilTakenForm.note||'' }]);
-    setToilTakenForm({date:todayStr, hours:'', note:''});
+    setToilTakenForm({date:todayStr, hours:'', minutes:'00', note:''});
     if (resultingBalance < 0) {
-      addToast(`Logged — balance is now ${resultingBalance.toFixed(2).replace(/\.00$/,'')}h (more taken than earned)`,'warn');
+      addToast(`Logged — balance is now ${fmtHM(resultingBalance)} h (more taken than earned)`,'warn');
     } else {
       addToast('TOIL taken logged ✓');
     }
@@ -2138,9 +2140,15 @@ export default function App() {
 
                 <div style={{...S.card,background:'#fff',border:'1.5px solid #ede9fe'}}>
                   <div style={{...S.lbl,marginBottom:'8px'}}>Redeem TOIL</div>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 90px',gap:'8px',marginBottom:'8px'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 52px 66px',gap:'8px',marginBottom:'8px'}}>
                     <input type="date" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'13px',boxSizing:'border-box'}} value={toilTakenForm.date} onChange={e=>setToilTakenForm({...toilTakenForm,date:e.target.value})}/>
-                    <input type="number" step="0.25" placeholder="Hours" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'13px',textAlign:'center',boxSizing:'border-box'}} value={toilTakenForm.hours} onChange={e=>setToilTakenForm({...toilTakenForm,hours:e.target.value})}/>
+                    <input type="number" min="0" step="1" placeholder="Hrs" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'13px',textAlign:'center',boxSizing:'border-box'}} value={toilTakenForm.hours} onChange={e=>setToilTakenForm({...toilTakenForm,hours:e.target.value})}/>
+                    <select style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px 4px',fontFamily:'inherit',fontSize:'13px',textAlign:'center',boxSizing:'border-box',background:'#fff'}} value={toilTakenForm.minutes} onChange={e=>setToilTakenForm({...toilTakenForm,minutes:e.target.value})}>
+                      <option value="00">00m</option>
+                      <option value="15">15m</option>
+                      <option value="30">30m</option>
+                      <option value="45">45m</option>
+                    </select>
                   </div>
                   <input type="text" placeholder="Note (optional) — e.g. half day, appointment" style={{width:'100%',boxSizing:'border-box',border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'12px',marginBottom:'8px'}} value={toilTakenForm.note} onChange={e=>setToilTakenForm({...toilTakenForm,note:e.target.value})}/>
                   <button onClick={addToilTaken} style={{width:'100%',background:'#7c3aed',color:'#fff',border:'none',borderRadius:'10px',padding:'11px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit'}}>Redeem TOIL</button>
@@ -2165,7 +2173,7 @@ export default function App() {
                     </div>
                     <div style={{textAlign:'right',flexShrink:0}}>
                       <div style={{fontSize:'13px',fontWeight:900,color:l.type==='earned'?'#059669':'#dc2626'}}>{l.hours>=0?'+':''}{l.hours.toFixed(2).replace(/\.00$/,'')}h</div>
-                      <div style={{fontSize:'9px',color:'#94a3b8'}}>bal: {l.balanceAfter.toFixed(2).replace(/\.00$/,'')}h</div>
+                      <div style={{fontSize:'9px',color:'#94a3b8'}}>bal: {fmtHM(l.balanceAfter)} h</div>
                     </div>
                   </div>
                 ))}
