@@ -846,7 +846,7 @@ export default function App() {
         return {
           id:'earn-'+e.id, date:e.date, type:'earned',
           hours: calcEntry(e).toilBanked,
-          note: `${worked}h OT @ ${RATE_TIER_MULT[e.otRateTier]}x — ${e.reason||'shift'} ${dLabel}`,
+          note: `${fmtHM(worked)}h OT @ ${RATE_TIER_MULT[e.otRateTier]}x — ${e.reason||'shift'} ${dLabel}`,
         };
       });
     const taken = toilTaken.map(t=>({
@@ -1590,8 +1590,8 @@ export default function App() {
                     )}
                     {toilH>0 && (
                       <div style={{marginTop:'12px',background:'#f5f3ff',borderRadius:'10px',padding:'10px 13px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                        <span style={{fontSize:'11px',fontWeight:700,color:'#6d28d9'}}>{toilH.toFixed(2).replace(/\.00$/,'')}h worked @ {RATE_TIER_MULT[tier]}x</span>
-                        <span style={{fontSize:'14px',fontWeight:900,color:'#4c1d95'}}>{(toilH*RATE_TIER_MULT[tier]).toFixed(2).replace(/\.00$/,'')}h banked</span>
+                        <span style={{fontSize:'11px',fontWeight:700,color:'#6d28d9'}}>{fmtHM(toilH)}h worked @ {RATE_TIER_MULT[tier]}x</span>
+                        <span style={{fontSize:'14px',fontWeight:900,color:'#4c1d95'}}>{fmtHM(toilH*RATE_TIER_MULT[tier])}h banked</span>
                       </div>
                     )}
                   </div>
@@ -1684,7 +1684,7 @@ export default function App() {
                 {preview.toilBanked>0&&(
                   <div style={{borderTop:preview.night>0?'none':'1px solid rgba(255,255,255,0.1)',paddingTop:preview.night>0?0:'8px',display:'flex',alignItems:'center',gap:'6px'}}>
                     <Ico n="clock" s={11} c="#c4b5fd"/>
-                    <span style={{fontSize:'10px',fontWeight:700,color:'#c4b5fd'}}>+ {preview.toilBanked.toFixed(2).replace(/\.00$/,'')}h TOIL banked (not included in Gross/Net above)</span>
+                    <span style={{fontSize:'10px',fontWeight:700,color:'#c4b5fd'}}>+ {fmtHM(preview.toilBanked)}h TOIL banked (not included in Gross/Net above)</span>
                   </div>
                 )}
               </div>
@@ -1833,7 +1833,7 @@ export default function App() {
                           {totalToilBanked>0&&(
                             <div style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe'}}>
                               <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
-                              <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{totalToilWorked.toFixed(2).replace(/\.00$/,'')}h worked → {totalToilBanked.toFixed(2).replace(/\.00$/,'')}h banked</div>
+                              <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{fmtHM(totalToilWorked)}h worked → {fmtHM(totalToilBanked)}h banked</div>
                               <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>See TOIL Etc. Tab</div>
                             </div>
                           )}
@@ -1909,8 +1909,8 @@ export default function App() {
                                   )}
                                   {c.toilH>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#6d28d9'}}>{c.toilH}h @ {RATE_TIER_MULT[c.otRateTier]}x <span style={{color:'#a78bfa'}}>(TOIL{c.takeAs==='mix'?' — part of shift':''})</span></span>
-                                      <span style={{fontSize:'12px',fontWeight:900,color:'#4c1d95'}}>{c.toilBanked.toFixed(2).replace(/\.00$/,'')}h banked</span>
+                                      <span style={{fontSize:'11px',fontWeight:700,color:'#6d28d9'}}>{fmtHM(c.toilH)}h @ {RATE_TIER_MULT[c.otRateTier]}x <span style={{color:'#a78bfa'}}>(TOIL{c.takeAs==='mix'?' — part of shift':''})</span></span>
+                                      <span style={{fontSize:'12px',fontWeight:900,color:'#4c1d95'}}>{fmtHM(c.toilBanked)}h banked</span>
                                     </div>
                                   )}
                                   {c.nh>0&&(
@@ -2098,7 +2098,7 @@ export default function App() {
                       {pToilBanked>0&&(
                         <div style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe'}}>
                           <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
-                          <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{pToilWorked.toFixed(2).replace(/\.00$/,'')}h worked → {pToilBanked.toFixed(2).replace(/\.00$/,'')}h banked</div>
+                          <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{fmtHM(pToilWorked)}h worked → {fmtHM(pToilBanked)}h banked</div>
                           <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>See TOIL Etc. Tab</div>
                         </div>
                       )}
@@ -2172,7 +2172,7 @@ export default function App() {
                       </div>
                     </div>
                     <div style={{textAlign:'right',flexShrink:0}}>
-                      <div style={{fontSize:'13px',fontWeight:900,color:l.type==='earned'?'#059669':'#dc2626'}}>{l.hours>=0?'+':''}{l.hours.toFixed(2).replace(/\.00$/,'')}h</div>
+                      <div style={{fontSize:'13px',fontWeight:900,color:l.type==='earned'?'#059669':'#dc2626'}}>{l.hours>=0?'+':''}{fmtHM(l.hours)}h</div>
                       <div style={{fontSize:'9px',color:'#94a3b8'}}>bal: {fmtHM(l.balanceAfter)} h</div>
                     </div>
                   </div>
@@ -2475,8 +2475,8 @@ export default function App() {
                       )}
                       {c.toilH>0&&(
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                          <span style={{fontSize:'11px',fontWeight:700,color:'#6d28d9'}}>{c.toilH}h @ {RATE_TIER_MULT[c.otRateTier]}x <span style={{color:'#a78bfa'}}>(TOIL{c.takeAs==='mix'?' — part of shift':''})</span></span>
-                          <span style={{fontSize:'12px',fontWeight:900,color:'#4c1d95'}}>{c.toilBanked.toFixed(2).replace(/\.00$/,'')}h banked</span>
+                          <span style={{fontSize:'11px',fontWeight:700,color:'#6d28d9'}}>{fmtHM(c.toilH)}h @ {RATE_TIER_MULT[c.otRateTier]}x <span style={{color:'#a78bfa'}}>(TOIL{c.takeAs==='mix'?' — part of shift':''})</span></span>
+                          <span style={{fontSize:'12px',fontWeight:900,color:'#4c1d95'}}>{fmtHM(c.toilBanked)}h banked</span>
                         </div>
                       )}
                       {c.nh>0&&(
