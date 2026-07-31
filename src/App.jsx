@@ -535,7 +535,7 @@ function TimeSelect({ value, onChange }) {
 
 function ToastStack({ toasts, onDismiss }) {
   return (
-    <div style={{position:'absolute',bottom:'80px',left:'50%',transform:'translateX(-50%)',zIndex:999,display:'flex',flexDirection:'column',gap:'7px',width:'calc(100% - 24px)',maxWidth:'390px',pointerEvents:'none'}}>
+    <div style={{position:'absolute',top:'72px',left:'50%',transform:'translateX(-50%)',zIndex:999,display:'flex',flexDirection:'column',gap:'7px',width:'calc(100% - 24px)',maxWidth:'390px',pointerEvents:'none'}}>
       {toasts.map(t=>{
         // 'alert' gets an enlarged layout — charcoal with a red accent bar, a
         // bold title, an explanatory line and a full-width action button.
@@ -564,7 +564,7 @@ function ToastStack({ toasts, onDismiss }) {
         return (
           <div key={t.id} style={{background:t.type==='undo'?'#1e3a5f':t.type==='warn'?'#b45309':'#065f46',color:'#fff',borderRadius:'14px',padding:'11px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',boxShadow:'0 4px 20px rgba(0,0,0,0.22)',animation:'su 0.22s ease',pointerEvents:'all'}}>
             <div style={{display:'flex',alignItems:'center',gap:'9px'}}>
-              <Ico n={t.type==='undo'?'undo':t.type==='warn'?'bell':'check'} s={15} c="#fff"/>
+              {(t.type==='undo'||t.type==='warn')&&<Ico n={t.type==='undo'?'undo':'bell'} s={15} c="#fff"/>}
               <span style={{fontSize:'13px',fontWeight:700}}>{t.message}</span>
             </div>
             {t.action&&<button onClick={t.action.fn} style={{background:'rgba(255,255,255,0.2)',border:'none',borderRadius:'8px',padding:'4px 10px',color:'#fff',fontWeight:900,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',textTransform:'uppercase',letterSpacing:'0.5px',whiteSpace:'nowrap'}}>{t.action.label}</button>}
@@ -590,6 +590,7 @@ export default function App() {
   const [breakdownView, setBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list')); // 'list' | 'calendar'
   const [calPeriodIdx, setCalPeriodIdx] = useState(null); // set to currPeriodIdx on first render
   const [selectedCalDay, setSelectedCalDay] = useState(null);
+  const [confirmCreateDay, setConfirmCreateDay] = useState(null);
   const [focusEntryId, setFocusEntryId] = useState(null);
   const [editing,      setEditing]      = useState(null);
   const [wipeConf,     setWipeConf]     = useState(false);
@@ -899,19 +900,39 @@ export default function App() {
     setForm(f=>({ ...f, nightHours: auto ? String(auto) : '', nightWorkHours: auto ? String(auto) : '' }));
   },[form.actualStart, form.actualEnd, form.nightAuto, form.recordShiftTimes]);
 
+  // Which rate tier TOIL banking applies to — in auto-calc mode this is just
+  // form.otRateTier; in manual mode there's no rate-pill selector, so we look
+  // at which single hours133/150/200 box actually has something in it. If
+  // more than one tier is populated there's no single clear rate, so TOIL
+  // doesn't apply (Take As stays hidden and any TOIL split gets reset).
+  const manualSingleTier = (()=>{
+    const populated = ['hours133','hours150','hours200'].filter(k=>(parseFloat(form[k])||0)>0);
+    return populated.length===1 ? populated[0] : null;
+  })();
+  const effectiveTier = form.recordShiftTimes ? form.otRateTier : manualSingleTier;
+
   // Keep toilHours tracking the Pay/TOIL/Mix choice: 'pay' → 0, 'toil' → the
   // full total, 'mix' → whatever's been split, clamped if the total shrinks
   // (e.g. the overtime hours were edited down after a Mix split was made).
   useEffect(()=>{
-    if (!form.recordShiftTimes || !form.otRateTier) return;
-    const total = parseFloat(form[form.otRateTier])||0;
+    if (!effectiveTier) {
+      if ((form.toilHours && form.toilHours!=='0') || form.takeAs!=='pay') {
+        setForm(f=>({...f, toilHours:'0', takeAs:'pay'}));
+      }
+      return;
+    }
+    // in manual mode, keep otRateTier pointing at whichever tier is actually
+    // populated, so the saved entry and calcEntry agree on which tier TOIL
+    // was taken from
+    if (form.otRateTier !== effectiveTier) { setForm(f=>({...f, otRateTier:effectiveTier})); return; }
+    const total = parseFloat(form[effectiveTier])||0;
     const currentToil = parseFloat(form.toilHours)||0;
     let target = currentToil;
     if (form.takeAs==='pay') target = 0;
     else if (form.takeAs==='toil') target = total;
     else target = Math.min(currentToil, total); // mix — just clamp
     if (target!==currentToil) setForm(f=>({ ...f, toilHours: target ? String(target) : '0' }));
-  },[form.recordShiftTimes, form.otRateTier, form.takeAs, form.hours133, form.hours150, form.hours200, form.toilHours]);
+  },[effectiveTier, form.takeAs, form.hours133, form.hours150, form.hours200, form.toilHours, form.otRateTier]);
 
   // ── live form preview ──────────────────────────────────────────────────────
   // Shows the net for this shift as if logged right now — using the tax band
@@ -976,7 +997,7 @@ export default function App() {
       savedId = Date.now().toString();
       updatedEntries = [...entries,{...cleanForm,id:savedId}];
       setEntries(updatedEntries);
-      addToast('Overtime logged ✓');
+      addToast('Overtime logged');
       // nudge backup every 5 entries
       const count=(dualRead(KEYS.backupCount,0)||0)+1;
       dualWrite(KEYS.backupCount,count);
@@ -1036,7 +1057,7 @@ export default function App() {
     if (resultingBalance < 0) {
       addToast(`Logged — balance is now ${fmtHM(resultingBalance)} h (more taken than earned)`,'warn');
     } else {
-      addToast('TOIL taken logged ✓');
+      addToast('TOIL taken logged');
     }
   };
   const deleteToilTaken = id => {
@@ -1064,7 +1085,7 @@ export default function App() {
     const markSaved = () => {
       dualWrite(KEYS.backupCount,0); dualWrite(KEYS.backedUpAt,now); setLastBackedUp(now);
       dualWrite(KEYS.lastBackupReminder,now); setPulseBackupBtn(false);
-      addToast('Backup saved ✓');
+      addToast('Backup saved');
     };
 
     // Where supported (Chrome/Edge desktop), let the person choose the folder
@@ -1127,7 +1148,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     Object.assign(document.createElement('a'),{href:url,download:`OvertimeShiftTracker_Records_${new Date().toISOString().split('T')[0]}.csv`}).click();
     URL.revokeObjectURL(url);
-    addToast('CSV exported ✓');
+    addToast('CSV exported');
   }
 
   const handleImport=ev=>{
@@ -1362,15 +1383,18 @@ export default function App() {
             {/* ── Pay period dates — simple date reference, full breakdowns live in the Breakdown tab ── */}
             <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'8px',padding:'0 2px'}}>Pay Periods</div>
             <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-              {[totals.curr,totals.next,totals.prev].map((item,i)=>item&&(
-                <div key={i} style={{...S.card,background:i===0?'#eff6ff':'#fff',border:i===0?'1px solid #bfdbfe':'1px solid #f1f5f9',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 17px',marginBottom:0}}>
-                  <span style={{fontSize:'9px',fontWeight:900,color:i===0?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>{i===0?'Current':i===1?'Next':'Previous'} Pay Month</span>
-                  <div style={{textAlign:'right'}}>
-                    <div style={{fontWeight:900,fontSize:'14px',color:'#0f172a'}}>{item.month}</div>
-                    <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
+              {[totals.prev,totals.curr,totals.next].map((item,i)=>{
+                const isCurrent = i===1; // order is Previous, Current, Next
+                return item&&(
+                  <div key={i} style={{...S.card,background:isCurrent?'#eff6ff':'#fff',border:isCurrent?'2px solid #2563eb':'1px solid #f1f5f9',boxShadow:isCurrent?'0 4px 18px rgba(37,99,235,0.2)':'0 1px 6px rgba(0,0,0,0.05)',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 17px',marginBottom:0}}>
+                    <span style={{fontSize:'9px',fontWeight:900,color:isCurrent?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',display:'flex',alignItems:'center',gap:'6px'}}>{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}{isCurrent?'Current':i===0?'Previous':'Next'} Pay Month{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}</span>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontWeight:900,fontSize:'14px',color:'#0f172a'}}>{item.month}</div>
+                      <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1529,68 +1553,66 @@ export default function App() {
                 }
 
                 return (
-                  <div style={{background:'#eff6ff',border:'1.5px solid #dbeafe',borderRadius:'13px',padding:'14px 13px'}}>
-                    <div style={{fontSize:'10px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'13px'}}>Select O/T Rate for this Shift</div>
-                    <div style={{display:'flex',gap:'6px',marginBottom:'14px'}}>
+                  <div style={{background:'#eff6ff',border:'1.5px solid #dbeafe',borderRadius:'13px',padding:'12px 13px'}}>
+                    <div style={{fontSize:'10px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'9px'}}>Select O/T Rate for this Shift</div>
+                    <div style={{display:'flex',gap:'6px',marginBottom:'9px'}}>
                       {['hours133','hours150','hours200'].map((h,i)=>(
                         <button key={h} onClick={()=>setForm(f=>{
                           if (f.otRateTier===h) return f;
                           const val = f.otRateTier ? f[f.otRateTier] : '';
                           return {...f, otRateTier:h, hours133:'', hours150:'', hours200:'', [h]:val};
-                        })} style={{flex:1,padding:'10px 4px',borderRadius:'11px',border:'none',fontFamily:'inherit',fontWeight:900,fontSize:'12px',cursor:'pointer',background:tier===h?'#2563eb':'#fff',color:tier===h?'#fff':'#3b82f6',boxShadow:tier===h?'0 4px 11px rgba(37,99,235,0.35)':'none'}}>{[1.33,1.5,2.0][i]}x</button>
+                        })} style={{flex:1,padding:'8px 4px',borderRadius:'10px',border:'none',fontFamily:'inherit',fontWeight:900,fontSize:'12px',cursor:'pointer',background:tier===h?'#2563eb':'#fff',color:tier===h?'#fff':'#3b82f6',boxShadow:tier===h?'0 4px 11px rgba(37,99,235,0.35)':'none'}}>{[1.33,1.5,2.0][i]}x</button>
                       ))}
                     </div>
-                    <div style={{background:'#fff',borderRadius:'12px',padding:'12px',textAlign:'center'}}>
-                      <label style={{...S.lbl,marginBottom:'6px',display:'block'}}>Overtime Hours</label>
-                      <input type="number" step="0.25" style={{width:'100%',boxSizing:'border-box',textAlign:'center',fontWeight:900,fontSize:'19px',border:'none',background:'transparent',fontFamily:'inherit',color:'#0f172a'}}
+                    <div style={{background:'#fff',borderRadius:'10px',padding:'9px',textAlign:'center'}}>
+                      <label style={{...S.lbl,marginBottom:'4px',display:'block'}}>Overtime Hours</label>
+                      <input type="number" step="0.25" style={{width:'100%',boxSizing:'border-box',textAlign:'center',fontWeight:900,fontSize:'17px',border:'none',background:'transparent',fontFamily:'inherit',color:'#0f172a'}}
                         value={form[tier]}
                         onChange={e=>setForm({...form, otAuto:false, [tier]:e.target.value})}/>
                       {form.otAuto
-                        ? <span style={{display:'inline-block',fontSize:'8.5px',fontWeight:800,padding:'2px 7px',borderRadius:'6px',marginTop:'5px',background:'#dcfce7',color:'#166534'}}>auto-calculated</span>
-                        : <span onClick={()=>setForm({...form, otAuto:true})} style={{display:'inline-block',fontSize:'8.5px',fontWeight:800,padding:'2px 7px',borderRadius:'6px',marginTop:'5px',background:'#fef3c7',color:'#92400e',cursor:'pointer'}}>edited — tap to reset</span>}
+                        ? <span style={{display:'inline-block',fontSize:'8px',fontWeight:800,padding:'2px 6px',borderRadius:'6px',marginTop:'4px',background:'#dcfce7',color:'#166534'}}>auto-calculated</span>
+                        : <span onClick={()=>setForm({...form, otAuto:true})} style={{display:'inline-block',fontSize:'8px',fontWeight:800,padding:'2px 6px',borderRadius:'6px',marginTop:'4px',background:'#fef3c7',color:'#92400e',cursor:'pointer'}}>edited — tap to reset</span>}
                     </div>
-                    <div style={{fontSize:'9px',color:'#64748b',textAlign:'center',marginTop:'8px',lineHeight:1.5}}>{basisText}</div>
+                    <div style={{fontSize:'9px',color:'#64748b',textAlign:'center',marginTop:'6px',lineHeight:1.4}}>{basisText}</div>
                   </div>
                 );
               })()}
 
-              {/* Take As — Pay / TOIL / Mix — only offered when using auto-calculated
-                  shift times, since TOIL banking needs a single clear rate for the shift */}
-              {form.recordShiftTimes && form.otRateTier && (parseFloat(form[form.otRateTier])||0) > 0 && (()=>{
-                const tier = form.otRateTier;
+              {/* Take As — Pay / TOIL / Mix — shown whenever there's a single clear
+                  rate to bank TOIL against, whether that's from auto-calc
+                  (form.otRateTier) or manual entry (exactly one tier box filled in) */}
+              {effectiveTier && (parseFloat(form[effectiveTier])||0) > 0 && (()=>{
+                const tier = effectiveTier;
                 const total = parseFloat(form[tier])||0;
                 const toilH = Math.min(total, parseFloat(form.toilHours)||0);
                 const payH = Math.max(0, total-toilH);
                 return (
-                  <div style={{background:'#fff',border:'1.5px solid #e2e8f0',borderRadius:'13px',padding:'14px 13px',marginTop:'13px'}}>
-                    <div style={{fontSize:'10px',fontWeight:900,color:'#334155',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'13px'}}>Take Overtime As</div>
-                    <div style={{display:'flex',gap:'6px',background:'#f1f5f9',borderRadius:'11px',padding:'3px'}}>
+                  <div style={{background:'#6d28d9',border:'none',borderRadius:'13px',padding:'14px 13px',marginTop:'13px'}}>
+                    <div style={{fontSize:'10px',fontWeight:900,color:'#fff',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'13px'}}>Take Overtime As</div>
+                    <div style={{display:'flex',gap:'6px',background:'rgba(0,0,0,0.18)',borderRadius:'11px',padding:'3px'}}>
                       {[['pay','Pay','#1e40af'],['toil','TOIL','#6d28d9'],['mix','Mix','#334155']].map(([m,lbl,col])=>(
                         <button key={m} onClick={()=>setForm(f=>{
                           const t = parseFloat(f[tier])||0;
                           const th = m==='pay' ? 0 : m==='toil' ? t : (parseFloat(f.toilHours)||0);
                           return {...f, takeAs:m, toilHours: th?String(th):'0'};
-                        })} style={{flex:1,border:'none',background:form.takeAs===m?'#fff':'transparent',padding:'8px 4px',borderRadius:'9px',fontFamily:'inherit',fontWeight:800,fontSize:'11px',color:col,cursor:'pointer',boxShadow:form.takeAs===m?'0 2px 6px rgba(0,0,0,0.12)':'none'}}>{lbl}</button>
+                        })} style={{flex:1,border:'none',background:form.takeAs===m?'#fff':'transparent',padding:'8px 4px',borderRadius:'9px',fontFamily:'inherit',fontWeight:800,fontSize:'11px',color:form.takeAs===m?col:'rgba(255,255,255,0.8)',cursor:'pointer',boxShadow:form.takeAs===m?'0 2px 6px rgba(0,0,0,0.25)':'none'}}>{lbl}</button>
                       ))}
                     </div>
                     {form.takeAs==='mix' && (
-                      <>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginTop:'12px'}}>
-                          <div style={{background:'#eff6ff',borderRadius:'12px',padding:'10px',textAlign:'center'}}>
-                            <div style={{fontSize:'9px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:'6px'}}>Pay Hours</div>
-                            <input type="number" step="0.25" style={{width:'100%',boxSizing:'border-box',textAlign:'center',fontWeight:900,fontSize:'17px',border:'none',background:'#fff',borderRadius:'8px',padding:'7px',fontFamily:'inherit',color:'#0f172a'}}
-                              value={payH.toFixed(2).replace(/\.00$/,'')}
-                              onChange={e=>{ let v=parseFloat(e.target.value); if(isNaN(v))v=0; v=Math.max(0,Math.min(total,v)); setForm({...form, toilHours:String(total-v)}); }}/>
-                          </div>
-                          <div style={{background:'#f5f3ff',borderRadius:'12px',padding:'10px',textAlign:'center'}}>
-                            <div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:'6px'}}>TOIL Hours</div>
-                            <input type="number" step="0.25" style={{width:'100%',boxSizing:'border-box',textAlign:'center',fontWeight:900,fontSize:'17px',border:'none',background:'#fff',borderRadius:'8px',padding:'7px',fontFamily:'inherit',color:'#0f172a'}}
-                              value={toilH.toFixed(2).replace(/\.00$/,'')}
-                              onChange={e=>{ let v=parseFloat(e.target.value); if(isNaN(v))v=0; v=Math.max(0,Math.min(total,v)); setForm({...form, toilHours:String(v)}); }}/>
-                          </div>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginTop:'12px'}}>
+                        <div style={{background:'#eff6ff',borderRadius:'12px',padding:'10px',textAlign:'center'}}>
+                          <div style={{fontSize:'9px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:'6px'}}>Pay Hours</div>
+                          <input type="number" step="0.25" style={{width:'100%',boxSizing:'border-box',textAlign:'center',fontWeight:900,fontSize:'17px',border:'none',background:'#fff',borderRadius:'8px',padding:'7px',fontFamily:'inherit',color:'#0f172a'}}
+                            value={payH.toFixed(2).replace(/\.00$/,'')}
+                            onChange={e=>{ let v=parseFloat(e.target.value); if(isNaN(v))v=0; v=Math.max(0,Math.min(total,v)); setForm({...form, toilHours:String(total-v)}); }}/>
                         </div>
-                        <div style={{fontSize:'9px',color:'#94a3b8',textAlign:'center',marginTop:'8px'}}>Editing one adjusts the other — together they always equal your {total.toFixed(2).replace(/\.00$/,'')}h overtime.</div>
-                      </>
+                        <div style={{background:'#f5f3ff',borderRadius:'12px',padding:'10px',textAlign:'center'}}>
+                          <div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:'6px'}}>TOIL Hours</div>
+                          <input type="number" step="0.25" style={{width:'100%',boxSizing:'border-box',textAlign:'center',fontWeight:900,fontSize:'17px',border:'none',background:'#fff',borderRadius:'8px',padding:'7px',fontFamily:'inherit',color:'#0f172a'}}
+                            value={toilH.toFixed(2).replace(/\.00$/,'')}
+                            onChange={e=>{ let v=parseFloat(e.target.value); if(isNaN(v))v=0; v=Math.max(0,Math.min(total,v)); setForm({...form, toilHours:String(v)}); }}/>
+                        </div>
+                      </div>
                     )}
                     {toilH>0 && (
                       <div style={{marginTop:'12px',background:'#f5f3ff',borderRadius:'10px',padding:'10px 13px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -1624,39 +1646,38 @@ export default function App() {
               const nightHrs  = parseFloat(form.nightHours)||0;
               const auto = form.recordShiftTimes;
               return (
-                <div style={{background:'#0f172a',borderRadius:'16px',padding:'16px',marginBottom:'10px',border:'1px solid #1e293b'}}>
+                <div style={{background:'#0f172a',borderRadius:'13px',padding:'13px',marginBottom:'10px',border:'1px solid #1e293b'}}>
                   {/* header */}
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:'7px'}}>
-                      <Ico n="moon" s={14} c="#818cf8"/>
+                      <Ico n="moon" s={13} c="#818cf8"/>
                       <div style={{fontSize:'10px',fontWeight:900,color:'#c7d2fe',textTransform:'uppercase',letterSpacing:'1px'}}>Night Work (2000–0600)</div>
                     </div>
                     <div style={{fontSize:'9px',fontWeight:700,color:'#6366f1',background:'rgba(99,102,241,0.15)',padding:'3px 8px',borderRadius:'8px'}}>+10% / hr</div>
                   </div>
-                  <div style={{fontSize:'9px',fontWeight:600,color:'#818cf8',textAlign:'center',marginBottom:'13px'}}>{auto ? 'Paid for any hour worked 2000–0600 across your whole actual shift — rostered or overtime, doesn\u2019t matter' : 'Record hours worked between 8pm and 6am only'}</div>
 
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
-                    <div style={{background:'rgba(99,102,241,0.12)',borderRadius:'12px',padding:'12px',textAlign:'center'}}>
-                      <div style={{fontSize:'9px',fontWeight:900,color:'#818cf8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>Hours worked</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
+                    <div style={{background:'rgba(99,102,241,0.12)',borderRadius:'10px',padding:'9px',textAlign:'center'}}>
+                      <div style={{fontSize:'8.5px',fontWeight:900,color:'#818cf8',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'5px'}}>Hours worked</div>
                       <input
                         type="number" step="1" min="0" placeholder="0"
-                        style={{width:'100%',boxSizing:'border-box',textAlign:'center',fontWeight:900,background:'#1e293b',fontSize:'20px',padding:'8px',color:'#e0e7ff',borderRadius:'10px',border:'none',outline:'none',fontFamily:'inherit'}}
+                        style={{width:'100%',boxSizing:'border-box',textAlign:'center',fontWeight:900,background:'#1e293b',fontSize:'16px',padding:'6px',color:'#e0e7ff',borderRadius:'9px',border:'none',outline:'none',fontFamily:'inherit'}}
                         value={form.nightHours}
                         onChange={e=>{ const v=e.target.value; setForm({...form, nightAuto:false, nightWorkHours:v, nightHours:v}); }}
                       />
                       {auto&&(form.nightAuto
-                        ? <div style={{fontSize:'8.5px',fontWeight:800,padding:'2px 7px',borderRadius:'6px',marginTop:'6px',background:'rgba(34,197,94,0.18)',color:'#4ade80',display:'inline-block'}}>auto-calculated</div>
-                        : <div onClick={()=>setForm({...form, nightAuto:true})} style={{fontSize:'8.5px',fontWeight:800,padding:'2px 7px',borderRadius:'6px',marginTop:'6px',background:'rgba(251,191,36,0.18)',color:'#fbbf24',display:'inline-block',cursor:'pointer'}}>edited — tap to reset</div>
+                        ? <div style={{fontSize:'8px',fontWeight:800,padding:'2px 6px',borderRadius:'6px',marginTop:'5px',background:'rgba(34,197,94,0.18)',color:'#4ade80',display:'inline-block'}}>auto-calculated</div>
+                        : <div onClick={()=>setForm({...form, nightAuto:true})} style={{fontSize:'8px',fontWeight:800,padding:'2px 6px',borderRadius:'6px',marginTop:'5px',background:'rgba(251,191,36,0.18)',color:'#fbbf24',display:'inline-block',cursor:'pointer'}}>edited — tap to reset</div>
                       )}
                     </div>
-                    <div style={{background:'rgba(99,102,241,0.12)',borderRadius:'12px',padding:'12px',textAlign:'center'}}>
-                      <div style={{fontSize:'9px',fontWeight:900,color:'#818cf8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>Enhancement rate</div>
-                      <div style={{background:'#1e293b',borderRadius:'10px',padding:'8px',fontSize:'20px',fontWeight:900,color:'#e0e7ff'}}>£{nightRate.toFixed(2)}<span style={{fontSize:'11px',fontWeight:700,color:'#6366f1'}}>/hr</span></div>
+                    <div style={{background:'rgba(99,102,241,0.12)',borderRadius:'10px',padding:'9px',textAlign:'center'}}>
+                      <div style={{fontSize:'8.5px',fontWeight:900,color:'#818cf8',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'5px'}}>Enhancement rate</div>
+                      <div style={{background:'#1e293b',borderRadius:'9px',padding:'6px',fontSize:'16px',fontWeight:900,color:'#e0e7ff'}}>£{nightRate.toFixed(2)}<span style={{fontSize:'10px',fontWeight:700,color:'#6366f1'}}>/hr</span></div>
                     </div>
                   </div>
 
                   {nightHrs>0&&(
-                    <div style={{marginTop:'10px',background:'rgba(99,102,241,0.12)',borderRadius:'10px',padding:'10px 13px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{marginTop:'9px',background:'rgba(99,102,241,0.12)',borderRadius:'10px',padding:'9px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                       <span style={{fontSize:'11px',fontWeight:700,color:'#a5b4fc'}}>{nightHrs} hrs × £{nightRate.toFixed(2)}</span>
                       <span style={{fontSize:'14px',fontWeight:900,color:'#c7d2fe'}}>£{(nightHrs*nightRate).toFixed(2)}</span>
                     </div>
@@ -1835,7 +1856,7 @@ export default function App() {
                             <div style={{fontSize:'10px',fontWeight:700,color:'#6366f1'}}>{totalNight}h @ +10%</div>
                           </div>
                           {totalToilBanked>0&&(
-                            <div style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe'}}>
+                            <div onClick={()=>{setTab('graph');setTrendsView('toil');}} style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe',cursor:'pointer'}}>
                               <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
                               <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{fmtHM(totalToilWorked)}h worked → {fmtHM(totalToilBanked)}h banked</div>
                               <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>See TOIL Etc. Tab</div>
@@ -2032,12 +2053,15 @@ export default function App() {
                             const info = dayInfo(date);
                             const isToday = info.ds===todayStr;
                             return (
-                              <button key={di} onClick={()=>info.hasOT&&setSelectedCalDay(info)}
+                              <button key={di} onClick={()=>{
+                                  if (info.hasOT) { setSelectedCalDay(info); }
+                                  else { setConfirmCreateDay(info.ds); }
+                                }}
                                 style={{
                                   aspectRatio:'1', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
                                   borderRadius:'10px', border: isToday?'2px solid #2563eb':info.hasOT?'1px solid #bfdbfe':'1px solid transparent',
                                   background: info.hasOT ? '#eff6ff' : 'transparent',
-                                  cursor: info.hasOT?'pointer':'default', padding:'1px', fontFamily:'inherit',
+                                  cursor:'pointer', padding:'1px', fontFamily:'inherit',
                                   minWidth:0, width:'100%', overflow:'hidden', boxSizing:'border-box',
                                 }}>
                                 <span style={{fontSize:'13px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1',lineHeight:1}}>{date.getDate()}</span>
@@ -2100,7 +2124,7 @@ export default function App() {
                         <div style={{fontSize:'10px',fontWeight:700,color:'#6366f1'}}>{pNight}h @ +10%</div>
                       </div>
                       {pToilBanked>0&&(
-                        <div style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe'}}>
+                        <div onClick={()=>{setTab('graph');setTrendsView('toil');}} style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe',cursor:'pointer'}}>
                           <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
                           <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{fmtHM(pToilWorked)}h worked → {fmtHM(pToilBanked)}h banked</div>
                           <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>See TOIL Etc. Tab</div>
@@ -2159,7 +2183,7 @@ export default function App() {
                 </div>
 
                 <div style={{...S.lbl,margin:'14px 0 8px'}}>Ledger</div>
-                <div style={{fontSize:'9.5px',fontWeight:600,color:'#94a3b8',lineHeight:1.5,marginBottom:'10px'}}>Green lines post automatically whenever you log a shift as TOIL or Mix — nothing to type. Red lines are what you log above when you actually take the time off.</div>
+                <div style={{fontSize:'9.5px',fontWeight:600,color:'#94a3b8',lineHeight:1.5,marginBottom:'10px'}}>Green entries post automatically whenever you log a shift as TOIL or Mix. Red entries result when you redeem TOIL in the box above.</div>
                 {toilLedger.rows.length===0 ? (
                   <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',padding:'20px'}}>No TOIL activity yet</div>
                 ) : toilLedger.rows.map(l=>(
@@ -2406,6 +2430,21 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Calendar View — empty-day tap confirmation, so a stray tap doesn't
+          silently drop you into Log Overtime */}
+      {confirmCreateDay&&(
+        <div onClick={()=>setConfirmCreateDay(null)} style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.4)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:41,padding:'20px'}}>
+          <div onClick={e=>e.stopPropagation()} className="fi" style={{background:'#fff',borderRadius:'18px',padding:'22px',width:'100%',maxWidth:'320px',textAlign:'center'}}>
+            <div style={{fontWeight:900,fontSize:'15px',color:'#0f172a',marginBottom:'6px'}}>Create an entry for this day?</div>
+            <div style={{fontSize:'12px',fontWeight:600,color:'#64748b',marginBottom:'18px'}}>{new Date(confirmCreateDay+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</div>
+            <div style={{display:'flex',gap:'8px'}}>
+              <button onClick={()=>setConfirmCreateDay(null)} style={{flex:1,padding:'11px',background:'#f1f5f9',border:'none',borderRadius:'10px',fontWeight:900,fontSize:'12px',color:'#64748b',cursor:'pointer',fontFamily:'inherit'}}>No</button>
+              <button onClick={()=>{ setForm({...blankForm,date:confirmCreateDay}); setEditing(null); setTab('add'); setConfirmCreateDay(null); }} style={{flex:1,padding:'11px',background:'#2563eb',border:'none',borderRadius:'10px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit'}}>Yes</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Calendar View — day detail popover */}
       {selectedCalDay&&(
