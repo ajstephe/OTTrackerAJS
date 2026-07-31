@@ -164,6 +164,23 @@ const calcAutoNightHours = f => {
 // used to convert TOIL hours (worked) into TOIL hours (banked).
 const RATE_TIER_MULT = { hours133:1.33, hours150:1.5, hours200:2.0 };
 
+// ── display helpers — module scope, not inside the component, so they're
+// never at risk of being referenced before their own declaration executes
+// (e.g. from inside a useMemo defined earlier in the component body) ────────
+const fmt    = n=>`£${n.toFixed(2)}`;
+// Decimal hours → "HH.MM" where MM is minutes (0-59), not a decimal fraction —
+// e.g. 21.5 (21h 30m) → "21.30", not "21.50".
+const fmtHM  = n=>{
+  const sign = n<0 ? '-' : '';
+  const abs = Math.abs(n);
+  let h = Math.floor(abs);
+  let m = Math.round((abs-h)*60);
+  if (m===60) { h+=1; m=0; }
+  return `${sign}${h}.${String(m).padStart(2,'0')}`;
+};
+const fmtGBP = n=>`£${n.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmtD   = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+
 // Keeps the auto-generated shift-times line in sync with the top of Notes,
 // without disturbing anything else the person has typed underneath it.
 const syncShiftTimesIntoForm = f => {
@@ -1163,19 +1180,6 @@ export default function App() {
   },[focusEntryId, tab, breakdownView]);
 
   // ── display helpers ────────────────────────────────────────────────────────
-  const fmt    = n=>`£${n.toFixed(2)}`;
-  // Decimal hours → "HH.MM" where MM is minutes (0-59), not a decimal fraction —
-  // e.g. 21.5 (21h 30m) → "21.30", not "21.50".
-  const fmtHM  = n=>{
-    const sign = n<0 ? '-' : '';
-    const abs = Math.abs(n);
-    let h = Math.floor(abs);
-    let m = Math.round((abs-h)*60);
-    if (m===60) { h+=1; m=0; }
-    return `${sign}${h}.${String(m).padStart(2,'0')}`;
-  };
-  const fmtGBP = n=>`£${n.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-  const fmtD   = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
   const fmtBackedUp=ts=>{
     if(!ts) return null;
     const diff=Math.floor((Date.now()-ts)/1000);
