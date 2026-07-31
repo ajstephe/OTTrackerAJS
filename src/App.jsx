@@ -1995,14 +1995,14 @@ export default function App() {
                   </div>
 
                   {/* stats strip — OT Total Hours and Shifts only */}
-                  <div style={{...S.card,display:'flex',justifyContent:'space-around',padding:'16px',background:cIdx===currPeriodIdx?'#eff6ff':'#fff',border:cIdx===currPeriodIdx?'2px solid #2563eb':'1px solid #f1f5f9',boxShadow:cIdx===currPeriodIdx?'0 4px 20px rgba(37,99,235,0.18)':'0 1px 6px rgba(0,0,0,0.05)'}}>
-                    <div style={{textAlign:'center'}}>
+                  <div style={{...S.card,display:'flex',padding:'16px',background:cIdx===currPeriodIdx?'#eff6ff':'#fff',border:cIdx===currPeriodIdx?'2px solid #2563eb':'1px solid #f1f5f9',boxShadow:cIdx===currPeriodIdx?'0 4px 20px rgba(37,99,235,0.18)':'0 1px 6px rgba(0,0,0,0.05)'}}>
+                    <div style={{flex:1,textAlign:'center'}}>
                       <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>OT Total Hours</div>
                       <div style={{fontSize:'24px',fontWeight:900,color:'#1e3a5f'}}>{cTotalHrs}</div>
                     </div>
                     {/* separator needs a darker tone on the active month, since #f1f5f9 is invisible against the blue tint */}
                     <div style={{width:'1px',background:cIdx===currPeriodIdx?'#bfdbfe':'#f1f5f9'}}/>
-                    <div style={{textAlign:'center'}}>
+                    <div style={{flex:1,textAlign:'center'}}>
                       <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Shifts</div>
                       <div style={{fontSize:'24px',fontWeight:900,color:'#1e3a5f'}}>{cEntries.length}</div>
                     </div>
