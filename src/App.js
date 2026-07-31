@@ -113,7 +113,10 @@ const syncShiftTimesIntoForm = f => {
   const hasMarker = lines[0] && lines[0].startsWith(SHIFT_TIMES_MARKER);
   const rest = hasMarker ? lines.slice(1).join('\n').replace(/^\n+/,'') : (f.comments||'');
   const line = generateShiftTimesLine(f);
-  const comments = line ? (rest ? `${line}\n\n${rest}` : line) : rest;
+  // Always a blank line after the generated line, even with nothing typed yet
+  // below it — that blank line is where the cursor gets placed once the
+  // actual shift end time is set.
+  const comments = line ? `${line}\n\n${rest}` : rest;
   return { ...f, comments };
 };
 const PA_LABELS  = { None:'—', PA1:'£40', PA2:'£90', PA3:'£125' };
@@ -441,7 +444,7 @@ function TimeSelect({ value, onChange }) {
   const [h,m] = value ? value.split(':') : ['',''];
   const selStyle = {flex:1,background:'#fff',border:'1px solid #dbeafe',padding:'9px 6px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'};
   return (
-    <div style={{display:'flex',gap:'6px'}}>
+    <div style={{display:'flex',alignItems:'center',gap:'5px'}}>
       <select style={selStyle} value={h} onChange={e=>{
         const newH = e.target.value;
         onChange(newH ? `${newH}:${m||'00'}` : (m ? `00:${m}` : ''));
@@ -449,6 +452,7 @@ function TimeSelect({ value, onChange }) {
         <option value="">HH</option>
         {TIME_HOURS.map(t=><option key={t} value={t}>{t}</option>)}
       </select>
+      <span style={{fontWeight:900,fontSize:'15px',color:'#94a3b8',flexShrink:0}}>:</span>
       <select style={selStyle} value={m} onChange={e=>{
         const newM = e.target.value;
         onChange(h ? `${h}:${newM||'00'}` : (newM ? `00:${newM}` : ''));
@@ -531,6 +535,7 @@ export default function App() {
   const monthRefs = useRef({});
   const stickyRef = useRef(null);
   const entryRefs = useRef({});
+  const notesRef = useRef(null);
 
   const blankForm = { date:todayStr, reason:'', hours133:'', hours150:'', hours200:'', nightWorkHours:'', nightHours:'', paRate:'None', comments:'', recordShiftTimes:false, rosteredStart:'', rosteredEnd:'', actualStart:'', actualEnd:'' };
   const [form, setForm] = useState(blankForm);
@@ -808,15 +813,18 @@ export default function App() {
     }
 
     const targetDate = form.date;
+    // Trim trailing whitespace so the blank line left for the cursor after
+    // Record Shift Times doesn't get saved if the person never typed into it.
+    const cleanForm = { ...form, comments: (form.comments||'').replace(/\s+$/,'') };
     let savedId, updatedEntries;
     if(editing){
       savedId = editing.id;
-      updatedEntries = entries.map(e=>e.id===editing.id?{...form,id:e.id}:e);
+      updatedEntries = entries.map(e=>e.id===editing.id?{...cleanForm,id:e.id}:e);
       setEntries(updatedEntries);
       addToast('Record updated');
     } else {
       savedId = Date.now().toString();
-      updatedEntries = [...entries,{...form,id:savedId}];
+      updatedEntries = [...entries,{...cleanForm,id:savedId}];
       setEntries(updatedEntries);
       addToast('Overtime logged ✓');
       // nudge backup every 5 entries
@@ -1238,7 +1246,7 @@ export default function App() {
                       <div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#94a3b8'}}/>
                       <div style={{fontWeight:900,fontSize:'11px',color:'#0f172a'}}>Rostered Shift</div>
                     </div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px',marginBottom:'5px'}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'18px',marginBottom:'5px'}}>
                       <div><label style={{...S.lbl,marginBottom:'5px'}}>Start</label>
                         <TimeSelect value={form.rosteredStart} onChange={v=>setForm(f=>syncShiftTimesIntoForm({...f,rosteredStart:v}))}/>
                       </div>
@@ -1254,12 +1262,27 @@ export default function App() {
                       <div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#2563eb'}}/>
                       <div style={{fontWeight:900,fontSize:'11px',color:'#0f172a'}}>Actual Shift Worked</div>
                     </div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'18px'}}>
                       <div><label style={{...S.lbl,marginBottom:'5px'}}>Start</label>
                         <TimeSelect value={form.actualStart} onChange={v=>setForm(f=>syncShiftTimesIntoForm({...f,actualStart:v}))}/>
                       </div>
                       <div><label style={{...S.lbl,marginBottom:'5px'}}>End</label>
-                        <TimeSelect value={form.actualEnd} onChange={v=>setForm(f=>syncShiftTimesIntoForm({...f,actualEnd:v}))}/>
+                        <TimeSelect value={form.actualEnd} onChange={v=>{
+                          setForm(f=>{
+                            const synced = syncShiftTimesIntoForm({...f,actualEnd:v});
+                            // Once the actual shift is fully recorded, hand off to Notes —
+                            // cursor lands on the blank line left for the person's own text.
+                            setTimeout(()=>{
+                              const line = generateShiftTimesLine(synced);
+                              if(line && notesRef.current){
+                                const pos = line.length+2;
+                                notesRef.current.focus();
+                                notesRef.current.setSelectionRange(pos,pos);
+                              }
+                            },0);
+                            return synced;
+                          });
+                        }}/>
                       </div>
                     </div>
                     {form.actualStart&&form.actualEnd&&toMinutesOfDay(form.actualEnd)<=toMinutesOfDay(form.actualStart)&&(
@@ -1269,7 +1292,7 @@ export default function App() {
                 )}
               </div>
 
-              <div><label style={S.lbl}>Notes</label><textarea rows="4" placeholder="Shift notes or incident details..." style={{...S.ta,lineHeight:1.5}} value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})}/></div>
+              <div><label style={S.lbl}>Notes</label><textarea ref={notesRef} rows="4" placeholder="Shift notes or incident details..." style={{...S.ta,lineHeight:1.5}} value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})}/></div>
             </div>
 
             {/* overtime hours */}
@@ -2120,3 +2143,4 @@ export default function App() {
     </div>
   );
 }
+
