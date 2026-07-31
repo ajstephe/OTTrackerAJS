@@ -575,7 +575,6 @@ export default function App() {
   const [toilTaken,    setToilTaken]    = useState(()=>dualRead(KEYS.toilTaken,[]));
   const [settings,     setSettings]     = useState(()=>migrateSettings(dualRead(KEYS.settings,null)));
   const [expanded,     setExpanded]     = useState(null);
-  const [toilLedgerOpen, setToilLedgerOpen] = useState(true);
   const [trendsView, setTrendsView] = useState('toil'); // 'trends' | 'toil'
   const [defaultBreakdownView, setDefaultBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list'));
   const [breakdownView, setBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list')); // 'list' | 'calendar'
@@ -1334,6 +1333,18 @@ export default function App() {
               </div>
             </div>
 
+            {/* ── TOIL summary card — sits directly under Overtime & PA ── */}
+            <div style={{...S.card,background:'#7c3aed',border:'none',marginBottom:'10px',boxShadow:'0 6px 20px rgba(124,58,237,0.28)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <div style={{fontSize:'9px',fontWeight:900,color:'#ede9fe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>TOIL Balance</div>
+                  <div style={{fontSize:'20px',fontWeight:900,color:'#fff'}}>{toilLedger.balance.toFixed(2).replace(/\.00$/,'')}h</div>
+                  <div style={{fontSize:'9px',fontWeight:700,color:'#ddd6fe',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
+                </div>
+                <Ico n="clock" s={22} c="rgba(255,255,255,0.6)"/>
+              </div>
+            </div>
+
             {/* ── Pay period dates — simple date reference, full breakdowns live in the Breakdown tab ── */}
             <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'8px',padding:'0 2px'}}>Pay Periods</div>
             <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
@@ -1379,21 +1390,16 @@ export default function App() {
                   default; flip this on to fall back to the classic free-entry
                   hours grid instead. */}
               <div style={{marginBottom:'13px'}}>
-                <div onClick={()=>{
-                    const switchingToManual = form.recordShiftTimes; // currently auto → about to go manual
-                    setForm(f=>syncShiftTimesIntoForm({...f, recordShiftTimes:!switchingToManual, otRateTier: !switchingToManual && !f.otRateTier ? 'hours133' : f.otRateTier}));
-                  }} style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',background:'#eff6ff',border:'1.5px solid #bfdbfe',borderRadius:'13px',padding:'12px 13px'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                    <div style={{background:'#2563eb',borderRadius:'10px',width:'34px',height:'34px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      <Ico n="edit" s={17} c="#fff" w={2.4}/>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'#eff6ff',border:'1.5px solid #bfdbfe',borderRadius:'13px',padding:'12px 13px'}}>
+                  <div style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>Rostered Shift / Actual Shift</div>
+                  <div onClick={()=>{
+                      const switchingToManual = form.recordShiftTimes; // currently auto → about to go manual
+                      setForm(f=>syncShiftTimesIntoForm({...f, recordShiftTimes:!switchingToManual, otRateTier: !switchingToManual && !f.otRateTier ? 'hours133' : f.otRateTier}));
+                    }} style={{display:'flex',alignItems:'center',gap:'6px',cursor:'pointer',flexShrink:0}}>
+                    <span style={{fontSize:'9px',fontWeight:600,color:'#64748b'}}>Input Hours Manually</span>
+                    <div style={{width:'32px',height:'18px',borderRadius:'10px',position:'relative',flexShrink:0,transition:'background 0.2s',background:!form.recordShiftTimes?'#2563eb':'#e2e8f0'}}>
+                      <div style={{width:'14px',height:'14px',borderRadius:'50%',background:'#fff',position:'absolute',top:'2px',transition:'left 0.2s',left:!form.recordShiftTimes?'16px':'2px',boxShadow:'0 1px 2px rgba(0,0,0,0.3)'}}/>
                     </div>
-                    <div>
-                      <div style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f',marginBottom:'1px'}}>Manual Override</div>
-                      <div style={{fontSize:'9.5px',fontWeight:600,color:'#3b82f6'}}>{form.recordShiftTimes?'Overtime is auto-calculated from shift times below':'Entering overtime hours by hand'}</div>
-                    </div>
-                  </div>
-                  <div style={{width:'40px',height:'23px',borderRadius:'12px',position:'relative',flexShrink:0,transition:'background 0.2s',background:!form.recordShiftTimes?'#2563eb':'#e2e8f0'}}>
-                    <div style={{width:'19px',height:'19px',borderRadius:'50%',background:'#fff',position:'absolute',top:'2px',transition:'left 0.2s',left:!form.recordShiftTimes?'19px':'2px',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
                   </div>
                 </div>
 
@@ -1820,7 +1826,7 @@ export default function App() {
                             <div style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe'}}>
                               <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
                               <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{totalToilWorked.toFixed(2).replace(/\.00$/,'')}h worked → {totalToilBanked.toFixed(2).replace(/\.00$/,'')}h banked</div>
-                              <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>Not included in Gross/Net — see Trends → TOIL</div>
+                              <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>Not included in Gross/Net — see TOIL Etc.</div>
                             </div>
                           )}
                         </div>
@@ -2040,16 +2046,16 @@ export default function App() {
                       ))}
                     </div>
 
+                    {/* hint sits inside the calendar card, above the legend */}
+                    <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'14px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>Tap a highlighted day to see shift details</div>
+
                     {/* legend */}
-                    <div style={{display:'flex',justifyContent:'center',gap:'16px',marginTop:'14px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>
+                    <div style={{display:'flex',justifyContent:'center',gap:'16px',marginTop:'12px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>
                       <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'11px',height:'11px',borderRadius:'3px',background:'#eff6ff',border:'1px solid #bfdbfe'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>OT logged</span></div>
                       <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#818cf8'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>Night</span></div>
                       <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#f59e0b'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>PA</span></div>
                       <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#7c3aed'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>TOIL</span></div>
                     </div>
-
-                    {/* hint sits inside the calendar card, under the legend */}
-                    <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'10px',paddingTop:'10px',borderTop:'1px solid #f1f5f9'}}>Tap a highlighted day to see shift details</div>
                   </div>
 
                   {/* period breakdown boxes — same layout as List View */}
@@ -2086,7 +2092,7 @@ export default function App() {
                         <div style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe'}}>
                           <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
                           <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{pToilWorked.toFixed(2).replace(/\.00$/,'')}h worked → {pToilBanked.toFixed(2).replace(/\.00$/,'')}h banked</div>
-                          <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>Not included in Gross/Net — see Trends → TOIL</div>
+                          <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>Not included in Gross/Net — see TOIL Etc.</div>
                         </div>
                       )}
                     </div>
@@ -2110,7 +2116,7 @@ export default function App() {
         {/* ══════════════════════════════════════════ TRENDS (+ TOIL) */}
         {tab==='graph'&&(
           <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
-            <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',marginBottom:'14px',letterSpacing:'-0.5px'}}>TOIL/Trends</h2>
+            <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',marginBottom:'14px',letterSpacing:'-0.5px'}}>TOIL Etc.</h2>
 
             <div style={{display:'flex',gap:'6px',background:'#f1f5f9',borderRadius:'12px',padding:'4px',marginBottom:'16px'}}>
               <button onClick={()=>setTrendsView('toil')} style={{flex:1,border:'none',background:trendsView==='toil'?'#fff':'transparent',padding:'10px 4px',borderRadius:'9px',fontFamily:'inherit',fontWeight:800,fontSize:'12px',color:'#6d28d9',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',boxShadow:trendsView==='toil'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}><Ico n="clock" s={13} c={trendsView==='toil'?'#6d28d9':'#64748b'} w={2.5}/>TOIL</button>
@@ -2119,50 +2125,41 @@ export default function App() {
 
             {trendsView==='toil' ? (
               <>
-                <div onClick={()=>setToilLedgerOpen(o=>!o)} style={{background:'#f5f3ff',border:'1.5px solid #ddd6fe',borderRadius:'16px',padding:'16px',marginBottom:'14px',cursor:'pointer'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div>
-                      <div style={{fontSize:'10px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>TOIL Balance</div>
-                      <div style={{fontSize:'28px',fontWeight:900,color:'#4c1d95'}}>{toilLedger.balance.toFixed(2).replace(/\.00$/,'')}h</div>
-                      <div style={{fontSize:'10px',fontWeight:700,color:'#7c3aed',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
-                    </div>
-                    <div style={{fontSize:'10px',fontWeight:800,color:'#7c3aed'}}>{toilLedgerOpen?'Hide ledger ▴':'View ledger ▾'}</div>
-                  </div>
+                <div style={{background:'#f5f3ff',border:'1.5px solid #ddd6fe',borderRadius:'16px',padding:'16px',marginBottom:'14px'}}>
+                  <div style={{fontSize:'10px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>TOIL Balance</div>
+                  <div style={{fontSize:'28px',fontWeight:900,color:'#4c1d95'}}>{toilLedger.balance.toFixed(2).replace(/\.00$/,'')}h</div>
+                  <div style={{fontSize:'10px',fontWeight:700,color:'#7c3aed',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
                 </div>
 
-                {toilLedgerOpen&&(
-                  <>
-                    <div style={{...S.card,background:'#fff',border:'1.5px solid #ede9fe'}}>
-                      <div style={{...S.lbl,marginBottom:'8px'}}>+ Log TOIL Taken</div>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 90px',gap:'8px',marginBottom:'8px'}}>
-                        <input type="date" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'13px',boxSizing:'border-box'}} value={toilTakenForm.date} onChange={e=>setToilTakenForm({...toilTakenForm,date:e.target.value})}/>
-                        <input type="number" step="0.25" placeholder="Hours" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'13px',textAlign:'center',boxSizing:'border-box'}} value={toilTakenForm.hours} onChange={e=>setToilTakenForm({...toilTakenForm,hours:e.target.value})}/>
-                      </div>
-                      <input type="text" placeholder="Note (optional) — e.g. half day, appointment" style={{width:'100%',boxSizing:'border-box',border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'12px',marginBottom:'8px'}} value={toilTakenForm.note} onChange={e=>setToilTakenForm({...toilTakenForm,note:e.target.value})}/>
-                      <button onClick={addToilTaken} style={{width:'100%',background:'#7c3aed',color:'#fff',border:'none',borderRadius:'10px',padding:'11px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit'}}>Log TOIL Taken</button>
-                    </div>
+                <div style={{...S.card,background:'#fff',border:'1.5px solid #ede9fe'}}>
+                  <div style={{...S.lbl,marginBottom:'8px'}}>+ Log TOIL Taken</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 90px',gap:'8px',marginBottom:'8px'}}>
+                    <input type="date" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'13px',boxSizing:'border-box'}} value={toilTakenForm.date} onChange={e=>setToilTakenForm({...toilTakenForm,date:e.target.value})}/>
+                    <input type="number" step="0.25" placeholder="Hours" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'13px',textAlign:'center',boxSizing:'border-box'}} value={toilTakenForm.hours} onChange={e=>setToilTakenForm({...toilTakenForm,hours:e.target.value})}/>
+                  </div>
+                  <input type="text" placeholder="Note (optional) — e.g. half day, appointment" style={{width:'100%',boxSizing:'border-box',border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'12px',marginBottom:'8px'}} value={toilTakenForm.note} onChange={e=>setToilTakenForm({...toilTakenForm,note:e.target.value})}/>
+                  <button onClick={addToilTaken} style={{width:'100%',background:'#7c3aed',color:'#fff',border:'none',borderRadius:'10px',padding:'11px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit'}}>Log TOIL Taken</button>
+                </div>
 
-                    <div style={{...S.lbl,margin:'14px 0 8px'}}>Ledger</div>
-                    <div style={{fontSize:'9.5px',fontWeight:600,color:'#94a3b8',lineHeight:1.5,marginBottom:'10px'}}>Green lines post automatically whenever you log a shift as TOIL or Mix — nothing to type. Red lines are what you log above when you actually take the time off.</div>
-                    {toilLedger.rows.length===0 ? (
-                      <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',padding:'20px'}}>No TOIL activity yet</div>
-                    ) : toilLedger.rows.map(l=>(
-                      <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 4px',borderBottom:'1px solid #f1f5f9'}}>
-                        <div>
-                          <div style={{fontSize:'11.5px',fontWeight:700,color:'#334155'}}>{l.note}</div>
-                          <div style={{fontSize:'9.5px',color:'#94a3b8',display:'flex',alignItems:'center',gap:'6px'}}>
-                            {new Date(l.date+'T12:00:00').toLocaleDateString('en-GB')}
-                            {l.type==='taken'&&<span onClick={()=>deleteToilTaken(l.rawId)} style={{color:'#94a3b8',cursor:'pointer'}}>✕ remove</span>}
-                          </div>
-                        </div>
-                        <div style={{textAlign:'right'}}>
-                          <div style={{fontSize:'13px',fontWeight:900,color:l.type==='earned'?'#059669':'#dc2626'}}>{l.hours>=0?'+':''}{l.hours.toFixed(2).replace(/\.00$/,'')}h</div>
-                          <div style={{fontSize:'9px',color:'#94a3b8'}}>bal: {l.balanceAfter.toFixed(2).replace(/\.00$/,'')}h</div>
-                        </div>
+                <div style={{...S.lbl,margin:'14px 0 8px'}}>Ledger</div>
+                <div style={{fontSize:'9.5px',fontWeight:600,color:'#94a3b8',lineHeight:1.5,marginBottom:'10px'}}>Green lines post automatically whenever you log a shift as TOIL or Mix — nothing to type. Red lines are what you log above when you actually take the time off.</div>
+                {toilLedger.rows.length===0 ? (
+                  <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',padding:'20px'}}>No TOIL activity yet</div>
+                ) : toilLedger.rows.map(l=>(
+                  <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 4px',borderBottom:'1px solid #f1f5f9'}}>
+                    <div>
+                      <div style={{fontSize:'11.5px',fontWeight:700,color:'#334155'}}>{l.note}</div>
+                      <div style={{fontSize:'9.5px',color:'#94a3b8',display:'flex',alignItems:'center',gap:'6px'}}>
+                        {new Date(l.date+'T12:00:00').toLocaleDateString('en-GB')}
+                        {l.type==='taken'&&<span onClick={()=>deleteToilTaken(l.rawId)} style={{color:'#94a3b8',cursor:'pointer'}}>✕ remove</span>}
                       </div>
-                    ))}
-                  </>
-                )}
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:'13px',fontWeight:900,color:l.type==='earned'?'#059669':'#dc2626'}}>{l.hours>=0?'+':''}{l.hours.toFixed(2).replace(/\.00$/,'')}h</div>
+                      <div style={{fontSize:'9px',color:'#94a3b8'}}>bal: {l.balanceAfter.toFixed(2).replace(/\.00$/,'')}h</div>
+                    </div>
+                  </div>
+                ))}
               </>
             ) : (
             <>
@@ -2216,29 +2213,6 @@ export default function App() {
                   </div>
                 );
               })()}
-            </div>
-
-            {/* ── Published pay scale reference table ── */}
-            <div style={S.card}>
-              <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'12px'}}><Ico n="cal" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Published Pay Scales — Annual Salary</div></div>
-              {['Constable','Sergeant'].map(rank=>(
-                <div key={rank} style={{marginBottom: rank==='Constable' ? '16px' : 0}}>
-                  <div style={{fontSize:'10px',fontWeight:900,color:'#1e3a5f',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>{rank}</div>
-                  <div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr 1fr',gap:'2px 8px',alignItems:'center'}}>
-                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',paddingBottom:'5px',borderBottom:'1px solid #f1f5f9'}}>Pay Point</div>
-                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #f1f5f9'}}>Pre-Sept</div>
-                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #f1f5f9'}}>Post-Sept</div>
-                    {Object.entries(PAY_RATES[rank]).map(([point,data])=>(
-                      <div key={point} style={{display:'contents'}}>
-                        <div style={{fontSize:'11px',fontWeight:700,color:'#0f172a',padding:'5px 0'}}>{point}</div>
-                        <div style={{fontSize:'11px',fontWeight:700,color:'#64748b',textAlign:'right',padding:'5px 0'}}>£{data.salary.pre.toLocaleString('en-GB')}</div>
-                        <div style={{fontSize:'11px',fontWeight:900,color:'#1e3a5f',textAlign:'right',padding:'5px 0'}}>£{data.salary.post.toLocaleString('en-GB')}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              <div style={{marginTop:'12px',fontSize:'9px',fontWeight:600,color:'#94a3b8',lineHeight:1.5}}>Excludes London Weighting (£3,150 pre-Sept / £3,260 post-Sept) and London Allowance (£6,588), which are added separately.</div>
             </div>
             </>
             )}
@@ -2316,6 +2290,29 @@ export default function App() {
                 </div>
               );
             })()}
+
+            {/* ── Published pay scale reference table ── */}
+            <div style={S.card}>
+              <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'12px'}}><Ico n="cal" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Published Pay Scales — Annual Salary</div></div>
+              {['Constable','Sergeant'].map(rank=>(
+                <div key={rank} style={{marginBottom: rank==='Constable' ? '16px' : 0}}>
+                  <div style={{fontSize:'10px',fontWeight:900,color:'#1e3a5f',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>{rank}</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr 1fr',gap:'2px 8px',alignItems:'center'}}>
+                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',paddingBottom:'5px',borderBottom:'1px solid #f1f5f9'}}>Pay Point</div>
+                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #f1f5f9'}}>Pre-Sept</div>
+                    <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #f1f5f9'}}>Post-Sept</div>
+                    {Object.entries(PAY_RATES[rank]).map(([point,data])=>(
+                      <div key={point} style={{display:'contents'}}>
+                        <div style={{fontSize:'11px',fontWeight:700,color:'#0f172a',padding:'5px 0'}}>{point}</div>
+                        <div style={{fontSize:'11px',fontWeight:700,color:'#64748b',textAlign:'right',padding:'5px 0'}}>£{data.salary.pre.toLocaleString('en-GB')}</div>
+                        <div style={{fontSize:'11px',fontWeight:900,color:'#1e3a5f',textAlign:'right',padding:'5px 0'}}>£{data.salary.post.toLocaleString('en-GB')}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div style={{marginTop:'12px',fontSize:'9px',fontWeight:600,color:'#94a3b8',lineHeight:1.5}}>Excludes London Weighting (£3,150 pre-Sept / £3,260 post-Sept) and London Allowance (£6,588), which are added separately.</div>
+            </div>
 
             {/* data management */}
             <div style={{...S.dark,background:'#0f2744'}}>
@@ -2505,7 +2502,7 @@ export default function App() {
           {id:'dashboard',n:'home', lbl:'Home'},
           {id:'months',   n:'cal',  lbl:'Breakdown'},
           {id:'add',      n:'plus', lbl:'Log Overtime'},
-          {id:'graph',    n:'bar',  lbl:'TOIL/Trends'},
+          {id:'graph',    n:'bar',  lbl:'TOIL Etc.'},
           {id:'settings', n:'cog',  lbl:'Settings'},
         ].map(t=>(
           <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') { setForm({...blankForm,date:todayStr}); } if(t.id==='months'&&defaultBreakdownView==='list') snapToActiveMonth(false,140); setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
