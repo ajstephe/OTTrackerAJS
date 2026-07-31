@@ -1018,9 +1018,14 @@ export default function App() {
   const addToilTaken = () => {
     const hrs = parseFloat(toilTakenForm.hours)||0;
     if (!toilTakenForm.date || hrs<=0) { addToast('Enter a date and a positive number of hours','warn'); return; }
+    const resultingBalance = toilLedger.balance - hrs;
     setToilTaken(prev=>[...prev, { id:Date.now().toString(), date:toilTakenForm.date, hours:hrs, note:toilTakenForm.note||'' }]);
     setToilTakenForm({date:todayStr, hours:'', note:''});
-    addToast('TOIL taken logged ✓');
+    if (resultingBalance < 0) {
+      addToast(`Logged — balance is now ${resultingBalance.toFixed(2).replace(/\.00$/,'')}h (more taken than earned)`,'warn');
+    } else {
+      addToast('TOIL taken logged ✓');
+    }
   };
   const deleteToilTaken = id => {
     const d = toilTaken.find(t=>t.id===id);
@@ -1334,12 +1339,12 @@ export default function App() {
             </div>
 
             {/* ── TOIL summary card — sits directly under Overtime & PA ── */}
-            <div style={{...S.card,background:'#7c3aed',border:'none',marginBottom:'10px',boxShadow:'0 6px 20px rgba(124,58,237,0.28)'}}>
+            <div style={{...S.card,background:toilLedger.balance<0?'#dc2626':'#7c3aed',border:'none',marginBottom:'10px',boxShadow:toilLedger.balance<0?'0 6px 20px rgba(220,38,38,0.28)':'0 6px 20px rgba(124,58,237,0.28)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div>
-                  <div style={{fontSize:'9px',fontWeight:900,color:'#ede9fe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>TOIL Balance</div>
+                  <div style={{fontSize:'9px',fontWeight:900,color:toilLedger.balance<0?'#fecaca':'#ede9fe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
                   <div style={{fontSize:'20px',fontWeight:900,color:'#fff'}}>{toilLedger.balance.toFixed(2).replace(/\.00$/,'')}h</div>
-                  <div style={{fontSize:'9px',fontWeight:700,color:'#ddd6fe',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
+                  <div style={{fontSize:'9px',fontWeight:700,color:toilLedger.balance<0?'#fecaca':'#ddd6fe',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
                 </div>
                 <Ico n="clock" s={22} c="rgba(255,255,255,0.6)"/>
               </div>
@@ -2125,10 +2130,10 @@ export default function App() {
 
             {trendsView==='toil' ? (
               <>
-                <div style={{background:'#f5f3ff',border:'1.5px solid #ddd6fe',borderRadius:'16px',padding:'16px',marginBottom:'14px'}}>
-                  <div style={{fontSize:'10px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>TOIL Balance</div>
-                  <div style={{fontSize:'28px',fontWeight:900,color:'#4c1d95'}}>{toilLedger.balance.toFixed(2).replace(/\.00$/,'')}h</div>
-                  <div style={{fontSize:'10px',fontWeight:700,color:'#7c3aed',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
+                <div style={{background:toilLedger.balance<0?'#fef2f2':'#f5f3ff',border:toilLedger.balance<0?'1.5px solid #fecaca':'1.5px solid #ddd6fe',borderRadius:'16px',padding:'16px',marginBottom:'14px'}}>
+                  <div style={{fontSize:'10px',fontWeight:900,color:toilLedger.balance<0?'#dc2626':'#6d28d9',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
+                  <div style={{fontSize:'28px',fontWeight:900,color:toilLedger.balance<0?'#991b1b':'#4c1d95'}}>{toilLedger.balance.toFixed(2).replace(/\.00$/,'')}h</div>
+                  <div style={{fontSize:'10px',fontWeight:700,color:toilLedger.balance<0?'#dc2626':'#7c3aed',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
                 </div>
 
                 <div style={{...S.card,background:'#fff',border:'1.5px solid #ede9fe'}}>
