@@ -1222,7 +1222,7 @@ export default function App() {
     nBtn: (a,add)=>({display:'flex',flexDirection:'column',alignItems:'center',gap:'3px',padding:add?'9px 11px':'6px 8px',background:add?'#10b981':'transparent',color:add?'#fff':a?'#2563eb':'#94a3b8',borderRadius:add?'13px':'8px',border:'none',cursor:'pointer',transition:'all 0.18s',fontFamily:'inherit',boxShadow:add?'0 4px 14px rgba(16,185,129,0.4)':'none'}),
     nLbl: {fontSize:'8px',fontWeight:900,textTransform:'uppercase',letterSpacing:'0.5px'},
     card: {background:'#fff',borderRadius:'18px',padding:'18px',boxShadow:'0 1px 6px rgba(0,0,0,0.05)',border:'1px solid #f1f5f9',marginBottom:'10px'},
-    dark: {background:'#0f2744',borderRadius:'18px',padding:'22px',boxShadow:'0 8px 28px rgba(15,39,68,0.28)',marginBottom:'10px',position:'relative',overflow:'hidden'},
+    dark: {background:'#0f2744',borderRadius:'18px',padding:'19px',boxShadow:'0 8px 28px rgba(15,39,68,0.28)',marginBottom:'10px',position:'relative',overflow:'hidden'},
     lbl:  {display:'block',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'7px'},
     inp:  {width:'100%',background:'#f8fafc',border:'none',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'16px',outline:'none',fontFamily:'inherit',boxSizing:'border-box',color:'#0f172a'},
     ta:   {width:'100%',background:'#f8fafc',border:'none',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'16px',outline:'none',fontFamily:'inherit',resize:'none',boxSizing:'border-box',color:'#0f172a'},
@@ -1266,8 +1266,8 @@ export default function App() {
         <div style={{display:'flex',alignItems:'center',gap:'8px',minWidth:0}}>
           <ClockCashIcon width={28} height={19}/>
           <div style={{display:'flex',flexDirection:'column',lineHeight:1.2,minWidth:0}}>
-            <span style={{fontSize:'15px',fontWeight:900,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:'-0.4px',whiteSpace:'nowrap'}}>Overtime &amp; Shift Tracker</span>
-            <span style={{fontSize:'9px',fontWeight:700,color:'#94a3b8',letterSpacing:'0.2px'}}>by Adam Stephens</span>
+            <span style={{fontSize:'16px',fontWeight:900,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:'-0.4px',whiteSpace:'nowrap'}}>Overtime &amp; Shift Tracker</span>
+            <span style={{fontSize:'10px',fontWeight:700,color:'#94a3b8',letterSpacing:'0.2px'}}>by Adam Stephens</span>
           </div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'5px',flexShrink:0}}>
@@ -1316,19 +1316,19 @@ export default function App() {
 
               {/* header */}
               <div style={{fontSize:'10px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>
-                Total Gross YTD (inc. base salary)
+                Total Gross YTD (Base Salary + Weighting, Allowances &amp; OT)
               </div>
-              <div style={{fontSize:'38px',fontWeight:900,color:'#fff',letterSpacing:'-2px',marginBottom:'4px',lineHeight:1}}>
+              <div style={{fontSize:'38px',fontWeight:900,color:'#fff',letterSpacing:'-2px',marginBottom:'3px',lineHeight:1}}>
                 {settings.rank&&settings.service ? fmtGBP(totals.combinedGrossYTD) : '—'}
               </div>
-              <div style={{fontSize:'9px',fontWeight:700,color:'#94a3b8',marginBottom:'16px'}}>
+              <div style={{fontSize:'9px',fontWeight:700,color:'#94a3b8',marginBottom:'12px'}}>
                 {settings.rank&&settings.service
                   ? `${Math.round(totals.taxYearDaysElapsed)} days into ${totals.taxYearStart.split('-')[0]}/${(parseInt(totals.taxYearStart.split('-')[0])+1).toString().slice(-2)} tax year`
                   : 'Set your rank & pay point in Settings'}
               </div>
 
               {/* breakdown rows — London Weighting/Allowance shown as YTD / full year */}
-              <div style={{borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:'12px',display:'flex',flexDirection:'column',gap:'7px'}}>
+              <div style={{borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:'10px',display:'flex',flexDirection:'column',gap:'6px'}}>
                 {[
                   ['Base Salary',      totals.salaryYTD, null],
                   ['London Weighting', settings.rank&&settings.service ? totals.lwYTD : null, totals.lwAnnualTotal],
@@ -1387,10 +1387,10 @@ export default function App() {
                 const isCurrent = i===1; // order is Previous, Current, Next
                 return item&&(
                   <div key={i} style={{...S.card,background:isCurrent?'#eff6ff':'#fff',border:isCurrent?'2px solid #2563eb':'1px solid #f1f5f9',boxShadow:isCurrent?'0 4px 18px rgba(37,99,235,0.2)':'0 1px 6px rgba(0,0,0,0.05)',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 17px',marginBottom:0}}>
-                    <span style={{fontSize:'9px',fontWeight:900,color:isCurrent?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',display:'flex',alignItems:'center',gap:'6px'}}>{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}{isCurrent?'Current':i===0?'Previous':'Next'} Pay Month{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}</span>
+                    <span style={{fontSize:'9px',fontWeight:900,color:isCurrent?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',display:'flex',alignItems:'center',gap:'6px'}}>{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}{isCurrent?'Current':i===0?'Previous':'Next'} Pay Period{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}</span>
                     <div style={{textAlign:'right'}}>
                       <div style={{fontWeight:900,fontSize:'14px',color:'#0f172a'}}>{item.month}</div>
-                      <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
+                      <div style={{fontSize:'14px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
                     </div>
                   </div>
                 );
@@ -2025,7 +2025,7 @@ export default function App() {
                   {/* stats strip — Shifts and Total O/T Hours */}
                   <div style={{...S.card,display:'flex',padding:'16px',background:cIdx===currPeriodIdx?'#eff6ff':'#fff',border:cIdx===currPeriodIdx?'2px solid #2563eb':'1px solid #f1f5f9',boxShadow:cIdx===currPeriodIdx?'0 4px 20px rgba(37,99,235,0.18)':'0 1px 6px rgba(0,0,0,0.05)'}}>
                     <div style={{flex:1,textAlign:'center'}}>
-                      <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Shifts</div>
+                      <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Shifts Logged</div>
                       <div style={{fontSize:'24px',fontWeight:900,color:'#1e3a5f'}}>{cEntries.length}</div>
                     </div>
                     {/* separator needs a darker tone on the active month, since #f1f5f9 is invisible against the blue tint */}
@@ -2083,7 +2083,7 @@ export default function App() {
                     </div>
 
                     {/* hint sits inside the calendar card, above the legend */}
-                    <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'14px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>Tap a highlighted day to see shift details</div>
+                    <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'14px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>Tap a day to view details or add an entry</div>
 
                     {/* legend */}
                     <div style={{display:'flex',justifyContent:'center',gap:'16px',marginTop:'12px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>
@@ -2187,13 +2187,13 @@ export default function App() {
                 {toilLedger.rows.length===0 ? (
                   <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',padding:'20px'}}>No TOIL activity yet</div>
                 ) : toilLedger.rows.map(l=>(
-                  <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 4px',borderBottom:'1px solid #f1f5f9',gap:'10px'}}>
+                  <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 12px',marginBottom:'8px',borderRadius:'11px',gap:'10px',background:l.type==='earned'?'#f0fdf4':'#fef2f2',border:l.type==='earned'?'1px solid #bbf7d0':'1px solid #fecaca'}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:'11.5px',fontWeight:700,color:'#334155'}}>{l.note}</div>
                       <div style={{display:'flex',alignItems:'center',gap:'8px',marginTop:'4px'}}>
                         <span style={{fontSize:'9.5px',color:'#94a3b8'}}>{new Date(l.date+'T12:00:00').toLocaleDateString('en-GB')}</span>
                         {l.type==='taken'&&(
-                          <button onClick={()=>deleteToilTaken(l.rawId)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:'3px',background:'#fef2f2',border:'1.5px solid #fecaca',borderRadius:'7px',padding:'3px 7px',color:'#dc2626',fontWeight:800,fontSize:'9px',fontFamily:'inherit',cursor:'pointer'}}>
+                          <button onClick={()=>deleteToilTaken(l.rawId)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:'3px',background:'#fff',border:'1.5px solid #fecaca',borderRadius:'7px',padding:'3px 7px',color:'#dc2626',fontWeight:800,fontSize:'9px',fontFamily:'inherit',cursor:'pointer'}}>
                             <Ico n="trash" s={10} c="#dc2626"/> Remove
                           </button>
                         )}
@@ -2562,7 +2562,7 @@ export default function App() {
           {id:'dashboard',n:'home', lbl:'Home'},
           {id:'months',   n:'cal',  lbl:'Breakdown'},
           {id:'add',      n:'plus', lbl:'Log Overtime'},
-          {id:'graph',    n:'bar',  lbl:'TOIL Etc.'},
+          {id:'graph',    n:'clock', lbl:'TOIL Etc.'},
           {id:'settings', n:'cog',  lbl:'Settings'},
         ].map(t=>(
           <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') { setForm({...blankForm,date:todayStr}); } if(t.id==='months'&&defaultBreakdownView==='list') snapToActiveMonth(false,140); setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
