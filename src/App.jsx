@@ -1806,7 +1806,7 @@ export default function App() {
                       <div>
                         {isCurr&&<div style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'linear-gradient(135deg,#2563eb,#1d4ed8)',color:'#fff',fontSize:'8px',fontWeight:900,padding:'3px 9px',borderRadius:'8px',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'5px',boxShadow:'0 2px 6px rgba(37,99,235,0.35)'}}><span style={{width:'5px',height:'5px',borderRadius:'50%',background:'#fff'}}/>Active Month</div>}
                         <div style={{fontWeight:900,fontSize:'17px',color:'#0f172a',letterSpacing:'-0.3px'}}>{p.month}</div>
-                        <div style={{fontSize:'9px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(p.start)} – {fmtD(p.end)}</div>
+                        <div style={{fontSize:'11px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(p.start)} – {fmtD(p.end)}</div>
                       </div>
                       <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'4px'}}>
                         <div style={{display:'flex',alignItems:'center',gap:'4px',background:isCurr?'#dbeafe':'#eff6ff',border:isCurr?'1px solid #93c5fd':'1px solid #bfdbfe',padding:'5px 9px',borderRadius:'9px'}}>
@@ -2036,6 +2036,8 @@ export default function App() {
                     </div>
                   </div>
 
+                  <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,margin:'10px 0'}}>Tap a day to view details or add an entry</div>
+
                   {/* calendar grid */}
                   <div style={{...S.card,overflow:'hidden'}}>
                     {/* minmax(0,1fr) is essential — plain '1fr' lets long cell text (e.g. "5h@1.33x")
@@ -2081,9 +2083,6 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-
-                    {/* hint sits inside the calendar card, above the legend */}
-                    <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,marginTop:'14px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>Tap a day to view details or add an entry</div>
 
                     {/* legend */}
                     <div style={{display:'flex',justifyContent:'center',gap:'16px',marginTop:'12px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>
