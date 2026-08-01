@@ -586,6 +586,8 @@ export default function App() {
   const [settings,     setSettings]     = useState(()=>migrateSettings(dualRead(KEYS.settings,null)));
   const [expanded,     setExpanded]     = useState(null);
   const [trendsView, setTrendsView] = useState('toil'); // 'trends' | 'toil'
+  const [chartTap, setChartTap] = useState(null);     // {chart:'cum'|'mon', i, big}
+  const [chartModal, setChartModal] = useState(null); // 'cum' | 'mon' | null
   const [defaultBreakdownView, setDefaultBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list'));
   const [breakdownView, setBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list')); // 'list' | 'calendar'
   const [calPeriodIdx, setCalPeriodIdx] = useState(null); // set to currPeriodIdx on first render
@@ -1229,6 +1231,107 @@ export default function App() {
     sel:  {width:'100%',background:'#f8fafc',border:'1px solid #e2e8f0',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'16px',outline:'none',fontFamily:'inherit',boxSizing:'border-box',color:'#0f172a',appearance:'none'},
   };
 
+  // ── Trends charts — shared between the inline (small) card and the
+  // enlarge modal (big), so both stay pixel-for-pixel consistent. Tapping a
+  // point shows a value callout; tapping it again (or a different point)
+  // swaps it out. Tooltip boxes use dominantBaseline:'middle' per line and
+  // explicit padding, rather than guessing baseline offsets, specifically so
+  // text can't spill outside the box regardless of font metrics.
+  const renderCumulativeChart = (big) => {
+    const data = totals.cumData, max = Math.max(...data.map(d=>d.cumulative), 200);
+    const W = big?520:330, H = big?260:150, pX = big?46:34, pY = big?20:12;
+    const eW = W-pX*2, eH = H-pY*2;
+    const fsAxis = big?11:8, fsLbl = big?11:8, ptR = big?6:4, lineW = big?3.5:2.5;
+    const pts = data.map((d,i)=>({x:pX+i*(eW/(data.length-1)), y:H-pY-(d.cumulative/max)*eH, val:d.cumulative, lbl:d.short}));
+    const path = pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ');
+    const fillPath = `${path} L ${pts[pts.length-1].x} ${H-pY} L ${pts[0].x} ${H-pY} Z`;
+    const gradId = big?'cgBig':'cgSmall';
+    const tapPt = (chartTap && chartTap.chart==='cum' && chartTap.big===big) ? pts[chartTap.i] : null;
+    const toggle = i => setChartTap(t=>(t&&t.chart==='cum'&&t.i===i&&t.big===big)?null:{chart:'cum',i,big});
+
+    let tooltip = null;
+    if (tapPt) {
+      const tw = big?115:88;
+      const padTop = big?17:13, lineH = big?18:14, padBottom = big?10:8;
+      const th = padTop + lineH + padBottom;
+      let tx = tapPt.x - tw/2; if (tx<2) tx=2; if (tx+tw>W-2) tx=W-2-tw;
+      let ty = tapPt.y - th - 10; if (ty<2) ty = tapPt.y + 14;
+      tooltip = (
+        <g>
+          <rect x={tx} y={ty} width={tw} height={th} rx="7" fill="#1e3a5f"/>
+          <text x={tx+tw/2} y={ty+padTop} textAnchor="middle" dominantBaseline="middle" style={{fontSize:big?10:8,fontWeight:900,fill:'#93c5fd'}}>{tapPt.lbl}</text>
+          <text x={tx+tw/2} y={ty+padTop+lineH} textAnchor="middle" dominantBaseline="middle" style={{fontSize:big?13:11,fontWeight:900,fill:'#fff'}}>{fmtGBP(tapPt.val)}</text>
+        </g>
+      );
+    }
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',overflow:'visible'}} preserveAspectRatio="none">
+        <defs><linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2563eb"/><stop offset="100%" stopColor="#2563eb" stopOpacity="0"/></linearGradient></defs>
+        {[0,0.5,1].map(v=>(<g key={v}><line x1={pX} y1={H-pY-v*eH} x2={W-pX} y2={H-pY-v*eH} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={v===0?'0':'3 4'}/><text x={pX-4} y={H-pY-v*eH} textAnchor="end" dominantBaseline="middle" style={{fontSize:fsAxis,fill:'#cbd5e1',fontWeight:700}}>£{Math.round(max*v)}</text></g>))}
+        {pts.map((p,i)=><text key={i} x={p.x} y={H-pY+(big?17:11)} textAnchor="middle" style={{fontSize:fsLbl,fill:'#94a3b8',fontWeight:900}}>{p.lbl}</text>)}
+        <path d={fillPath} fill={`url(#${gradId})`} opacity="0.22"/>
+        <path d={path} fill="none" stroke="#2563eb" strokeWidth={lineW} strokeLinecap="round" strokeLinejoin="round"/>
+        {pts.map((p,i)=>(
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={ptR} fill="#2563eb" stroke="white" strokeWidth="2" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
+            <circle cx={p.x} cy={p.y} r={ptR+8} fill="transparent" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
+          </g>
+        ))}
+        {tooltip}
+      </svg>
+    );
+  };
+
+  const renderMonthlyChart = (big) => {
+    const data = totals.periodBreakdown.map(pb=>({short:PAY_PERIODS.find(p=>p.month===pb.month).short, gross:pb.combinedGross, net:pb.combinedNet}));
+    const max = Math.max(...data.map(d=>d.gross), 200);
+    const W = big?520:330, H = big?300:170, pX = big?46:34, pY = big?20:12;
+    const eW = W-pX*2, eH = H-pY*2;
+    const fsAxis = big?11:8, fsLbl = big?11:8, ptR = big?6:3, lineW = big?3:2;
+    const pts = data.map((d,i)=>({x:pX+i*(eW/(data.length-1)), yG:H-pY-(d.gross/max)*eH, yN:H-pY-(d.net/max)*eH, g:d.gross, n:d.net, lbl:d.short}));
+    const gp = pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.yG}`).join(' ');
+    const np = pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.yN}`).join(' ');
+    const tapPt = (chartTap && chartTap.chart==='mon' && chartTap.big===big) ? pts[chartTap.i] : null;
+    const toggle = i => setChartTap(t=>(t&&t.chart==='mon'&&t.i===i&&t.big===big)?null:{chart:'mon',i,big});
+
+    let tooltip = null;
+    if (tapPt) {
+      const tw = big?150:114;
+      const padTop = big?16:12, lineH = big?17:14, padBottom = big?10:8;
+      const th = padTop + lineH*2 + padBottom;
+      let tx = tapPt.x - tw/2; if (tx<2) tx=2; if (tx+tw>W-2) tx=W-2-tw;
+      const topY = Math.min(tapPt.yG, tapPt.yN);
+      let ty = topY - th - 10; if (ty<2) ty = Math.max(tapPt.yG,tapPt.yN) + 14;
+      tooltip = (
+        <g>
+          <rect x={tx} y={ty} width={tw} height={th} rx="7" fill="#1e3a5f"/>
+          <text x={tx+tw/2} y={ty+padTop} textAnchor="middle" dominantBaseline="middle" style={{fontSize:big?10:8,fontWeight:900,fill:'#93c5fd'}}>{tapPt.lbl}</text>
+          <text x={tx+tw/2} y={ty+padTop+lineH} textAnchor="middle" dominantBaseline="middle" style={{fontSize:big?11:9,fontWeight:800,fill:'#6ee7b7'}}>Gross {fmtGBP(tapPt.g)}</text>
+          <text x={tx+tw/2} y={ty+padTop+lineH*2} textAnchor="middle" dominantBaseline="middle" style={{fontSize:big?11:9,fontWeight:800,fill:'#fca5a5'}}>Net {fmtGBP(tapPt.n)}</text>
+        </g>
+      );
+    }
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',overflow:'visible'}} preserveAspectRatio="none">
+        {[0,0.5,1].map(v=>(<g key={v}><line x1={pX} y1={H-pY-v*eH} x2={W-pX} y2={H-pY-v*eH} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={v===0?'0':'3 4'}/><text x={pX-4} y={H-pY-v*eH} textAnchor="end" dominantBaseline="middle" style={{fontSize:fsAxis,fill:'#cbd5e1',fontWeight:700}}>£{Math.round(max*v)}</text></g>))}
+        {pts.map((p,i)=><text key={i} x={p.x} y={H-pY+(big?17:11)} textAnchor="middle" style={{fontSize:fsLbl,fill:'#94a3b8',fontWeight:900}}>{p.lbl}</text>)}
+        <path d={np} fill="none" stroke="#f87171" strokeWidth={lineW} strokeLinecap="round" strokeLinejoin="round"/>
+        <path d={gp} fill="none" stroke="#34d399" strokeWidth={lineW} strokeLinecap="round" strokeLinejoin="round"/>
+        {pts.map((p,i)=>(
+          <g key={i}>
+            <circle cx={p.x} cy={p.yG} r={ptR} fill="#34d399" stroke="white" strokeWidth="1.5" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
+            <circle cx={p.x} cy={p.yG} r={ptR+7} fill="transparent" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
+            <circle cx={p.x} cy={p.yN} r={ptR} fill="#f87171" stroke="white" strokeWidth="1.5" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
+            <circle cx={p.x} cy={p.yN} r={ptR+7} fill="transparent" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
+          </g>
+        ))}
+        {tooltip}
+      </svg>
+    );
+  };
+
   return (
     <div style={S.wrap}>
       <style>{`
@@ -1316,7 +1419,8 @@ export default function App() {
 
               {/* header */}
               <div style={{fontSize:'10px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>
-                Total Gross YTD (Base Salary + Weighting, Allowances &amp; OT)
+                Total Gross YTD
+                <div style={{marginTop:'2px'}}>(Base Salary + Weighting, Allowances &amp; OT)</div>
               </div>
               <div style={{fontSize:'38px',fontWeight:900,color:'#fff',letterSpacing:'-2px',marginBottom:'3px',lineHeight:1}}>
                 {settings.rank&&settings.service ? fmtGBP(totals.combinedGrossYTD) : '—'}
@@ -1554,7 +1658,7 @@ export default function App() {
 
                 return (
                   <div style={{background:'#eff6ff',border:'1.5px solid #dbeafe',borderRadius:'13px',padding:'12px 13px'}}>
-                    <div style={{fontSize:'10px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'9px'}}>Select O/T Rate for this Shift</div>
+                    <div className="hint-pulse" style={{fontSize:'12px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',marginBottom:'9px'}}>Select O/T Rate for this Shift</div>
                     <div style={{display:'flex',gap:'6px',marginBottom:'9px'}}>
                       {['hours133','hours150','hours200'].map((h,i)=>(
                         <button key={h} onClick={()=>setForm(f=>{
@@ -2210,53 +2314,26 @@ export default function App() {
             <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'14px'}}>FY 2026/27</div>
 
             <div style={S.card}>
-              <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'12px'}}><Ico n="tUp" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Cumulative Gross Earnings</div></div>
-              {(()=>{
-                const data=totals.cumData, max=Math.max(...data.map(d=>d.cumulative),200);
-                const W=330,H=150,pX=34,pY=12,eW=W-pX*2,eH=H-pY*2;
-                const pts=data.map((d,i)=>({x:pX+i*(eW/(data.length-1)),y:H-pY-(d.cumulative/max)*eH,val:d.cumulative,lbl:d.short}));
-                const path=pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ');
-                const fill=`${path} L ${pts[pts.length-1].x} ${H-pY} L ${pts[0].x} ${H-pY} Z`;
-                const last=[...pts].reverse().find(p=>p.val>0);
-                return(
-                  <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',overflow:'visible'}} preserveAspectRatio="none">
-                    <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2563eb"/><stop offset="100%" stopColor="#2563eb" stopOpacity="0"/></linearGradient></defs>
-                    {[0,0.5,1].map(v=>(<g key={v}><line x1={pX} y1={H-pY-v*eH} x2={W-pX} y2={H-pY-v*eH} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={v===0?'0':'3 4'}/><text x={pX-4} y={H-pY-v*eH} textAnchor="end" dominantBaseline="middle" style={{fontSize:'7px',fill:'#cbd5e1',fontWeight:700}}>£{Math.round(max*v)}</text></g>))}
-                    {pts.map((p,i)=><text key={i} x={p.x} y={H-pY+11} textAnchor="middle" style={{fontSize:'7px',fill:'#94a3b8',fontWeight:900}}>{p.lbl}</text>)}
-                    <path d={fill} fill="url(#cg)" opacity="0.22"/>
-                    <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    {last&&<circle cx={last.x} cy={last.y} r="4" fill="#2563eb" stroke="white" strokeWidth="2"/>}
-                  </svg>
-                );
-              })()}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'6px'}}><Ico n="tUp" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Cumulative Gross Earnings</div></div>
+                <button onClick={()=>{setChartTap(null);setChartModal('cum');}} style={{display:'flex',alignItems:'center',gap:'4px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'8px',padding:'5px 9px',fontSize:'9px',fontWeight:800,color:'#2563eb',cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>⤢ Enlarge</button>
+              </div>
+              {renderCumulativeChart(false)}
               <div style={{textAlign:'center',marginTop:'5px',fontSize:'11px',fontWeight:700,color:'#64748b'}}>Running total: <strong style={{color:'#1e3a5f'}}>£{totals.totalGross.toFixed(2)}</strong></div>
+              <div style={{textAlign:'center',marginTop:'4px',fontSize:'9px',color:'#94a3b8'}}>Tap any point for that period's figure</div>
             </div>
 
             <div style={S.card}>
-              <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'12px'}}><Ico n="bar" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Monthly Gross vs Net</div></div>
-              {(()=>{
-                const data=totals.periodBreakdown.map(pb=>({short:PAY_PERIODS.find(p=>p.month===pb.month).short,gross:pb.combinedGross,net:pb.combinedNet}));
-                const max=Math.max(...data.map(d=>d.gross),200);
-                const W=330,H=170,pX=34,pY=12,eW=W-pX*2,eH=H-pY*2;
-                const pts=data.map((d,i)=>({x:pX+i*(eW/(data.length-1)),yG:H-pY-(d.gross/max)*eH,yN:H-pY-(d.net/max)*eH,lbl:d.short}));
-                const gp=pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.yG}`).join(' ');
-                const np=pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.yN}`).join(' ');
-                return(
-                  <div>
-                    <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',overflow:'visible'}} preserveAspectRatio="none">
-                      {[0,0.5,1].map(v=>(<g key={v}><line x1={pX} y1={H-pY-v*eH} x2={W-pX} y2={H-pY-v*eH} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={v===0?'0':'3 4'}/><text x={pX-4} y={H-pY-v*eH} textAnchor="end" dominantBaseline="middle" style={{fontSize:'7px',fill:'#cbd5e1',fontWeight:700}}>£{Math.round(max*v)}</text></g>))}
-                      {pts.map((p,i)=><text key={i} x={p.x} y={H-pY+11} textAnchor="middle" style={{fontSize:'7px',fill:'#94a3b8',fontWeight:900}}>{p.lbl}</text>)}
-                      <path d={np} fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d={gp} fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      {pts.map((p,i)=><g key={i}><circle cx={p.x} cy={p.yG} r="3" fill="#34d399" stroke="white" strokeWidth="1.5"/><circle cx={p.x} cy={p.yN} r="3" fill="#f87171" stroke="white" strokeWidth="1.5"/></g>)}
-                    </svg>
-                    <div style={{display:'flex',justifyContent:'center',gap:'18px',marginTop:'9px'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'13px',height:'2.5px',background:'#34d399',borderRadius:'2px'}}/><span style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</span></div>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'13px',height:'2.5px',background:'#f87171',borderRadius:'2px'}}/><span style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px'}}>Net</span></div>
-                    </div>
-                  </div>
-                );
-              })()}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'6px'}}><Ico n="bar" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Monthly Gross vs Net</div></div>
+                <button onClick={()=>{setChartTap(null);setChartModal('mon');}} style={{display:'flex',alignItems:'center',gap:'4px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'8px',padding:'5px 9px',fontSize:'9px',fontWeight:800,color:'#2563eb',cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>⤢ Enlarge</button>
+              </div>
+              {renderMonthlyChart(false)}
+              <div style={{display:'flex',justifyContent:'center',gap:'18px',marginTop:'9px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'13px',height:'2.5px',background:'#34d399',borderRadius:'2px'}}/><span style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</span></div>
+                <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'13px',height:'2.5px',background:'#f87171',borderRadius:'2px'}}/><span style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px'}}>Net</span></div>
+              </div>
+              <div style={{textAlign:'center',marginTop:'4px',fontSize:'9px',color:'#94a3b8'}}>Tap any point for that period's figure</div>
             </div>
             </>
             )}
@@ -2429,6 +2506,27 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Trends — chart enlarge modal, shares render functions with the inline charts */}
+      {chartModal&&(
+        <div onClick={()=>{setChartModal(null);setChartTap(null);}} style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:50,padding:'16px'}}>
+          <div onClick={e=>e.stopPropagation()} className="fi" style={{background:'#fff',borderRadius:'20px',padding:'20px 16px',width:'100%',maxWidth:'480px',maxHeight:'85vh',overflow:'auto',position:'relative'}}>
+            <button onClick={()=>{setChartModal(null);setChartTap(null);}} style={{position:'absolute',top:'14px',right:'14px',background:'#f1f5f9',border:'none',borderRadius:'50%',width:'30px',height:'30px',fontSize:'15px',fontWeight:900,color:'#475569',cursor:'pointer'}}>✕</button>
+            <div style={{fontSize:'13px',fontWeight:900,color:'#0f172a',marginBottom:'16px',paddingRight:'36px'}}>{chartModal==='cum'?'Cumulative Gross Earnings':'Monthly Gross vs Net'}</div>
+            {chartModal==='cum' ? renderCumulativeChart(true) : renderMonthlyChart(true)}
+            {chartModal==='cum' && (
+              <div style={{textAlign:'center',marginTop:'10px',fontSize:'12px',fontWeight:700,color:'#64748b'}}>Running total: <strong style={{color:'#1e3a5f'}}>£{totals.totalGross.toFixed(2)}</strong></div>
+            )}
+            {chartModal==='mon' && (
+              <div style={{display:'flex',justifyContent:'center',gap:'20px',marginTop:'14px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'6px'}}><div style={{width:'15px',height:'3px',background:'#34d399',borderRadius:'2px'}}/><span style={{fontSize:'10px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</span></div>
+                <div style={{display:'flex',alignItems:'center',gap:'6px'}}><div style={{width:'15px',height:'3px',background:'#f87171',borderRadius:'2px'}}/><span style={{fontSize:'10px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px'}}>Net</span></div>
+              </div>
+            )}
+            <div style={{textAlign:'center',marginTop:'10px',fontSize:'10px',color:'#94a3b8'}}>Tap any point for that period's figure</div>
+          </div>
+        </div>
+      )}
 
       {/* Calendar View — empty-day tap confirmation, so a stray tap doesn't
           silently drop you into Log Overtime */}
