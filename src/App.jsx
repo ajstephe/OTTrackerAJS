@@ -1369,8 +1369,8 @@ export default function App() {
         <div style={{display:'flex',alignItems:'center',gap:'8px',minWidth:0}}>
           <ClockCashIcon width={28} height={19}/>
           <div style={{display:'flex',flexDirection:'column',lineHeight:1.2,minWidth:0}}>
-            <span style={{fontSize:'16px',fontWeight:900,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:'-0.4px',whiteSpace:'nowrap'}}>Overtime &amp; Shift Tracker</span>
-            <span style={{fontSize:'10px',fontWeight:700,color:'#94a3b8',letterSpacing:'0.2px'}}>by Adam Stephens</span>
+            <span style={{fontSize:'19px',fontWeight:900,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:'-0.4px',whiteSpace:'nowrap'}}>Overtime &amp; Shift Tracker</span>
+            <span style={{fontSize:'13px',fontWeight:700,color:'#94a3b8',letterSpacing:'0.2px'}}>by Adam Stephens</span>
           </div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'5px',flexShrink:0}}>
@@ -1418,14 +1418,14 @@ export default function App() {
               <div style={{position:'absolute',right:'-14px',top:'-14px',width:'72px',height:'72px',background:'rgba(255,255,255,0.04)',borderRadius:'50%'}}/>
 
               {/* header */}
-              <div style={{fontSize:'10px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>
+              <div style={{fontSize:'12px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>
                 Total Gross YTD
-                <div style={{marginTop:'2px'}}>(Base Salary + Weighting, Allowances &amp; OT)</div>
+                <div style={{marginTop:'2px'}}>Salary + Weighting, Allowances &amp; OT</div>
               </div>
-              <div style={{fontSize:'38px',fontWeight:900,color:'#fff',letterSpacing:'-2px',marginBottom:'3px',lineHeight:1}}>
+              <div style={{fontSize:'28px',fontWeight:900,color:'#fff',letterSpacing:'-2px',marginBottom:'3px',lineHeight:1}}>
                 {settings.rank&&settings.service ? fmtGBP(totals.combinedGrossYTD) : '—'}
               </div>
-              <div style={{fontSize:'9px',fontWeight:700,color:'#94a3b8',marginBottom:'12px'}}>
+              <div style={{fontSize:'11px',fontWeight:700,color:'#94a3b8',marginBottom:'12px'}}>
                 {settings.rank&&settings.service
                   ? `${Math.round(totals.taxYearDaysElapsed)} days into ${totals.taxYearStart.split('-')[0]}/${(parseInt(totals.taxYearStart.split('-')[0])+1).toString().slice(-2)} tax year`
                   : 'Set your rank & pay point in Settings'}
@@ -1440,8 +1440,8 @@ export default function App() {
                   ['Overtime & PA',    totals.totalGross, null],
                 ].map(([label,val,fullYear])=>(
                   <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={{fontSize:'11px',fontWeight:700,color:'#94a3b8'}}>{label}</span>
-                    <span style={{fontSize:'11px',fontWeight:900,color:val==null?'#475569':'#cbd5e1'}}>
+                    <span style={{fontSize:'13px',fontWeight:700,color:'#94a3b8'}}>{label}</span>
+                    <span style={{fontSize:'13px',fontWeight:900,color:val==null?'#475569':'#cbd5e1'}}>
                       {val==null
                         ? 'Set rank & pay point'
                         : fullYear!=null
@@ -1455,19 +1455,19 @@ export default function App() {
 
             {/* ── Overtime-only summary card — sits directly under Total Gross YTD, lighter blue to distinguish ── */}
             <div onClick={()=>setTab('months')} style={{...S.card,background:'#2563eb',border:'none',marginBottom:'10px',boxShadow:'0 6px 20px rgba(37,99,235,0.28)',cursor:'pointer'}}>
-              <div style={{fontSize:'9px',fontWeight:900,color:'#dbeafe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'10px'}}>Overtime & PA — FY 26/27</div>
+              <div style={{fontSize:'11px',fontWeight:900,color:'#dbeafe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'10px'}}>Overtime & PA — FY 26/27</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
                 <div>
-                  <div style={{fontSize:'9px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Gross OT</div>
-                  <div style={{fontSize:'16px',fontWeight:900,color:'#fff'}}>{fmt(totals.totalGross)}</div>
+                  <div style={{fontSize:'11px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Gross OT</div>
+                  <div style={{fontSize:'18px',fontWeight:900,color:'#fff'}}>{fmt(totals.totalGross)}</div>
                 </div>
                 <div>
-                  <div style={{fontSize:'9px',fontWeight:900,color:'#bbf7d0',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Net OT</div>
-                  <div style={{fontSize:'16px',fontWeight:900,color:'#dcfce7'}}>{fmt(totals.totalNet)}</div>
+                  <div style={{fontSize:'11px',fontWeight:900,color:'#bbf7d0',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Net OT</div>
+                  <div style={{fontSize:'18px',fontWeight:900,color:'#dcfce7'}}>{fmt(totals.totalNet)}</div>
                 </div>
                 <div>
-                  <div style={{fontSize:'9px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Hours</div>
-                  <div style={{fontSize:'16px',fontWeight:900,color:'#fff',display:'flex',alignItems:'center',gap:'5px'}}><Ico n="clock" s={13} c="rgba(255,255,255,0.6)"/>{totals.totalHrs.toFixed(1)}</div>
+                  <div style={{fontSize:'11px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Hours</div>
+                  <div style={{fontSize:'18px',fontWeight:900,color:'#fff',display:'flex',alignItems:'center',gap:'5px'}}><Ico n="clock" s={13} c="rgba(255,255,255,0.6)"/>{totals.totalHrs.toFixed(1)}</div>
                 </div>
               </div>
             </div>
@@ -1475,23 +1475,23 @@ export default function App() {
             {/* ── TOIL summary card — sits directly under Overtime & PA ── */}
             <div onClick={()=>{setTab('graph');setTrendsView('toil');}} style={{...S.card,background:toilLedger.balance<0?'#dc2626':'#7c3aed',border:'none',marginBottom:'10px',boxShadow:toilLedger.balance<0?'0 6px 20px rgba(220,38,38,0.28)':'0 6px 20px rgba(124,58,237,0.28)',cursor:'pointer'}}>
               <div>
-                <div style={{fontSize:'9px',fontWeight:900,color:toilLedger.balance<0?'#fecaca':'#ede9fe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
-                <div style={{fontSize:'20px',fontWeight:900,color:'#fff'}}>{fmtHM(toilLedger.balance)} h</div>
-                <div style={{fontSize:'9px',fontWeight:700,color:toilLedger.balance<0?'#fecaca':'#ddd6fe',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
+                <div style={{fontSize:'11px',fontWeight:900,color:toilLedger.balance<0?'#fecaca':'#ede9fe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
+                <div style={{fontSize:'22px',fontWeight:900,color:'#fff'}}>{fmtHM(toilLedger.balance)} h</div>
+                <div style={{fontSize:'11px',fontWeight:700,color:toilLedger.balance<0?'#fecaca':'#ddd6fe',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
               </div>
             </div>
 
             {/* ── Pay period dates — simple date reference, full breakdowns live in the Breakdown tab ── */}
-            <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'8px',padding:'0 2px'}}>Pay Periods</div>
+            <div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'8px',padding:'0 2px'}}>Pay Periods</div>
             <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
               {[totals.prev,totals.curr,totals.next].map((item,i)=>{
                 const isCurrent = i===1; // order is Previous, Current, Next
                 return item&&(
                   <div key={i} style={{...S.card,background:isCurrent?'#eff6ff':'#fff',border:isCurrent?'2px solid #2563eb':'1px solid #f1f5f9',boxShadow:isCurrent?'0 4px 18px rgba(37,99,235,0.2)':'0 1px 6px rgba(0,0,0,0.05)',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 17px',marginBottom:0}}>
-                    <span style={{fontSize:'9px',fontWeight:900,color:isCurrent?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',display:'flex',alignItems:'center',gap:'6px'}}>{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}{isCurrent?'Current':i===0?'Previous':'Next'} Pay Period{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}</span>
+                    <span style={{fontSize:'11px',fontWeight:900,color:isCurrent?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',display:'flex',alignItems:'center',gap:'6px'}}>{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}{isCurrent?'Current':i===0?'Previous':'Next'} Pay Period{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}</span>
                     <div style={{textAlign:'right'}}>
-                      <div style={{fontWeight:900,fontSize:'14px',color:'#0f172a'}}>{item.month}</div>
-                      <div style={{fontSize:'14px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
+                      <div style={{fontWeight:900,fontSize:'16px',color:'#0f172a'}}>{item.month}</div>
+                      <div style={{fontSize:'16px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
                     </div>
                   </div>
                 );
@@ -1825,11 +1825,11 @@ export default function App() {
           <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
             {/* Sticky header — heading, toggle and month pills all float together */}
             <div ref={stickyRef} style={{position:'sticky',top:0,zIndex:20,background:'#f8fafc',paddingTop:'6px',paddingBottom:'8px',marginTop:'-14px',marginBottom:'6px'}}>
-              <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:'0 0 10px',letterSpacing:'-0.5px'}}>Breakdown</h2>
+              <h2 style={{fontSize:'21px',fontWeight:900,color:'#0f172a',margin:'0 0 10px',letterSpacing:'-0.5px'}}>Breakdown</h2>
               <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',boxShadow:'0 4px 14px rgba(15,23,42,0.08)'}}>
                 {/* Each half is a div rather than a button so the star can be its own
                     tap target inside it — nesting buttons isn't valid HTML. */}
-                <div onClick={()=>{ setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'auto'}); }} style={{flex:1,padding:'9px 6px',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',gap:'4px',userSelect:'none'}}>
+                <div onClick={()=>{ setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'auto'}); }} style={{flex:1,padding:'9px 6px',borderRadius:'11px',fontWeight:900,fontSize:'13px',cursor:'pointer',background:breakdownView==='calendar'?'#2563eb':'transparent',color:breakdownView==='calendar'?'#fff':'#64748b',boxShadow:breakdownView==='calendar'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',gap:'4px',userSelect:'none'}}>
                   <span style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
                     <Ico n="cal" s={13} c={breakdownView==='calendar'?'#fff':'#64748b'} w={2.5}/>Calendar View
                   </span>
@@ -1839,7 +1839,7 @@ export default function App() {
                       f={defaultBreakdownView==='calendar'?'#fbbf24':'none'}/>
                   </span>
                 </div>
-                <div onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px 6px',borderRadius:'11px',fontWeight:900,fontSize:'11px',cursor:'pointer',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',gap:'4px',userSelect:'none'}}>
+                <div onClick={()=>{ setBreakdownView('list'); snapToActiveMonth(); }} style={{flex:1,padding:'9px 6px',borderRadius:'11px',fontWeight:900,fontSize:'13px',cursor:'pointer',background:breakdownView==='list'?'#2563eb':'transparent',color:breakdownView==='list'?'#fff':'#64748b',boxShadow:breakdownView==='list'?'0 2px 8px rgba(37,99,235,0.3)':'none',transition:'all 0.15s',display:'flex',alignItems:'center',gap:'4px',userSelect:'none'}}>
                   <span style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
                     <Ico n="list" s={13} c={breakdownView==='list'?'#fff':'#64748b'} w={2.5}/>List View
                   </span>
@@ -1850,7 +1850,7 @@ export default function App() {
                   </span>
                 </div>
               </div>
-              <div style={{fontSize:'9.5px',fontWeight:600,color:'#94a3b8',textAlign:'center',marginTop:'6px',lineHeight:1.4}}>
+              <div style={{fontSize:'11.5px',fontWeight:600,color:'#94a3b8',textAlign:'center',marginTop:'6px',lineHeight:1.4}}>
                 {defaultBreakdownView==='list'?'List View':'Calendar View'} opens by default · tap ★ to change
               </div>
 
@@ -1860,7 +1860,7 @@ export default function App() {
                   {PAY_PERIODS.map((p,idx)=>{
                     const isCurr=idx===currPeriodIdx, isOpen=expanded===p.month;
                     return(
-                      <button key={p.short} onClick={()=>jumpTo(p.month)} style={{flexShrink:0,padding:'4px 10px',borderRadius:'18px',border:isCurr?'1.5px solid #2563eb':'1px solid #e2e8f0',background:isOpen?'#2563eb':isCurr?'#eff6ff':'#fff',color:isOpen?'#fff':isCurr?'#2563eb':'#64748b',fontSize:'11px',fontWeight:900,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',transition:'all 0.14s',display:'flex',alignItems:'center',gap:'4px'}}>
+                      <button key={p.short} onClick={()=>jumpTo(p.month)} style={{flexShrink:0,padding:'4px 10px',borderRadius:'18px',border:isCurr?'1.5px solid #2563eb':'1px solid #e2e8f0',background:isOpen?'#2563eb':isCurr?'#eff6ff':'#fff',color:isOpen?'#fff':isCurr?'#2563eb':'#64748b',fontSize:'13px',fontWeight:900,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',transition:'all 0.14s',display:'flex',alignItems:'center',gap:'4px'}}>
                         {p.short}{isCurr&&!isOpen&&<span style={{display:'inline-block',width:'4px',height:'4px',borderRadius:'50%',background:'#2563eb'}}/>}
                       </button>
                     );
@@ -1875,7 +1875,7 @@ export default function App() {
                     const isCurr=idx===currPeriodIdx;
                     const isSel=(calPeriodIdx===null?currPeriodIdx:calPeriodIdx)===idx;
                     return(
-                      <button key={p.short} onClick={()=>{ setCalPeriodIdx(idx); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'smooth'}); }} style={{flexShrink:0,padding:'4px 10px',borderRadius:'18px',border:isCurr?'1.5px solid #2563eb':'1px solid #e2e8f0',background:isSel?'#2563eb':isCurr?'#eff6ff':'#fff',color:isSel?'#fff':isCurr?'#2563eb':'#64748b',fontSize:'11px',fontWeight:900,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',transition:'all 0.14s',display:'flex',alignItems:'center',gap:'4px'}}>
+                      <button key={p.short} onClick={()=>{ setCalPeriodIdx(idx); if(mainRef.current) mainRef.current.scrollTo({top:0,behavior:'smooth'}); }} style={{flexShrink:0,padding:'4px 10px',borderRadius:'18px',border:isCurr?'1.5px solid #2563eb':'1px solid #e2e8f0',background:isSel?'#2563eb':isCurr?'#eff6ff':'#fff',color:isSel?'#fff':isCurr?'#2563eb':'#64748b',fontSize:'13px',fontWeight:900,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',transition:'all 0.14s',display:'flex',alignItems:'center',gap:'4px'}}>
                         {p.short}{isCurr&&!isSel&&<span style={{display:'inline-block',width:'4px',height:'4px',borderRadius:'50%',background:'#2563eb'}}/>}
                       </button>
                     );
@@ -1905,23 +1905,23 @@ export default function App() {
                   <button onClick={()=>setExpanded(isExp?null:p.month)} style={{width:'100%',textAlign:'left',padding:'16px',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'11px'}}>
                       <div>
-                        {isCurr&&<div style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'linear-gradient(135deg,#2563eb,#1d4ed8)',color:'#fff',fontSize:'8px',fontWeight:900,padding:'3px 9px',borderRadius:'8px',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'5px',boxShadow:'0 2px 6px rgba(37,99,235,0.35)'}}><span style={{width:'5px',height:'5px',borderRadius:'50%',background:'#fff'}}/>Active Month</div>}
-                        <div style={{fontWeight:900,fontSize:'17px',color:'#0f172a',letterSpacing:'-0.3px'}}>{p.month}</div>
-                        <div style={{fontSize:'11px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(p.start)} – {fmtD(p.end)}</div>
+                        {isCurr&&<div style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'linear-gradient(135deg,#2563eb,#1d4ed8)',color:'#fff',fontSize:'10px',fontWeight:900,padding:'3px 9px',borderRadius:'8px',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'5px',boxShadow:'0 2px 6px rgba(37,99,235,0.35)'}}><span style={{width:'5px',height:'5px',borderRadius:'50%',background:'#fff'}}/>Active Month</div>}
+                        <div style={{fontWeight:900,fontSize:'19px',color:'#0f172a',letterSpacing:'-0.3px'}}>{p.month}</div>
+                        <div style={{fontSize:'13px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(p.start)} – {fmtD(p.end)}</div>
                       </div>
                       <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'4px'}}>
                         <div style={{display:'flex',alignItems:'center',gap:'4px',background:isCurr?'#dbeafe':'#eff6ff',border:isCurr?'1px solid #93c5fd':'1px solid #bfdbfe',padding:'5px 9px',borderRadius:'9px'}}>
-                          <div style={{fontSize:'11px',fontWeight:900,color:'#1d4ed8'}}>{(h133+h150+h200).toFixed(1)} hrs</div>
+                          <div style={{fontSize:'13px',fontWeight:900,color:'#1d4ed8'}}>{(h133+h150+h200).toFixed(1)} hrs</div>
                         </div>
-                        <div style={{fontSize:'9px',fontWeight:700,color:'#94a3b8'}}>{pE.length} record{pE.length!==1?'s':''}</div>
+                        <div style={{fontSize:'11px',fontWeight:700,color:'#94a3b8'}}>{pE.length} record{pE.length!==1?'s':''}</div>
                       </div>
                     </div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
-                      <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Gross</div><div style={{fontWeight:900,fontSize:'17px',color:'#1e3a5f'}}>{fmt(totG)}</div></div>
-                      <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'17px',color:'#059669'}}>{fmt(totN)}</div></div>
+                      <div><div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Gross</div><div style={{fontWeight:900,fontSize:'19px',color:'#1e3a5f'}}>{fmt(totG)}</div></div>
+                      <div style={{textAlign:'right'}}><div style={{fontSize:'11px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'19px',color:'#059669'}}>{fmt(totN)}</div></div>
                     </div>
                     {!isExp&&(
-                      <div style={{fontSize:'10px',fontWeight:700,color:isCurr?'#64748b':'#94a3b8',textAlign:'center',marginTop:'11px',paddingTop:'9px',borderTop:isCurr?'1px solid #bfdbfe':'1px solid #f1f5f9'}}>Tap to see more</div>
+                      <div style={{fontSize:'12px',fontWeight:700,color:isCurr?'#64748b':'#94a3b8',textAlign:'center',marginTop:'11px',paddingTop:'9px',borderTop:isCurr?'1px solid #bfdbfe':'1px solid #f1f5f9'}}>Tap to see more</div>
                     )}
                   </button>
 
@@ -1930,46 +1930,46 @@ export default function App() {
                       {/* month summary cards — net figures now use cumulative marginal tax, rate shown */}
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px',marginBottom:'9px'}}>
                         <div style={{background:'#fff',borderRadius:'13px',padding:'13px',border:'1px solid #dbeafe'}}>
-                          <div style={{fontSize:'9px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
-                          <div style={{fontSize:'12px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(gOT)}</div>
-                          <div style={{fontSize:'11px',fontWeight:700,color:'#3b82f6',marginBottom:'7px'}}>Net: {fmt(pb.otResult.net)}</div>
+                          <div style={{fontSize:'11px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
+                          <div style={{fontSize:'14px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(gOT)}</div>
+                          <div style={{fontSize:'13px',fontWeight:700,color:'#3b82f6',marginBottom:'7px'}}>Net: {fmt(pb.otResult.net)}</div>
                           <div style={{borderTop:'1px solid #eff6ff',paddingTop:'5px'}}>
-                            {h133>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{h133}h @ 1.33x</div>}
-                            {h150>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{h150}h @ 1.5x</div>}
-                            {h200>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b'}}>{h200}h @ 2.0x</div>}
+                            {h133>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{h133}h @ 1.33x</div>}
+                            {h150>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{h150}h @ 1.5x</div>}
+                            {h200>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#64748b'}}>{h200}h @ 2.0x</div>}
                           </div>
                         </div>
                         <div style={{display:'flex',flexDirection:'column',gap:'9px'}}>
                           <div style={{background:'#fff',borderRadius:'13px',padding:'11px',border:'1px solid #fde68a'}}>
-                            <div style={{fontSize:'9px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'5px'}}>PA</div>
-                            <div style={{fontSize:'12px',fontWeight:700,color:'#92400e',marginBottom:'1px'}}>Gross: {fmt(gPA)}</div>
-                            <div style={{fontSize:'11px',fontWeight:700,color:'#d97706',marginBottom:'7px'}}>Net: {fmt(pb.paResult.net)}</div>
+                            <div style={{fontSize:'11px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'5px'}}>PA</div>
+                            <div style={{fontSize:'14px',fontWeight:700,color:'#92400e',marginBottom:'1px'}}>Gross: {fmt(gPA)}</div>
+                            <div style={{fontSize:'13px',fontWeight:700,color:'#d97706',marginBottom:'7px'}}>Net: {fmt(pb.paResult.net)}</div>
                             <div style={{display:'flex',justifyContent:'space-between',borderTop:'1px solid #fef3c7',paddingTop:'6px'}}>
-                              <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA1 × {pa1}</span>
-                              <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA2 × {pa2}</span>
-                              <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA3 × {pa3}</span>
+                              <span style={{fontSize:'12px',fontWeight:700,color:'#78716c'}}>PA1 × {pa1}</span>
+                              <span style={{fontSize:'12px',fontWeight:700,color:'#78716c'}}>PA2 × {pa2}</span>
+                              <span style={{fontSize:'12px',fontWeight:700,color:'#78716c'}}>PA3 × {pa3}</span>
                             </div>
                           </div>
                           <div style={{background:'#0f172a',borderRadius:'13px',padding:'11px',border:'1px solid #1e293b'}}>
-                            <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="moon" s={11} c="#818cf8"/><div style={{fontSize:'9px',fontWeight:900,color:'#c7d2fe',textTransform:'uppercase',letterSpacing:'0.5px'}}>Night (2000–0600)</div></div>
-                            <div style={{fontSize:'12px',fontWeight:700,color:'#e0e7ff',marginBottom:'1px'}}>Gross: {fmt(gNight)}</div>
-                            <div style={{fontSize:'11px',fontWeight:700,color:'#818cf8',marginBottom:'6px'}}>Net: {fmt(pb.nightResult.net)}</div>
-                            <div style={{fontSize:'10px',fontWeight:700,color:'#6366f1'}}>{totalNight}h @ +10%</div>
+                            <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="moon" s={11} c="#818cf8"/><div style={{fontSize:'11px',fontWeight:900,color:'#c7d2fe',textTransform:'uppercase',letterSpacing:'0.5px'}}>Night (2000–0600)</div></div>
+                            <div style={{fontSize:'14px',fontWeight:700,color:'#e0e7ff',marginBottom:'1px'}}>Gross: {fmt(gNight)}</div>
+                            <div style={{fontSize:'13px',fontWeight:700,color:'#818cf8',marginBottom:'6px'}}>Net: {fmt(pb.nightResult.net)}</div>
+                            <div style={{fontSize:'12px',fontWeight:700,color:'#6366f1'}}>{totalNight}h @ +10%</div>
                           </div>
                           {totalToilBanked>0&&(
                             <div onClick={()=>{setTab('graph');setTrendsView('toil');}} style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe',cursor:'pointer'}}>
-                              <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
-                              <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{fmtHM(totalToilWorked)}h worked → {fmtHM(totalToilBanked)}h banked</div>
-                              <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>See TOIL Etc. Tab</div>
+                              <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'11px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
+                              <div style={{fontSize:'14px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{fmtHM(totalToilWorked)}h worked → {fmtHM(totalToilBanked)}h banked</div>
+                              <div style={{fontSize:'11px',fontWeight:700,color:'#8b5cf6'}}>See TOIL Etc. Tab</div>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',textAlign:'center',marginBottom:'9px'}}>Individual Records</div>
+                      <div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',textAlign:'center',marginBottom:'9px'}}>Individual Records</div>
 
                       {pE.length===0
-                        ?<div style={{textAlign:'center',padding:'14px',color:'#94a3b8',fontSize:'13px',fontWeight:700}}>No records yet</div>
+                        ?<div style={{textAlign:'center',padding:'14px',color:'#94a3b8',fontSize:'15px',fontWeight:700}}>No records yet</div>
                         :[...pE].sort((a,b)=>new Date(a.date)-new Date(b.date)).map(e=>{
                           const c=calcEntry(e);
                           const isFut=e.date>todayStr;
@@ -1980,13 +1980,13 @@ export default function App() {
                           const eNet = eOTNet+eNightNet+ePANet;
                           return(
                             <div key={e.id} ref={el=>entryRefs.current[e.id]=el} className={focusEntryId===e.id?'entry-flash':''} style={{background:focusEntryId===e.id?'#eff6ff':'#fff',borderRadius:'13px',border:focusEntryId===e.id?'2px solid #2563eb':isFut?'1px solid #bfdbfe':'1px solid #f1f5f9',padding:'13px',marginBottom:'7px',position:'relative',transition:'background 0.4s ease, border-color 0.4s ease'}}>
-                              {isFut&&<div style={{position:'absolute',top:'-6px',right:'9px',background:'#2563eb',color:'#fff',fontSize:'8px',fontWeight:900,padding:'2px 7px',borderRadius:'7px',textTransform:'uppercase',letterSpacing:'1px'}}>Planned</div>}
+                              {isFut&&<div style={{position:'absolute',top:'-6px',right:'9px',background:'#2563eb',color:'#fff',fontSize:'10px',fontWeight:900,padding:'2px 7px',borderRadius:'7px',textTransform:'uppercase',letterSpacing:'1px'}}>Planned</div>}
                               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'7px'}}>
                                 <div>
-                                  <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>{new Date(e.date+'T12:00:00').toLocaleDateString('en-GB')}</div>
-                                  <div style={{fontSize:'10px',fontWeight:700,color:'#3b82f6',marginTop:'2px',textTransform:'uppercase'}}>Duty / Reason: {e.reason||'Shift'}</div>
-                                  {e.takeAs==='toil'&&<div style={{display:'inline-block',fontSize:'8px',fontWeight:900,padding:'2px 7px',borderRadius:'7px',marginTop:'5px',background:'#f5f3ff',color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div>}
-                                  {e.takeAs==='mix'&&<div style={{display:'inline-block',fontSize:'8px',fontWeight:900,padding:'2px 7px',borderRadius:'7px',marginTop:'5px',background:'#f5f3ff',color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>Mix — Pay + TOIL</div>}
+                                  <div style={{fontWeight:900,fontSize:'15px',color:'#0f172a'}}>{new Date(e.date+'T12:00:00').toLocaleDateString('en-GB')}</div>
+                                  <div style={{fontSize:'12px',fontWeight:700,color:'#3b82f6',marginTop:'2px',textTransform:'uppercase'}}>Duty / Reason: {e.reason||'Shift'}</div>
+                                  {e.takeAs==='toil'&&<div style={{display:'inline-block',fontSize:'10px',fontWeight:900,padding:'2px 7px',borderRadius:'7px',marginTop:'5px',background:'#f5f3ff',color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div>}
+                                  {e.takeAs==='mix'&&<div style={{display:'inline-block',fontSize:'10px',fontWeight:900,padding:'2px 7px',borderRadius:'7px',marginTop:'5px',background:'#f5f3ff',color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>Mix — Pay + TOIL</div>}
                                 </div>
                                 <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
                                   <button onClick={()=>{setConfirmDel(null);startEdit(e);}} style={{background:'#f1f5f9',border:'none',borderRadius:'8px',padding:'8px',cursor:'pointer',display:'flex'}}><Ico n="edit" s={14} c="#64748b"/></button>
@@ -1997,10 +1997,10 @@ export default function App() {
                               {/* delete confirmation */}
                               {confirmDel===e.id&&(
                                 <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'10px',padding:'11px 12px',marginBottom:'9px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'}}>
-                                  <span style={{fontSize:'12px',fontWeight:700,color:'#991b1b'}}>Delete this record?</span>
+                                  <span style={{fontSize:'14px',fontWeight:700,color:'#991b1b'}}>Delete this record?</span>
                                   <div style={{display:'flex',gap:'7px',flexShrink:0}}>
-                                    <button onClick={()=>setConfirmDel(null)} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'5px 12px',fontSize:'11px',fontWeight:900,color:'#64748b',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
-                                    <button onClick={()=>delEntry(e.id)} style={{background:'#dc2626',border:'none',borderRadius:'8px',padding:'5px 12px',fontSize:'11px',fontWeight:900,color:'#fff',cursor:'pointer',fontFamily:'inherit'}}>Delete</button>
+                                    <button onClick={()=>setConfirmDel(null)} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'5px 12px',fontSize:'13px',fontWeight:900,color:'#64748b',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+                                    <button onClick={()=>delEntry(e.id)} style={{background:'#dc2626',border:'none',borderRadius:'8px',padding:'5px 12px',fontSize:'13px',fontWeight:900,color:'#fff',cursor:'pointer',fontFamily:'inherit'}}>Delete</button>
                                   </div>
                                 </div>
                               )}
@@ -2008,8 +2008,8 @@ export default function App() {
                               {/* notes — sits under Duty/Reason with separators, matching the Calendar View popover */}
                               {e.comments&&(
                                 <div style={{borderTop:'1px solid #e2e8f0',paddingTop:'10px',marginBottom:'10px'}}>
-                                  <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Notes</div>
-                                  <div style={{fontSize:'11px',fontStyle:'italic',color:'#0f172a',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px',whiteSpace:'pre-wrap',overflowWrap:'anywhere',lineHeight:1.5}}>{e.comments}</div>
+                                  <div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Notes</div>
+                                  <div style={{fontSize:'13px',fontStyle:'italic',color:'#0f172a',borderLeft:'2px solid #bfdbfe',paddingLeft:'8px',whiteSpace:'pre-wrap',overflowWrap:'anywhere',lineHeight:1.5}}>{e.comments}</div>
                                 </div>
                               )}
 
@@ -2017,51 +2017,51 @@ export default function App() {
                                 <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
                                   {c.payH1>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>{c.payH1}h @ 1.33x {c.toilH>0&&c.otRateTier==='hours133'?'(Pay)':''} <span style={{color:'#94a3b8'}}>(£{c.r.r133.toFixed(2)}/hr)</span></span>
-                                      <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{c.ot1.toFixed(2)}</span>
+                                      <span style={{fontSize:'13px',fontWeight:700,color:'#475569'}}>{c.payH1}h @ 1.33x {c.toilH>0&&c.otRateTier==='hours133'?'(Pay)':''} <span style={{color:'#94a3b8'}}>(£{c.r.r133.toFixed(2)}/hr)</span></span>
+                                      <span style={{fontSize:'14px',fontWeight:900,color:'#1e3a5f'}}>£{c.ot1.toFixed(2)}</span>
                                     </div>
                                   )}
                                   {c.payH2>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>{c.payH2}h @ 1.5x {c.toilH>0&&c.otRateTier==='hours150'?'(Pay)':''} <span style={{color:'#94a3b8'}}>(£{c.r.r150.toFixed(2)}/hr)</span></span>
-                                      <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{c.ot2.toFixed(2)}</span>
+                                      <span style={{fontSize:'13px',fontWeight:700,color:'#475569'}}>{c.payH2}h @ 1.5x {c.toilH>0&&c.otRateTier==='hours150'?'(Pay)':''} <span style={{color:'#94a3b8'}}>(£{c.r.r150.toFixed(2)}/hr)</span></span>
+                                      <span style={{fontSize:'14px',fontWeight:900,color:'#1e3a5f'}}>£{c.ot2.toFixed(2)}</span>
                                     </div>
                                   )}
                                   {c.payH3>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#475569'}}>{c.payH3}h @ 2.0x {c.toilH>0&&c.otRateTier==='hours200'?'(Pay)':''} <span style={{color:'#94a3b8'}}>(£{c.r.r200.toFixed(2)}/hr)</span></span>
-                                      <span style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>£{c.ot3.toFixed(2)}</span>
+                                      <span style={{fontSize:'13px',fontWeight:700,color:'#475569'}}>{c.payH3}h @ 2.0x {c.toilH>0&&c.otRateTier==='hours200'?'(Pay)':''} <span style={{color:'#94a3b8'}}>(£{c.r.r200.toFixed(2)}/hr)</span></span>
+                                      <span style={{fontSize:'14px',fontWeight:900,color:'#1e3a5f'}}>£{c.ot3.toFixed(2)}</span>
                                     </div>
                                   )}
                                   {c.toilH>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#6d28d9'}}>{fmtHM(c.toilH)}h @ {RATE_TIER_MULT[c.otRateTier]}x <span style={{color:'#a78bfa'}}>(TOIL{c.takeAs==='mix'?' — part of shift':''})</span></span>
-                                      <span style={{fontSize:'12px',fontWeight:900,color:'#4c1d95'}}>{fmtHM(c.toilBanked)}h banked</span>
+                                      <span style={{fontSize:'13px',fontWeight:700,color:'#6d28d9'}}>{fmtHM(c.toilH)}h @ {RATE_TIER_MULT[c.otRateTier]}x <span style={{color:'#a78bfa'}}>(TOIL{c.takeAs==='mix'?' — part of shift':''})</span></span>
+                                      <span style={{fontSize:'14px',fontWeight:900,color:'#4c1d95'}}>{fmtHM(c.toilBanked)}h banked</span>
                                     </div>
                                   )}
                                   {c.nh>0&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#6366f1'}}>{c.nh}h @ +10% <span style={{color:'#94a3b8'}}>(£{(c.r.base*0.10).toFixed(2)}/hr)</span></span>
-                                      <span style={{fontSize:'12px',fontWeight:900,color:'#4f46e5'}}>£{c.night.toFixed(2)}</span>
+                                      <span style={{fontSize:'13px',fontWeight:700,color:'#6366f1'}}>{c.nh}h @ +10% <span style={{color:'#94a3b8'}}>(£{(c.r.base*0.10).toFixed(2)}/hr)</span></span>
+                                      <span style={{fontSize:'14px',fontWeight:900,color:'#4f46e5'}}>£{c.night.toFixed(2)}</span>
                                     </div>
                                   )}
                                   {e.paRate!=='None'&&(
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                      <span style={{fontSize:'11px',fontWeight:700,color:'#b45309'}}>{e.paRate} allowance</span>
-                                      <span style={{fontSize:'12px',fontWeight:900,color:'#92400e'}}>£{c.pa.toFixed(2)}</span>
+                                      <span style={{fontSize:'13px',fontWeight:700,color:'#b45309'}}>{e.paRate} allowance</span>
+                                      <span style={{fontSize:'14px',fontWeight:900,color:'#92400e'}}>£{c.pa.toFixed(2)}</span>
                                     </div>
                                   )}
                                 </div>
                                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',borderTop:'1px solid #e2e8f0',paddingTop:'8px',marginTop:'8px'}}>
-                                  <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</div><div style={{fontWeight:900,fontSize:'13px',color:'#1e3a5f'}}>{fmt(c.gross)}</div></div>
-                                  <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px'}}>Net</div><div style={{fontWeight:900,fontSize:'13px',color:'#059669'}}>{fmt(eNet)}</div></div>
+                                  <div><div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</div><div style={{fontWeight:900,fontSize:'15px',color:'#1e3a5f'}}>{fmt(c.gross)}</div></div>
+                                  <div style={{textAlign:'right'}}><div style={{fontSize:'11px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px'}}>Net</div><div style={{fontWeight:900,fontSize:'15px',color:'#059669'}}>{fmt(eNet)}</div></div>
                                 </div>
                               </div>
                             </div>
                           );
                         })
                       }
-                      <button onClick={()=>setExpanded(null)} style={{width:'100%',marginTop:'4px',padding:'9px',background:'#fff',border:'1px solid #e2e8f0',borderRadius:'11px',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:'4px'}}>
+                      <button onClick={()=>setExpanded(null)} style={{width:'100%',marginTop:'4px',padding:'9px',background:'#fff',border:'1px solid #e2e8f0',borderRadius:'11px',fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:'4px'}}>
                         Close <Ico n="cU" s={12} c="#94a3b8"/>
                       </button>
                     </div>
@@ -2113,12 +2113,12 @@ export default function App() {
                     <button onClick={()=>setCalPeriodIdx(i=>Math.max(0,(i===null?currPeriodIdx:i)-1))} disabled={cIdx===0} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'9px 14px',cursor:cIdx===0?'default':'pointer',opacity:cIdx===0?0.3:1}}><Ico n="cL" s={18} c="#2563eb"/></button>
                     <div style={{textAlign:'center'}}>
                       {cIdx===currPeriodIdx&&(
-                        <div style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'linear-gradient(135deg,#2563eb,#1d4ed8)',color:'#fff',fontSize:'8px',fontWeight:900,padding:'3px 9px',borderRadius:'8px',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px',boxShadow:'0 2px 6px rgba(37,99,235,0.35)'}}>
+                        <div style={{display:'inline-flex',alignItems:'center',gap:'4px',background:'linear-gradient(135deg,#2563eb,#1d4ed8)',color:'#fff',fontSize:'10px',fontWeight:900,padding:'3px 9px',borderRadius:'8px',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px',boxShadow:'0 2px 6px rgba(37,99,235,0.35)'}}>
                           <span style={{width:'5px',height:'5px',borderRadius:'50%',background:'#fff'}}/>Active Month
                         </div>
                       )}
-                      <div style={{fontWeight:900,fontSize:'19px',color:cIdx===currPeriodIdx?'#1d4ed8':'#0f172a'}}>{cPeriod.month}</div>
-                      <div style={{fontSize:'12px',fontWeight:700,color:'#3b82f6'}}>{fmtD(cPeriod.start)} – {fmtD(cPeriod.end)}</div>
+                      <div style={{fontWeight:900,fontSize:'21px',color:cIdx===currPeriodIdx?'#1d4ed8':'#0f172a'}}>{cPeriod.month}</div>
+                      <div style={{fontSize:'14px',fontWeight:700,color:'#3b82f6'}}>{fmtD(cPeriod.start)} – {fmtD(cPeriod.end)}</div>
                     </div>
                     <button onClick={()=>setCalPeriodIdx(i=>Math.min(11,(i===null?currPeriodIdx:i)+1))} disabled={cIdx===11} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'9px 14px',cursor:cIdx===11?'default':'pointer',opacity:cIdx===11?0.3:1}}><Ico n="cR" s={18} c="#2563eb"/></button>
                   </div>
@@ -2126,18 +2126,18 @@ export default function App() {
                   {/* stats strip — Shifts and Total O/T Hours */}
                   <div style={{...S.card,display:'flex',padding:'16px',background:cIdx===currPeriodIdx?'#eff6ff':'#fff',border:cIdx===currPeriodIdx?'2px solid #2563eb':'1px solid #f1f5f9',boxShadow:cIdx===currPeriodIdx?'0 4px 20px rgba(37,99,235,0.18)':'0 1px 6px rgba(0,0,0,0.05)'}}>
                     <div style={{flex:1,textAlign:'center'}}>
-                      <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Shifts Logged</div>
-                      <div style={{fontSize:'24px',fontWeight:900,color:'#1e3a5f'}}>{cEntries.length}</div>
+                      <div style={{fontSize:'12px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Shifts Logged</div>
+                      <div style={{fontSize:'22px',fontWeight:900,color:'#1e3a5f'}}>{cEntries.length}</div>
                     </div>
                     {/* separator needs a darker tone on the active month, since #f1f5f9 is invisible against the blue tint */}
                     <div style={{width:'1px',background:cIdx===currPeriodIdx?'#bfdbfe':'#f1f5f9'}}/>
                     <div style={{flex:1,textAlign:'center'}}>
-                      <div style={{fontSize:'10px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Total O/T Hours</div>
-                      <div style={{fontSize:'24px',fontWeight:900,color:'#1e3a5f'}}>{cTotalHrs}</div>
+                      <div style={{fontSize:'12px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.5px'}}>Total O/T Hours</div>
+                      <div style={{fontSize:'22px',fontWeight:900,color:'#1e3a5f'}}>{cTotalHrs}</div>
                     </div>
                   </div>
 
-                  <div className="hint-pulse" style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',fontWeight:600,margin:'10px 0'}}>Tap a day to view details or add an entry</div>
+                  <div className="hint-pulse" style={{fontSize:'14px',color:'#94a3b8',textAlign:'center',fontWeight:600,margin:'10px 0'}}>Tap a day to view details or add an entry</div>
 
                   {/* calendar grid */}
                   <div style={{...S.card,overflow:'hidden'}}>
@@ -2145,7 +2145,7 @@ export default function App() {
                         force columns wider than their share, which pushed the grid past the screen edge */}
                     <div style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(0,1fr))',gap:'3px',marginBottom:'8px'}}>
                       {['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>(
-                        <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',minWidth:0,overflow:'hidden'}}>{d}</div>
+                        <div key={d} style={{textAlign:'center',fontSize:'13px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',minWidth:0,overflow:'hidden'}}>{d}</div>
                       ))}
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:'3px'}}>
@@ -2167,9 +2167,9 @@ export default function App() {
                                   cursor:'pointer', padding:'1px', fontFamily:'inherit',
                                   minWidth:0, width:'100%', overflow:'hidden', boxSizing:'border-box',
                                 }}>
-                                <span style={{fontSize:'13px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1',lineHeight:1}}>{date.getDate()}</span>
+                                <span style={{fontSize:'15px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1',lineHeight:1}}>{date.getDate()}</span>
                                 {info.totalHrs>0&&(
-                                  <span style={{fontSize:'8px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.05,textAlign:'center',maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'clip'}}>
+                                  <span style={{fontSize:'10px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.05,textAlign:'center',maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'clip'}}>
                                     {info.totalHrs}h{info.rateLabel?<><br/>{info.rateLabel}</>:''}
                                   </span>
                                 )}
@@ -2187,47 +2187,47 @@ export default function App() {
 
                     {/* legend */}
                     <div style={{display:'flex',justifyContent:'center',gap:'16px',marginTop:'12px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'11px',height:'11px',borderRadius:'3px',background:'#eff6ff',border:'1px solid #bfdbfe'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>OT logged</span></div>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#818cf8'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>Night</span></div>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#f59e0b'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>PA</span></div>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#7c3aed'}}/><span style={{fontSize:'11px',fontWeight:700,color:'#64748b'}}>TOIL</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'11px',height:'11px',borderRadius:'3px',background:'#eff6ff',border:'1px solid #bfdbfe'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>OT logged</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#818cf8'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>Night</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#f59e0b'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>PA</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#7c3aed'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>TOIL</span></div>
                     </div>
                   </div>
 
                   {/* period breakdown boxes — same layout as List View */}
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
                     <div style={{background:'#fff',borderRadius:'13px',padding:'13px',border:'1px solid #dbeafe'}}>
-                      <div style={{fontSize:'9px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
-                      <div style={{fontSize:'12px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(pb.ot)}</div>
-                      <div style={{fontSize:'11px',fontWeight:700,color:'#3b82f6',marginBottom:'7px'}}>Net: {fmt(pb.otResult.net)}</div>
+                      <div style={{fontSize:'14px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
+                      <div style={{fontSize:'17px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(pb.ot)}</div>
+                      <div style={{fontSize:'16px',fontWeight:700,color:'#3b82f6',marginBottom:'7px'}}>Net: {fmt(pb.otResult.net)}</div>
                       <div style={{borderTop:'1px solid #eff6ff',paddingTop:'5px'}}>
-                        {ph133>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph133}h @ 1.33x</div>}
-                        {ph150>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph150}h @ 1.5x</div>}
-                        {ph200>0&&<div style={{fontSize:'10px',fontWeight:700,color:'#64748b'}}>{ph200}h @ 2.0x</div>}
+                        {ph133>0&&<div style={{fontSize:'15px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph133}h @ 1.33x</div>}
+                        {ph150>0&&<div style={{fontSize:'15px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph150}h @ 1.5x</div>}
+                        {ph200>0&&<div style={{fontSize:'15px',fontWeight:700,color:'#64748b'}}>{ph200}h @ 2.0x</div>}
                       </div>
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:'9px'}}>
                       <div style={{background:'#fff',borderRadius:'13px',padding:'11px',border:'1px solid #fde68a'}}>
-                        <div style={{fontSize:'9px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'5px'}}>PA</div>
-                        <div style={{fontSize:'12px',fontWeight:700,color:'#92400e',marginBottom:'1px'}}>Gross: {fmt(pb.pa)}</div>
-                        <div style={{fontSize:'11px',fontWeight:700,color:'#d97706',marginBottom:'7px'}}>Net: {fmt(pb.paResult.net)}</div>
+                        <div style={{fontSize:'11px',fontWeight:900,color:'#92400e',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'5px'}}>PA</div>
+                        <div style={{fontSize:'14px',fontWeight:700,color:'#92400e',marginBottom:'1px'}}>Gross: {fmt(pb.pa)}</div>
+                        <div style={{fontSize:'13px',fontWeight:700,color:'#d97706',marginBottom:'7px'}}>Net: {fmt(pb.paResult.net)}</div>
                         <div style={{display:'flex',justifyContent:'space-between',borderTop:'1px solid #fef3c7',paddingTop:'6px'}}>
-                          <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA1 × {ppa1}</span>
-                          <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA2 × {ppa2}</span>
-                          <span style={{fontSize:'10px',fontWeight:700,color:'#78716c'}}>PA3 × {ppa3}</span>
+                          <span style={{fontSize:'12px',fontWeight:700,color:'#78716c'}}>PA1 × {ppa1}</span>
+                          <span style={{fontSize:'12px',fontWeight:700,color:'#78716c'}}>PA2 × {ppa2}</span>
+                          <span style={{fontSize:'12px',fontWeight:700,color:'#78716c'}}>PA3 × {ppa3}</span>
                         </div>
                       </div>
                       <div style={{background:'#0f172a',borderRadius:'13px',padding:'11px',border:'1px solid #1e293b'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="moon" s={11} c="#818cf8"/><div style={{fontSize:'9px',fontWeight:900,color:'#c7d2fe',textTransform:'uppercase',letterSpacing:'0.5px'}}>Night (2000–0600)</div></div>
-                        <div style={{fontSize:'12px',fontWeight:700,color:'#e0e7ff',marginBottom:'1px'}}>Gross: {fmt(pb.night)}</div>
-                        <div style={{fontSize:'11px',fontWeight:700,color:'#818cf8',marginBottom:'6px'}}>Net: {fmt(pb.nightResult.net)}</div>
-                        <div style={{fontSize:'10px',fontWeight:700,color:'#6366f1'}}>{pNight}h @ +10%</div>
+                        <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="moon" s={11} c="#818cf8"/><div style={{fontSize:'11px',fontWeight:900,color:'#c7d2fe',textTransform:'uppercase',letterSpacing:'0.5px'}}>Night (2000–0600)</div></div>
+                        <div style={{fontSize:'14px',fontWeight:700,color:'#e0e7ff',marginBottom:'1px'}}>Gross: {fmt(pb.night)}</div>
+                        <div style={{fontSize:'13px',fontWeight:700,color:'#818cf8',marginBottom:'6px'}}>Net: {fmt(pb.nightResult.net)}</div>
+                        <div style={{fontSize:'12px',fontWeight:700,color:'#6366f1'}}>{pNight}h @ +10%</div>
                       </div>
                       {pToilBanked>0&&(
                         <div onClick={()=>{setTab('graph');setTrendsView('toil');}} style={{background:'#f5f3ff',borderRadius:'13px',padding:'11px',border:'1px solid #ddd6fe',cursor:'pointer'}}>
-                          <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'9px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
-                          <div style={{fontSize:'12px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{fmtHM(pToilWorked)}h worked → {fmtHM(pToilBanked)}h banked</div>
-                          <div style={{fontSize:'9px',fontWeight:700,color:'#8b5cf6'}}>See TOIL Etc. Tab</div>
+                          <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}}><Ico n="clock" s={11} c="#7c3aed"/><div style={{fontSize:'11px',fontWeight:900,color:'#6d28d9',textTransform:'uppercase',letterSpacing:'0.5px'}}>TOIL</div></div>
+                          <div style={{fontSize:'14px',fontWeight:700,color:'#4c1d95',marginBottom:'6px'}}>{fmtHM(pToilWorked)}h worked → {fmtHM(pToilBanked)}h banked</div>
+                          <div style={{fontSize:'11px',fontWeight:700,color:'#8b5cf6'}}>See TOIL Etc. Tab</div>
                         </div>
                       )}
                     </div>
@@ -2236,8 +2236,8 @@ export default function App() {
                   {/* month total — same layout as the List View card header */}
                   <div style={{...S.card,marginTop:'9px'}}>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
-                      <div><div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Gross</div><div style={{fontWeight:900,fontSize:'17px',color:'#1e3a5f'}}>{fmt(pb.combinedGross)}</div></div>
-                      <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'17px',color:'#059669'}}>{fmt(pb.combinedNet)}</div></div>
+                      <div><div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Gross</div><div style={{fontWeight:900,fontSize:'19px',color:'#1e3a5f'}}>{fmt(pb.combinedGross)}</div></div>
+                      <div style={{textAlign:'right'}}><div style={{fontSize:'11px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'19px',color:'#059669'}}>{fmt(pb.combinedNet)}</div></div>
                     </div>
                   </div>
                 </>
@@ -2261,47 +2261,47 @@ export default function App() {
             {trendsView==='toil' ? (
               <>
                 <div style={{background:toilLedger.balance<0?'#fef2f2':'#f5f3ff',border:toilLedger.balance<0?'1.5px solid #fecaca':'1.5px solid #ddd6fe',borderRadius:'16px',padding:'16px',marginBottom:'14px'}}>
-                  <div style={{fontSize:'10px',fontWeight:900,color:toilLedger.balance<0?'#dc2626':'#6d28d9',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
-                  <div style={{fontSize:'28px',fontWeight:900,color:toilLedger.balance<0?'#991b1b':'#4c1d95'}}>{fmtHM(toilLedger.balance)} h</div>
-                  <div style={{fontSize:'10px',fontWeight:700,color:toilLedger.balance<0?'#dc2626':'#7c3aed',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
+                  <div style={{fontSize:'12px',fontWeight:900,color:toilLedger.balance<0?'#dc2626':'#6d28d9',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
+                  <div style={{fontSize:'30px',fontWeight:900,color:toilLedger.balance<0?'#991b1b':'#4c1d95'}}>{fmtHM(toilLedger.balance)} h</div>
+                  <div style={{fontSize:'12px',fontWeight:700,color:toilLedger.balance<0?'#dc2626':'#7c3aed',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
                 </div>
 
                 <div style={{...S.card,background:'#fff',border:'1.5px solid #ede9fe'}}>
-                  <div style={{...S.lbl,marginBottom:'8px'}}>Redeem TOIL</div>
+                  <div style={{...S.lbl,fontSize:'11px',marginBottom:'8px'}}>Redeem TOIL</div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 52px 66px',gap:'8px',marginBottom:'8px'}}>
-                    <input type="date" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'13px',boxSizing:'border-box'}} value={toilTakenForm.date} onChange={e=>setToilTakenForm({...toilTakenForm,date:e.target.value})}/>
-                    <input type="number" min="0" step="1" placeholder="Hrs" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'13px',textAlign:'center',boxSizing:'border-box'}} value={toilTakenForm.hours} onChange={e=>setToilTakenForm({...toilTakenForm,hours:e.target.value})}/>
-                    <select style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px 4px',fontFamily:'inherit',fontSize:'13px',textAlign:'center',boxSizing:'border-box',background:'#fff'}} value={toilTakenForm.minutes} onChange={e=>setToilTakenForm({...toilTakenForm,minutes:e.target.value})}>
+                    <input type="date" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'15px',boxSizing:'border-box'}} value={toilTakenForm.date} onChange={e=>setToilTakenForm({...toilTakenForm,date:e.target.value})}/>
+                    <input type="number" min="0" step="1" placeholder="Hrs" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'15px',textAlign:'center',boxSizing:'border-box'}} value={toilTakenForm.hours} onChange={e=>setToilTakenForm({...toilTakenForm,hours:e.target.value})}/>
+                    <select style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px 4px',fontFamily:'inherit',fontSize:'15px',textAlign:'center',boxSizing:'border-box',background:'#fff'}} value={toilTakenForm.minutes} onChange={e=>setToilTakenForm({...toilTakenForm,minutes:e.target.value})}>
                       <option value="00">00m</option>
                       <option value="15">15m</option>
                       <option value="30">30m</option>
                       <option value="45">45m</option>
                     </select>
                   </div>
-                  <input type="text" placeholder="Note (optional) — e.g. half day, appointment" style={{width:'100%',boxSizing:'border-box',border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'12px',marginBottom:'8px'}} value={toilTakenForm.note} onChange={e=>setToilTakenForm({...toilTakenForm,note:e.target.value})}/>
-                  <button onClick={addToilTaken} style={{width:'100%',background:'#7c3aed',color:'#fff',border:'none',borderRadius:'10px',padding:'11px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit'}}>Redeem TOIL</button>
+                  <input type="text" placeholder="Note (optional) — e.g. half day, appointment" style={{width:'100%',boxSizing:'border-box',border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'14px',marginBottom:'8px'}} value={toilTakenForm.note} onChange={e=>setToilTakenForm({...toilTakenForm,note:e.target.value})}/>
+                  <button onClick={addToilTaken} style={{width:'100%',background:'#7c3aed',color:'#fff',border:'none',borderRadius:'10px',padding:'11px',fontWeight:900,fontSize:'14px',cursor:'pointer',fontFamily:'inherit'}}>Redeem TOIL</button>
                 </div>
 
-                <div style={{...S.lbl,margin:'14px 0 8px'}}>Ledger</div>
-                <div style={{fontSize:'9.5px',fontWeight:600,color:'#94a3b8',lineHeight:1.5,marginBottom:'10px'}}>Green entries post automatically whenever you log a shift as TOIL or Mix. Red entries result when you redeem TOIL in the box above.</div>
+                <div style={{...S.lbl,fontSize:'11px',margin:'14px 0 8px'}}>Ledger</div>
+                <div style={{fontSize:'11.5px',fontWeight:600,color:'#94a3b8',lineHeight:1.5,marginBottom:'10px'}}>Green entries post automatically whenever you log a shift as TOIL or Mix. Red entries result when you redeem TOIL in the box above.</div>
                 {toilLedger.rows.length===0 ? (
-                  <div style={{fontSize:'12px',color:'#94a3b8',textAlign:'center',padding:'20px'}}>No TOIL activity yet</div>
+                  <div style={{fontSize:'14px',color:'#94a3b8',textAlign:'center',padding:'20px'}}>No TOIL activity yet</div>
                 ) : toilLedger.rows.map(l=>(
                   <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 12px',marginBottom:'8px',borderRadius:'11px',gap:'10px',background:l.type==='earned'?'#f0fdf4':'#fef2f2',border:l.type==='earned'?'1px solid #bbf7d0':'1px solid #fecaca'}}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:'11.5px',fontWeight:700,color:'#334155'}}>{l.note}</div>
+                      <div style={{fontSize:'13.5px',fontWeight:700,color:'#334155'}}>{l.note}</div>
                       <div style={{display:'flex',alignItems:'center',gap:'8px',marginTop:'4px'}}>
-                        <span style={{fontSize:'9.5px',color:'#94a3b8'}}>{new Date(l.date+'T12:00:00').toLocaleDateString('en-GB')}</span>
+                        <span style={{fontSize:'11.5px',color:'#94a3b8'}}>{new Date(l.date+'T12:00:00').toLocaleDateString('en-GB')}</span>
                         {l.type==='taken'&&(
-                          <button onClick={()=>deleteToilTaken(l.rawId)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:'3px',background:'#fff',border:'1.5px solid #fecaca',borderRadius:'7px',padding:'3px 7px',color:'#dc2626',fontWeight:800,fontSize:'9px',fontFamily:'inherit',cursor:'pointer'}}>
+                          <button onClick={()=>deleteToilTaken(l.rawId)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:'3px',background:'#fff',border:'1.5px solid #fecaca',borderRadius:'7px',padding:'3px 7px',color:'#dc2626',fontWeight:800,fontSize:'11px',fontFamily:'inherit',cursor:'pointer'}}>
                             <Ico n="trash" s={10} c="#dc2626"/> Remove
                           </button>
                         )}
                       </div>
                     </div>
                     <div style={{textAlign:'right',flexShrink:0}}>
-                      <div style={{fontSize:'13px',fontWeight:900,color:l.type==='earned'?'#059669':'#dc2626'}}>{l.hours>=0?'+':''}{fmtHM(l.hours)}h</div>
-                      <div style={{fontSize:'9px',color:'#94a3b8'}}>bal: {fmtHM(l.balanceAfter)} h</div>
+                      <div style={{fontSize:'15px',fontWeight:900,color:l.type==='earned'?'#059669':'#dc2626'}}>{l.hours>=0?'+':''}{fmtHM(l.hours)}h</div>
+                      <div style={{fontSize:'11px',color:'#94a3b8'}}>bal: {fmtHM(l.balanceAfter)} h</div>
                     </div>
                   </div>
                 ))}
