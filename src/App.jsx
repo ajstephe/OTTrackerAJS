@@ -458,6 +458,8 @@ const Ico = ({ n, s=20, c, w=2, f='none' }) => (
     {n==='moon'  &&<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>}
     {n==='mail'  &&<><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></>}
     {n==='table' &&<><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></>}
+    {n==='doc'   &&<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>}
+    {n==='share' &&<><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></>}
     {n==='bell'  &&<><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>}
   </svg>
 );
@@ -585,6 +587,12 @@ export default function App() {
   const [trendsView, setTrendsView] = useState('toil'); // 'trends' | 'toil'
   const [chartTap, setChartTap] = useState(null);     // {chart:'cum'|'mon', i, big}
   const [chartModal, setChartModal] = useState(null); // 'cum' | 'mon' | null
+  const [payslipModalOpen, setPayslipModalOpen] = useState(false);
+  const [payslipMode, setPayslipMode] = useState('period'); // 'period' | 'custom'
+  const [payslipPeriodIdx, setPayslipPeriodIdx] = useState(null);
+  const [payslipStart, setPayslipStart] = useState('');
+  const [payslipEnd, setPayslipEnd] = useState('');
+  const [payslipPreview, setPayslipPreview] = useState(null); // { start, end, label, data } | null
   const [defaultBreakdownView, setDefaultBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list'));
   const [breakdownView, setBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list')); // 'list' | 'calendar'
   const [calPeriodIdx, setCalPeriodIdx] = useState(null); // set to currPeriodIdx on first render
@@ -1039,7 +1047,7 @@ export default function App() {
     const d=entries.find(e=>e.id===id);
     setEntries(prev=>prev.filter(x=>x.id!==id));
     setConfirmDel(null);
-    addToast('Record deleted','undo',{label:'Undo',fn:()=>setEntries(prev=>[...prev,d])},5000);
+    addToast('Record deleted','undo',{label:'Undo',fn:()=>setEntries(prev=>[...prev,d])},7000);
   };
 
   const [toilTakenForm, setToilTakenForm] = useState({date:todayStr, hours:'', minutes:'00', note:''});
@@ -1060,7 +1068,7 @@ export default function App() {
   const deleteToilTaken = id => {
     const d = toilTaken.find(t=>t.id===id);
     setToilTaken(prev=>prev.filter(t=>t.id!==id));
-    addToast('Entry removed','undo',{label:'Undo',fn:()=>setToilTaken(prev=>[...prev,d])},5000);
+    addToast('Entry removed','undo',{label:'Undo',fn:()=>setToilTaken(prev=>[...prev,d])},7000);
   };
 
   // Standard backup filename convention: OTbackup + day + 3-letter month +
@@ -1327,6 +1335,50 @@ export default function App() {
     );
   };
 
+  // Payslip data for an arbitrary date range. Reuses the same tax/NI approach
+  // already used for the Log Overtime live preview: this range's gross is
+  // treated as a slice stacked on top of everything else logged this tax
+  // year (for cumulative income tax banding) and on top of the rest of its
+  // containing pay period (for NI, which resets each period). Whole-period
+  // exports are exact since they match how totals.periodBreakdown is built;
+  // custom ranges spanning multiple periods are a reasonable estimate.
+  const computePayslipData = (start, end) => {
+    const rangeEntries = entries.filter(e=>e.date>=start&&e.date<=end).sort((a,b)=>a.date.localeCompare(b.date));
+    let ot=0, night=0, pa=0, hrs=0, toilBanked=0;
+    const rateHrs = { hours133:0, hours150:0, hours200:0 };
+    const paCounts = { PA1:0, PA2:0, PA3:0 };
+    rangeEntries.forEach(e=>{
+      const c = calcEntry(e);
+      ot += c.ot; night += c.night; pa += c.pa; hrs += c.h1+c.h2+c.h3; toilBanked += c.toilBanked;
+      rateHrs.hours133 += c.payH1; rateHrs.hours150 += c.payH2; rateHrs.hours200 += c.payH3;
+      if (e.paRate && e.paRate!=='None') paCounts[e.paRate] = (paCounts[e.paRate]||0)+1;
+    });
+    const gross = ot + night + pa;
+
+    const endIdx = PAY_PERIODS.findIndex(p=>end>=p.start&&end<=p.end);
+    const periodNo = endIdx>=0 ? endIdx+1 : 12;
+    const pb = endIdx>=0 ? totals.periodBreakdown[endIdx] : null;
+    const cumulativeBefore = Math.max(0, totals.combinedGrossYTD - gross);
+    const periodGrossBefore = pb ? Math.max(0, (pb.baseAmt+pb.ot+pb.night+pb.pa) - gross) : 0;
+    const result = applyBandTax(cumulativeBefore, gross, periodNo, periodGrossBefore);
+    const r = getRates(settings.rank, settings.service, end);
+
+    return { rangeEntries, ot, night, pa, hrs, toilBanked, rateHrs, paCounts, gross,
+      net:result.net, tax:result.tax, ni:result.ni, bandName:result.bandName, rate:result.rate, rates:r };
+  };
+
+  const openPayslipPreview = () => {
+    let start, end, label;
+    if (payslipMode==='period' && payslipPeriodIdx!=null) {
+      const p = PAY_PERIODS[payslipPeriodIdx];
+      start = p.start; end = p.end; label = p.month;
+    } else if (payslipMode==='custom' && payslipStart && payslipEnd && payslipEnd>=payslipStart) {
+      start = payslipStart; end = payslipEnd; label = `${fmtD(start)} – ${fmtD(end)}`;
+    } else return;
+    setPayslipPreview({ start, end, label, data: computePayslipData(start, end) });
+    setPayslipModalOpen(false);
+  };
+
   return (
     <div style={S.wrap}>
       <style>{`
@@ -1353,12 +1405,18 @@ export default function App() {
         input[type=date]::-webkit-date-and-time-value{text-align:left}
         input[type=date]::-webkit-datetime-edit{padding:0}
         input[type=date]::-webkit-calendar-picker-indicator{background:transparent;cursor:pointer;opacity:0.55;padding:0;margin:0}
+        @media print{
+          .no-print{display:none !important}
+          .payslip-print-area{position:static !important;inset:auto !important;width:100% !important;max-width:none !important;max-height:none !important;overflow:visible !important;background:#fff !important;padding:0 !important}
+          .payslip-print-doc{box-shadow:none !important;border-radius:0 !important}
+          body,html{background:#fff !important}
+        }
       `}</style>
 
-      <ToastStack toasts={toasts} onDismiss={dismissToast}/>
+      <div className="no-print"><ToastStack toasts={toasts} onDismiss={dismissToast}/></div>
 
       {/* ── header ── */}
-      <header style={S.hdr}>
+      <header className="no-print" style={S.hdr}>
         <div style={{display:'flex',alignItems:'center',gap:'8px',minWidth:0}}>
           <ClockCashIcon width={28} height={19}/>
           <div style={{display:'flex',flexDirection:'column',lineHeight:1.2,minWidth:0}}>
@@ -1376,7 +1434,7 @@ export default function App() {
 
       {/* ── 14-day backup reminder — optional, dismissible, never blocks the app ── */}
       {showBackupReminder&&(
-        <div className="fi" style={{background:'#eff6ff',borderBottom:'1px solid #bfdbfe',padding:'12px 14px',display:'flex',alignItems:'flex-start',gap:'10px',flexShrink:0,zIndex:15}}>
+        <div className="fi no-print" style={{background:'#eff6ff',borderBottom:'1px solid #bfdbfe',padding:'12px 14px',display:'flex',alignItems:'flex-start',gap:'10px',flexShrink:0,zIndex:15}}>
           <div style={{background:'#dbeafe',borderRadius:'10px',padding:'7px',flexShrink:0}}><Ico n="shield" s={15} c="#2563eb"/></div>
           <div style={{flex:1}}>
             <div style={{fontWeight:900,fontSize:'12px',color:'#1e3a5f',marginBottom:'2px'}}>Time for a backup</div>
@@ -1390,7 +1448,7 @@ export default function App() {
         </div>
       )}
 
-      <main ref={mainRef} style={S.main}>
+      <main ref={mainRef} className="no-print" style={S.main}>
 
         {/* ══════════════════════════════════════════ DASHBOARD */}
         {tab==='dashboard'&&(
@@ -2470,15 +2528,24 @@ export default function App() {
             {/* ── Export to spreadsheet — separate from backup ── */}
             <div style={S.card}>
               <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'11px'}}>
-                <div style={{background:'#f0fdf4',padding:'9px',borderRadius:'11px'}}><Ico n="table" s={17} c="#059669"/></div>
-                <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Export to Spreadsheet</div>
+                <div style={{background:'#fffbeb',padding:'9px',borderRadius:'11px'}}><Ico n="share" s={17} c="#d97706"/></div>
+                <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Export Data</div>
               </div>
               <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'11px',padding:'10px 12px',marginBottom:'12px',display:'flex',gap:'8px',alignItems:'flex-start'}}>
                 <Ico n="uPlus" s={14} c="#d97706"/>
                 <div style={{fontSize:'10px',fontWeight:700,color:'#92400e',lineHeight:1.5}}>This is <strong>not a backup</strong>. It's a read-only CSV for viewing your records in Excel, Google Sheets or Numbers — use the Backup button above to protect your data.</div>
               </div>
-              <button onClick={handleExportCSV} disabled={entries.length===0} style={{width:'100%',padding:'12px',background: entries.length===0 ? '#f1f5f9' : '#10b981',border:'none',borderRadius:'11px',color: entries.length===0 ? '#94a3b8' : '#fff',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor: entries.length===0 ? 'default' : 'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',textTransform:'uppercase',letterSpacing:'1px',boxShadow: entries.length===0 ? 'none' : '0 4px 14px rgba(16,185,129,0.3)'}}><Ico n="table" s={13} c={entries.length===0?'#94a3b8':'#fff'}/> Export to CSV</button>
+              <button onClick={handleExportCSV} disabled={entries.length===0} style={{width:'100%',padding:'12px',background: entries.length===0 ? '#f1f5f9' : '#10b981',border:'none',borderRadius:'11px',color: entries.length===0 ? '#94a3b8' : '#fff',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor: entries.length===0 ? 'default' : 'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',textTransform:'uppercase',letterSpacing:'1px',boxShadow: entries.length===0 ? 'none' : '0 4px 14px rgba(16,185,129,0.3)'}}><Ico n="table" s={13} c={entries.length===0?'#94a3b8':'#fff'}/> Export to Spreadsheet</button>
               {entries.length===0&&<div style={{fontSize:'10px',color:'#94a3b8',textAlign:'center',marginTop:'8px',fontWeight:600}}>Log a shift first to enable export</div>}
+
+              <div style={{display:'flex',alignItems:'center',gap:'10px',margin:'14px 0'}}>
+                <div style={{flex:1,height:'1px',background:'#f1f5f9'}}/>
+                <div style={{fontSize:'9px',fontWeight:800,color:'#cbd5e1',textTransform:'uppercase',letterSpacing:'1px'}}>or</div>
+                <div style={{flex:1,height:'1px',background:'#f1f5f9'}}/>
+              </div>
+
+              <button onClick={()=>{setPayslipMode('period');setPayslipPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0);setPayslipModalOpen(true);}} disabled={entries.length===0} style={{width:'100%',padding:'12px',background: entries.length===0 ? '#f1f5f9' : '#2563eb',border:'none',borderRadius:'11px',color: entries.length===0 ? '#94a3b8' : '#fff',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor: entries.length===0 ? 'default' : 'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',textTransform:'uppercase',letterSpacing:'1px',boxShadow: entries.length===0 ? 'none' : '0 4px 14px rgba(37,99,235,0.3)'}}><Ico n="doc" s={13} c={entries.length===0?'#94a3b8':'#fff'}/> Export to PDF</button>
+              <div style={{fontSize:'9.5px',color:'#94a3b8',textAlign:'center',marginTop:'8px'}}>A formatted summary for a period or date range — good for sharing or checking a figure with payroll</div>
             </div>
 
             {/* ── Help & suggestions ── */}
@@ -2493,6 +2560,183 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Export As Payslip — date range picker */}
+      {payslipModalOpen&&(()=>{
+        const periodChoices = (currPeriodIdx>=0 ? PAY_PERIODS.slice(0,currPeriodIdx+1) : PAY_PERIODS).map((p,i)=>({...p,idx:i})).reverse();
+        const rangeValid = payslipStart && payslipEnd && payslipEnd>=payslipStart;
+        const canGenerate = payslipMode==='period' ? payslipPeriodIdx!=null : rangeValid;
+        return (
+          <div onClick={()=>setPayslipModalOpen(false)} style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'flex-end',justifyContent:'center',zIndex:60}}>
+            <div onClick={e=>e.stopPropagation()} className="fi" style={{background:'#fff',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:'430px',padding:'20px',maxHeight:'85%',overflowY:'auto'}}>
+              <div style={{width:'36px',height:'4px',background:'#e2e8f0',borderRadius:'4px',margin:'0 auto 14px'}}/>
+              <div style={{fontSize:'15px',fontWeight:900,marginBottom:'4px'}}>Export Payslip</div>
+              <div style={{fontSize:'11px',color:'#94a3b8',marginBottom:'16px'}}>Choose a period, or set your own date range</div>
+
+              <div style={{display:'flex',gap:'6px',background:'#f1f5f9',borderRadius:'12px',padding:'3px',marginBottom:'16px'}}>
+                <button onClick={()=>setPayslipMode('period')} style={{flex:1,textAlign:'center',padding:'9px 4px',borderRadius:'9px',fontWeight:800,fontSize:'11.5px',border:'none',fontFamily:'inherit',cursor:'pointer',background:payslipMode==='period'?'#fff':'transparent',color:payslipMode==='period'?'#2563eb':'#64748b',boxShadow:payslipMode==='period'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}>Pay Period</button>
+                <button onClick={()=>setPayslipMode('custom')} style={{flex:1,textAlign:'center',padding:'9px 4px',borderRadius:'9px',fontWeight:800,fontSize:'11.5px',border:'none',fontFamily:'inherit',cursor:'pointer',background:payslipMode==='custom'?'#fff':'transparent',color:payslipMode==='custom'?'#2563eb':'#64748b',boxShadow:payslipMode==='custom'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}>Custom Range</button>
+              </div>
+
+              {payslipMode==='period' ? (
+                <>
+                  <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'8px'}}>Pay Periods</div>
+                  <div style={{display:'flex',flexDirection:'column',gap:'7px',marginBottom:'6px'}}>
+                    {periodChoices.map(p=>(
+                      <div key={p.idx} onClick={()=>setPayslipPeriodIdx(p.idx)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',borderRadius:'12px',border:p.idx===payslipPeriodIdx?'1.5px solid #2563eb':'1.5px solid #f1f5f9',background:p.idx===payslipPeriodIdx?'#eff6ff':'#fff',cursor:'pointer'}}>
+                        <div>
+                          <div style={{fontWeight:800,fontSize:'12.5px',color:'#0f172a'}}>{p.month}{p.idx===currPeriodIdx&&<span style={{color:'#2563eb',fontSize:'9px',marginLeft:'6px'}}>· Current</span>}</div>
+                          <div style={{fontSize:'10px',color:'#94a3b8',marginTop:'1px'}}>{fmtD(p.start)} – {fmtD(p.end)}</div>
+                        </div>
+                        <div style={{width:'18px',height:'18px',borderRadius:'50%',border:`2px solid ${p.idx===payslipPeriodIdx?'#2563eb':'#cbd5e1'}`,flexShrink:0,position:'relative'}}>
+                          {p.idx===payslipPeriodIdx&&<div style={{position:'absolute',inset:'3px',background:'#2563eb',borderRadius:'50%'}}/>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'8px'}}>Custom Range</div>
+                  <div style={{display:'flex',gap:'10px',marginBottom:'6px'}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>Start</label>
+                      <input type="date" value={payslipStart} onChange={e=>setPayslipStart(e.target.value)} style={{width:'100%',boxSizing:'border-box',background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:'11px',padding:'11px 12px',fontWeight:700,fontSize:'14px',fontFamily:'inherit',color:'#0f172a'}}/>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>End</label>
+                      <input type="date" value={payslipEnd} onChange={e=>setPayslipEnd(e.target.value)} style={{width:'100%',boxSizing:'border-box',background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:'11px',padding:'11px 12px',fontWeight:700,fontSize:'14px',fontFamily:'inherit',color:'#0f172a'}}/>
+                    </div>
+                  </div>
+                  {payslipStart&&payslipEnd&&!rangeValid&&<div style={{fontSize:'10.5px',color:'#dc2626',fontWeight:700,marginTop:'6px'}}>End date must be on or after the start date.</div>}
+                </>
+              )}
+
+              <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'12px',padding:'11px 14px',margin:'16px 0',fontSize:'12px',color:'#1e40af',fontWeight:700,textAlign:'center'}}>
+                {payslipMode==='period'
+                  ? (payslipPeriodIdx!=null ? `${fmtD(PAY_PERIODS[payslipPeriodIdx].start)} – ${fmtD(PAY_PERIODS[payslipPeriodIdx].end)}` : 'Pick a pay period')
+                  : (rangeValid ? `${fmtD(payslipStart)} – ${fmtD(payslipEnd)}` : 'Pick a valid start and end date')}
+              </div>
+
+              <button onClick={openPayslipPreview} disabled={!canGenerate} style={{width:'100%',background:canGenerate?'#2563eb':'#cbd5e1',color:'#fff',border:'none',borderRadius:'12px',padding:'14px',fontWeight:900,fontSize:'13px',cursor:canGenerate?'pointer':'default',fontFamily:'inherit'}}>Generate Payslip</button>
+              <button onClick={()=>setPayslipModalOpen(false)} style={{width:'100%',background:'none',border:'none',padding:'12px',fontWeight:800,fontSize:'12px',color:'#64748b',cursor:'pointer',fontFamily:'inherit',marginTop:'4px'}}>Cancel</button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Payslip preview / print document */}
+      {payslipPreview&&(()=>{
+        const d = payslipPreview.data;
+        const hasOT = d.rateHrs.hours133>0 || d.rateHrs.hours150>0 || d.rateHrs.hours200>0;
+        const hasPA = d.paCounts.PA1>0 || d.paCounts.PA2>0 || d.paCounts.PA3>0;
+        const rowStyle = {padding:'7px 0',borderBottom:'1px solid #f8fafc'};
+        const thStyle = {textAlign:'left',fontSize:'9px',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.6px',padding:'4px 0',borderBottom:'1px solid #f1f5f9'};
+        const sectionTitle = {fontSize:'10.5px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.2px',margin:'20px 0 8px',paddingTop:'14px',borderTop:'1px solid #f1f5f9'};
+        return (
+          <div className="payslip-print-area" style={{position:'absolute',inset:0,background:'#e2e8f0',zIndex:70,overflowY:'auto',padding:'16px'}}>
+            <div className="no-print" style={{display:'flex',gap:'8px',marginBottom:'14px',maxWidth:'560px',margin:'0 auto 14px'}}>
+              <button onClick={()=>window.print()} style={{flex:1,background:'#2563eb',color:'#fff',border:'none',borderRadius:'11px',padding:'12px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}><Ico n="dl" s={13} c="#fff"/> Print / Save as PDF</button>
+              <button onClick={()=>setPayslipPreview(null)} style={{background:'#fff',color:'#475569',border:'1px solid #e2e8f0',borderRadius:'11px',padding:'12px 18px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit'}}>Close</button>
+            </div>
+
+            <div className="payslip-print-doc" style={{maxWidth:'560px',margin:'0 auto',background:'#fff',borderRadius:'6px',boxShadow:'0 4px 24px rgba(0,0,0,0.12)',overflow:'hidden'}}>
+              <div style={{background:'#0f2744',color:'#fff',padding:'26px 26px 20px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'18px'}}>
+                  <div>
+                    <div style={{fontSize:'10px',fontWeight:800,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.4px'}}>Overtime &amp; Shift Tracker</div>
+                    <div style={{fontSize:'19px',fontWeight:900,marginTop:'3px',letterSpacing:'-0.3px'}}>Overtime Summary</div>
+                  </div>
+                  <div style={{fontSize:'9.5px',color:'#93c5fd',textAlign:'right',lineHeight:1.5,flexShrink:0}}>
+                    Generated {new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}<br/>at {new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+                  </div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
+                  <div>
+                    <div style={{fontSize:'9px',fontWeight:800,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'3px'}}>Rank / Pay Point</div>
+                    <div style={{fontWeight:800,fontSize:'13px'}}>{settings.rank||'—'}, {settings.service||'—'}</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:'9px',fontWeight:800,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'3px'}}>Period</div>
+                    <div style={{fontWeight:800,fontSize:'13px'}}>{fmtD(payslipPreview.start)} – {fmtD(payslipPreview.end)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{padding:'22px 26px 10px'}}>
+                {d.rangeEntries.length===0 ? (
+                  <div style={{textAlign:'center',padding:'30px 10px',color:'#94a3b8',fontSize:'13px',fontWeight:600}}>No shifts recorded in this range.</div>
+                ) : (
+                  <>
+                    {hasOT&&(
+                      <>
+                        <div style={sectionTitle}>Overtime Worked</div>
+                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12.5px'}}>
+                          <thead><tr><th style={thStyle}>Rate</th><th style={{...thStyle,textAlign:'right'}}>Hours</th><th style={{...thStyle,textAlign:'right'}}>Rate/hr</th><th style={{...thStyle,textAlign:'right'}}>Amount</th></tr></thead>
+                          <tbody>
+                            {d.rateHrs.hours133>0&&<tr><td style={{...rowStyle,fontWeight:700,color:'#334155'}}>Standard (1.33x)</td><td style={{...rowStyle,textAlign:'right'}}>{d.rateHrs.hours133.toFixed(2)}</td><td style={{...rowStyle,textAlign:'right'}}>{fmtGBP(d.rates.r133)}</td><td style={{...rowStyle,textAlign:'right'}}>{fmtGBP(d.rateHrs.hours133*d.rates.r133)}</td></tr>}
+                            {d.rateHrs.hours150>0&&<tr><td style={{...rowStyle,fontWeight:700,color:'#334155'}}>Elevated (1.5x)</td><td style={{...rowStyle,textAlign:'right'}}>{d.rateHrs.hours150.toFixed(2)}</td><td style={{...rowStyle,textAlign:'right'}}>{fmtGBP(d.rates.r150)}</td><td style={{...rowStyle,textAlign:'right'}}>{fmtGBP(d.rateHrs.hours150*d.rates.r150)}</td></tr>}
+                            {d.rateHrs.hours200>0&&<tr><td style={{...rowStyle,fontWeight:700,color:'#334155'}}>Rest Day (2.0x)</td><td style={{...rowStyle,textAlign:'right'}}>{d.rateHrs.hours200.toFixed(2)}</td><td style={{...rowStyle,textAlign:'right'}}>{fmtGBP(d.rates.r200)}</td><td style={{...rowStyle,textAlign:'right'}}>{fmtGBP(d.rateHrs.hours200*d.rates.r200)}</td></tr>}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+
+                    {d.night>0&&(
+                      <>
+                        <div style={sectionTitle}>Night Enhancement</div>
+                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12.5px'}}>
+                          <thead><tr><th style={thStyle}>Detail</th><th style={{...thStyle,textAlign:'right'}}>Rate</th><th style={{...thStyle,textAlign:'right'}}>Amount</th></tr></thead>
+                          <tbody><tr>
+                            <td style={{...rowStyle,fontWeight:700,color:'#334155'}}>2000–0600<div style={{fontSize:'10px',color:'#94a3b8'}}>Across whole actual shift, rostered or overtime</div></td>
+                            <td style={{...rowStyle,textAlign:'right'}}>+10%</td>
+                            <td style={{...rowStyle,textAlign:'right'}}>{fmtGBP(d.night)}</td>
+                          </tr></tbody>
+                        </table>
+                      </>
+                    )}
+
+                    {hasPA&&(
+                      <>
+                        <div style={sectionTitle}>Protection Allowance</div>
+                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12.5px'}}>
+                          <thead><tr><th style={thStyle}>Type</th><th style={{...thStyle,textAlign:'right'}}>Count</th><th style={{...thStyle,textAlign:'right'}}>Rate</th><th style={{...thStyle,textAlign:'right'}}>Amount</th></tr></thead>
+                          <tbody>
+                            {['PA1','PA2','PA3'].filter(k=>d.paCounts[k]>0).map(k=>(
+                              <tr key={k}><td style={{...rowStyle,fontWeight:700,color:'#334155'}}>{k}</td><td style={{...rowStyle,textAlign:'right'}}>{d.paCounts[k]}</td><td style={{...rowStyle,textAlign:'right'}}>{fmtGBP(PA_RATES[k])}</td><td style={{...rowStyle,textAlign:'right'}}>{fmtGBP(PA_RATES[k]*d.paCounts[k])}</td></tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+
+                    {d.toilBanked>0&&(
+                      <>
+                        <div style={sectionTitle}>TOIL Banked This Period</div>
+                        <div style={{background:'#f5f3ff',border:'1px solid #ddd6fe',borderRadius:'10px',padding:'11px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'11.5px',color:'#6d28d9'}}>
+                          <span>Not included in the totals below</span>
+                          <strong>+{fmtHM(d.toilBanked)}h</strong>
+                        </div>
+                      </>
+                    )}
+
+                    <div style={{background:'#f8fafc',borderRadius:'12px',padding:'16px 18px',margin:'22px 0'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:'12.5px',fontWeight:800,color:'#0f172a'}}><span>Gross Overtime, Night &amp; PA</span><span>{fmtGBP(d.gross)}</span></div>
+                      <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:'12.5px',color:'#dc2626'}}><span>Est. Income Tax{d.bandName?` (${d.bandName})`:''}</span><span>−{fmtGBP(d.tax)}</span></div>
+                      <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:'12.5px',color:'#dc2626'}}><span>Est. National Insurance</span><span>−{fmtGBP(d.ni)}</span></div>
+                      <div style={{display:'flex',justifyContent:'space-between',padding:'10px 0 0',marginTop:'6px',borderTop:'1px solid #e2e8f0',fontSize:'17px',fontWeight:900,color:'#059669'}}><span>Estimated Net</span><span>{fmtGBP(d.net)}</span></div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div style={{fontSize:'9.5px',color:'#94a3b8',lineHeight:1.6,padding:'16px 26px 26px',borderTop:'1px solid #f1f5f9',marginTop:'6px'}}>
+                <strong style={{color:'#64748b'}}>This is an unofficial summary</strong> generated from records entered into Overtime &amp; Shift Tracker by Adam Stephens. Tax and National Insurance figures are estimates based on cumulative marginal rates for the tax year and may not exactly match your official payslip, particularly for date ranges spanning more than one pay period. Always verify against payroll before relying on these figures for a dispute or claim.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Trends — chart enlarge modal, shares render functions with the inline charts */}
       {chartModal&&(
@@ -2641,7 +2885,7 @@ export default function App() {
         </div>
       )}
 
-      <nav style={S.nav}>
+      <nav className="no-print" style={S.nav}>
         {[
           {id:'dashboard',n:'home', lbl:'Home'},
           {id:'months',   n:'cal',  lbl:'Breakdown'},
