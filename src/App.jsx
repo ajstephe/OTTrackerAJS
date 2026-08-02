@@ -1530,7 +1530,7 @@ export default function App() {
                   hours grid instead. */}
               <div style={{marginBottom:'13px'}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'#eff6ff',border:'1.5px solid #bfdbfe',borderRadius:'13px',padding:'12px 13px'}}>
-                  <div style={{fontSize:'12px',fontWeight:900,color:'#1e3a5f'}}>Rostered Shift / Actual Shift</div>
+                  <div style={{fontSize:'14px',fontWeight:900,color:'#1e3a5f'}}>Rostered Shift / Actual Shift</div>
                   <div onClick={()=>{
                       const switchingToManual = form.recordShiftTimes; // currently auto → about to go manual
                       setForm(f=>syncShiftTimesIntoForm({...f, recordShiftTimes:!switchingToManual, otRateTier: !switchingToManual && !f.otRateTier ? 'hours133' : f.otRateTier}));
@@ -1557,7 +1557,7 @@ export default function App() {
                       <>
                         <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px'}}>
                           <div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#94a3b8'}}/>
-                          <div style={{fontWeight:900,fontSize:'11px',color:'#0f172a'}}>Rostered Shift</div>
+                          <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Rostered Shift</div>
                         </div>
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'18px',marginBottom:'5px'}}>
                           <div><label style={{...S.lbl,marginBottom:'5px'}}>Start</label>
@@ -1575,29 +1575,14 @@ export default function App() {
 
                     <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px',marginTop: form.dutyType!=='rdw' && form.rosteredStart&&form.rosteredEnd&&toMinutesOfDay(form.rosteredEnd)<=toMinutesOfDay(form.rosteredStart) ? 0 : '12px'}}>
                       <div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#2563eb'}}/>
-                      <div style={{fontWeight:900,fontSize:'11px',color:'#0f172a'}}>Actual Shift Worked</div>
+                      <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Actual Shift Worked</div>
                     </div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'18px'}}>
                       <div><label style={{...S.lbl,marginBottom:'5px'}}>Start</label>
                         <TimeSelect value={form.actualStart} onChange={v=>setForm(f=>syncShiftTimesIntoForm({...f,actualStart:v}))}/>
                       </div>
                       <div><label style={{...S.lbl,marginBottom:'5px'}}>End</label>
-                        <TimeSelect value={form.actualEnd} onChange={v=>{
-                          setForm(f=>{
-                            const synced = syncShiftTimesIntoForm({...f,actualEnd:v});
-                            // Once the actual shift is fully recorded, hand off to Notes —
-                            // cursor lands on the blank line left for the person's own text.
-                            setTimeout(()=>{
-                              const line = generateShiftTimesLine(synced);
-                              if(line && notesRef.current){
-                                const pos = line.length+2;
-                                notesRef.current.focus();
-                                notesRef.current.setSelectionRange(pos,pos);
-                              }
-                            },0);
-                            return synced;
-                          });
-                        }}/>
+                        <TimeSelect value={form.actualEnd} onChange={v=>setForm(f=>syncShiftTimesIntoForm({...f,actualEnd:v}))}/>
                       </div>
                     </div>
                     {form.actualStart&&form.actualEnd&&toMinutesOfDay(form.actualEnd)<=toMinutesOfDay(form.actualStart)&&(
@@ -1612,7 +1597,19 @@ export default function App() {
 
               {/* Notes — sits above the overtime rate section, after
                   Rostered/Actual, still inside the same outer card */}
-              <div style={{marginBottom:'13px'}}><label style={S.lbl}>Notes</label><textarea ref={notesRef} rows="4" placeholder="Shift notes or incident details..." style={{...S.ta,lineHeight:1.5}} value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})}/></div>
+              <div style={{marginBottom:'13px'}}><label style={S.lbl}>Notes</label><textarea ref={notesRef} rows="4" placeholder="Shift notes or incident details..." style={{...S.ta,lineHeight:1.5}} value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})}
+                onFocus={e=>{
+                  // Cursor lands on the blank line left after the auto-generated
+                  // shift-times summary — but only on the person's own tap into
+                  // the box, never forced automatically (that pops the keyboard
+                  // up and blocks the screen right after picking a time).
+                  const line = generateShiftTimesLine(form);
+                  if (line) {
+                    const pos = line.length+2;
+                    const target = e.target;
+                    setTimeout(()=>{ try{ target.setSelectionRange(pos,pos); }catch(_){} },0);
+                  }
+                }}/></div>
 
               {/* overtime hours — nested within the same outer card, sitting
                   right after Notes */}
@@ -1791,26 +1788,25 @@ export default function App() {
             {preview.has&&(
               <div style={{background:'linear-gradient(135deg,#1e3a5f,#1d4ed8)',borderRadius:'15px',padding:'14px 18px',marginBottom:'11px'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom: (preview.night>0||preview.toilBanked>0)?'10px':0}}>
-                  <div style={{fontSize:'10px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1px'}}>This Shift</div>
+                  <div style={{fontSize:'15px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1px'}}>This Shift</div>
                   <div style={{display:'flex',gap:'18px',alignItems:'center'}}>
-                    <div style={{textAlign:'right'}}><div style={{fontSize:'9px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'0.5px'}}>Gross</div><div style={{fontSize:'18px',fontWeight:900,color:'#fff'}}>{fmt(preview.gross)}</div></div>
+                    <div style={{textAlign:'right'}}><div style={{fontSize:'14px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'0.5px'}}>Gross</div><div style={{fontSize:'23px',fontWeight:900,color:'#fff'}}>{fmt(preview.gross)}</div></div>
                     <div style={{textAlign:'right'}}>
-                      <div style={{fontSize:'9px',fontWeight:900,color:'#6ee7b7',textTransform:'uppercase',letterSpacing:'0.5px'}}>Net</div>
-                      <div style={{fontSize:'18px',fontWeight:900,color:'#34d399'}}>{fmt(preview.net)}</div>
-                      {preview.bandName&&<div style={{fontSize:'8px',fontWeight:700,color:'#6ee7b7',marginTop:'1px'}}>{preview.bandName} · {preview.rate.toFixed(1)}%</div>}
+                      <div style={{fontSize:'14px',fontWeight:900,color:'#6ee7b7',textTransform:'uppercase',letterSpacing:'0.5px'}}>Net</div>
+                      <div style={{fontSize:'23px',fontWeight:900,color:'#34d399'}}>{fmt(preview.net)}</div>
                     </div>
                   </div>
                 </div>
                 {preview.night>0&&(
                   <div style={{borderTop:'1px solid rgba(255,255,255,0.1)',paddingTop:'8px',display:'flex',alignItems:'center',gap:'6px',marginBottom:preview.toilBanked>0?'6px':0}}>
                     <Ico n="moon" s={11} c="#818cf8"/>
-                    <span style={{fontSize:'10px',fontWeight:700,color:'#a5b4fc'}}>inc. £{preview.night.toFixed(2)} night enhancement (paid as cash)</span>
+                    <span style={{fontSize:'15px',fontWeight:700,color:'#a5b4fc'}}>inc. £{preview.night.toFixed(2)} night enhancement (paid as cash)</span>
                   </div>
                 )}
                 {preview.toilBanked>0&&(
                   <div style={{borderTop:preview.night>0?'none':'1px solid rgba(255,255,255,0.1)',paddingTop:preview.night>0?0:'8px',display:'flex',alignItems:'center',gap:'6px'}}>
                     <Ico n="clock" s={11} c="#c4b5fd"/>
-                    <span style={{fontSize:'10px',fontWeight:700,color:'#c4b5fd'}}>+ {fmtHM(preview.toilBanked)}h TOIL banked (not included in Gross/Net above)</span>
+                    <span style={{fontSize:'15px',fontWeight:700,color:'#c4b5fd'}}>+ {fmtHM(preview.toilBanked)}h TOIL banked (not included in Gross/Net above)</span>
                   </div>
                 )}
               </div>
