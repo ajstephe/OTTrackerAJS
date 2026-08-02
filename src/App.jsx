@@ -1476,7 +1476,7 @@ export default function App() {
             <div onClick={()=>{setTab('graph');setTrendsView('toil');}} style={{...S.card,background:toilLedger.balance<0?'#dc2626':'#7c3aed',border:'none',marginBottom:'10px',boxShadow:toilLedger.balance<0?'0 6px 20px rgba(220,38,38,0.28)':'0 6px 20px rgba(124,58,237,0.28)',cursor:'pointer'}}>
               <div>
                 <div style={{fontSize:'11px',fontWeight:900,color:toilLedger.balance<0?'#fecaca':'#ede9fe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
-                <div style={{fontSize:'22px',fontWeight:900,color:'#fff'}}>{fmtHM(toilLedger.balance)} h</div>
+                <div style={{fontSize:'18px',fontWeight:900,color:'#fff'}}>{fmtHM(toilLedger.balance)} h</div>
                 <div style={{fontSize:'11px',fontWeight:700,color:toilLedger.balance<0?'#fecaca':'#ddd6fe',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
               </div>
             </div>
