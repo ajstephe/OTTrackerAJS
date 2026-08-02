@@ -1454,7 +1454,7 @@ export default function App() {
             </div>
 
             {/* ── Overtime-only summary card — sits directly under Total Gross YTD, lighter blue to distinguish ── */}
-            <div style={{...S.card,background:'#2563eb',border:'none',marginBottom:'10px',boxShadow:'0 6px 20px rgba(37,99,235,0.28)'}}>
+            <div onClick={()=>setTab('months')} style={{...S.card,background:'#2563eb',border:'none',marginBottom:'10px',boxShadow:'0 6px 20px rgba(37,99,235,0.28)',cursor:'pointer'}}>
               <div style={{fontSize:'9px',fontWeight:900,color:'#dbeafe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'10px'}}>Overtime & PA — FY 26/27</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
                 <div>
@@ -1473,14 +1473,11 @@ export default function App() {
             </div>
 
             {/* ── TOIL summary card — sits directly under Overtime & PA ── */}
-            <div style={{...S.card,background:toilLedger.balance<0?'#dc2626':'#7c3aed',border:'none',marginBottom:'10px',boxShadow:toilLedger.balance<0?'0 6px 20px rgba(220,38,38,0.28)':'0 6px 20px rgba(124,58,237,0.28)'}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <div>
-                  <div style={{fontSize:'9px',fontWeight:900,color:toilLedger.balance<0?'#fecaca':'#ede9fe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
-                  <div style={{fontSize:'20px',fontWeight:900,color:'#fff'}}>{fmtHM(toilLedger.balance)} h</div>
-                  <div style={{fontSize:'9px',fontWeight:700,color:toilLedger.balance<0?'#fecaca':'#ddd6fe',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
-                </div>
-                <Ico n="clock" s={22} c="rgba(255,255,255,0.6)"/>
+            <div onClick={()=>{setTab('graph');setTrendsView('toil');}} style={{...S.card,background:toilLedger.balance<0?'#dc2626':'#7c3aed',border:'none',marginBottom:'10px',boxShadow:toilLedger.balance<0?'0 6px 20px rgba(220,38,38,0.28)':'0 6px 20px rgba(124,58,237,0.28)',cursor:'pointer'}}>
+              <div>
+                <div style={{fontSize:'9px',fontWeight:900,color:toilLedger.balance<0?'#fecaca':'#ede9fe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
+                <div style={{fontSize:'20px',fontWeight:900,color:'#fff'}}>{fmtHM(toilLedger.balance)} h</div>
+                <div style={{fontSize:'9px',fontWeight:700,color:toilLedger.balance<0?'#fecaca':'#ddd6fe',marginTop:'2px'}}>≈ {(toilLedger.balance/8).toFixed(1)} days at 8h/day</div>
               </div>
             </div>
 
