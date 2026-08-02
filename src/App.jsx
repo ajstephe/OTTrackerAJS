@@ -2194,13 +2194,13 @@ export default function App() {
                   {/* period breakdown boxes — same layout as List View */}
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
                     <div style={{background:'#fff',borderRadius:'13px',padding:'13px',border:'1px solid #dbeafe'}}>
-                      <div style={{fontSize:'15px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
-                      <div style={{fontSize:'23px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(pb.ot)}</div>
-                      <div style={{fontSize:'23px',fontWeight:700,color:'#3b82f6',marginBottom:'7px'}}>Net: {fmt(pb.otResult.net)}</div>
+                      <div style={{fontSize:'11px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
+                      <div style={{fontSize:'14px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(pb.ot)}</div>
+                      <div style={{fontSize:'13px',fontWeight:700,color:'#3b82f6',marginBottom:'7px'}}>Net: {fmt(pb.otResult.net)}</div>
                       <div style={{borderTop:'1px solid #eff6ff',paddingTop:'5px'}}>
-                        {ph133>0&&<div style={{fontSize:'15px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph133}h @ 1.33x</div>}
-                        {ph150>0&&<div style={{fontSize:'15px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph150}h @ 1.5x</div>}
-                        {ph200>0&&<div style={{fontSize:'15px',fontWeight:700,color:'#64748b'}}>{ph200}h @ 2.0x</div>}
+                        {ph133>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph133}h @ 1.33x</div>}
+                        {ph150>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph150}h @ 1.5x</div>}
+                        {ph200>0&&<div style={{fontSize:'12px',fontWeight:700,color:'#64748b'}}>{ph200}h @ 2.0x</div>}
                       </div>
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:'9px'}}>
@@ -2233,8 +2233,8 @@ export default function App() {
                   {/* month total — same layout as the List View card header */}
                   <div style={{...S.card,marginTop:'9px'}}>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
-                      <div><div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Gross</div><div style={{fontWeight:900,fontSize:'19px',color:'#1e3a5f'}}>{fmt(pb.combinedGross)}</div></div>
-                      <div style={{textAlign:'right'}}><div style={{fontSize:'11px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'19px',color:'#059669'}}>{fmt(pb.combinedNet)}</div></div>
+                      <div><div style={{fontSize:'14px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Gross</div><div style={{fontWeight:900,fontSize:'23px',color:'#1e3a5f'}}>{fmt(pb.combinedGross)}</div></div>
+                      <div style={{textAlign:'right'}}><div style={{fontSize:'14px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'23px',color:'#059669'}}>{fmt(pb.combinedNet)}</div></div>
                     </div>
                   </div>
                 </>
