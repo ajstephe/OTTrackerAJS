@@ -401,7 +401,7 @@ const getRates = (rank, service, date) => {
 // ─── storage ──────────────────────────────────────────────────────────────────
 const KEYS = {
   entries:'ajs_ot_entries', settings:'ajs_ot_settings',
-  savedAt:'ajs_ot_savedAt', backupCount:'ajs_ot_backupCount', backedUpAt:'ajs_ot_backedUpAt',
+  backupCount:'ajs_ot_backupCount', backedUpAt:'ajs_ot_backedUpAt',
   lastBackupReminder:'ajs_ot_lastBackupReminder',
   defaultBreakdownView:'ajs_ot_defaultBreakdownView',
   toilTaken:'ajs_ot_toilTaken',
@@ -441,7 +441,6 @@ const Ico = ({ n, s=20, c, w=2, f='none' }) => (
     {n==='clock' &&<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>}
     {n==='cR'    &&<polyline points="9 18 15 12 9 6"/>}
     {n==='cL'    &&<polyline points="15 18 9 12 15 6"/>}
-    {n==='cD'    &&<polyline points="6 9 12 15 18 9"/>}
     {n==='cU'    &&<polyline points="18 15 12 9 6 15"/>}
     {n==='list'  &&<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>}
     {n==='star'  &&<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>}
@@ -450,9 +449,7 @@ const Ico = ({ n, s=20, c, w=2, f='none' }) => (
     {n==='uPlus' &&<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></>}
     {n==='check' &&<polyline points="20 6 9 17 4 12"/>}
     {n==='shield'&&<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>}
-    {n==='trend' &&<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>}
     {n==='tUp'   &&<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>}
-    {n==='pound' &&<><line x1="8" y1="12" x2="16" y2="12"/><path d="M7 19h10M6 5C6 3.3 7.3 2 9 2h6a3 3 0 0 1 3 3 4 4 0 0 1-4 4H6"/><line x1="6" y1="9" x2="6" y2="19"/></>}
     {n==='back'  &&<><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></>}
     {n==='undo'  &&<><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.31"/></>}
     {n==='x'     &&<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>}
@@ -599,7 +596,6 @@ export default function App() {
   const [confirmDel,   setConfirmDel]   = useState(null);
   const [toasts,       setToasts]       = useState([]);
   const [savedBadge,   setSavedBadge]   = useState(false);
-  const [lastSaved,    setLastSaved]    = useState(()=>dualRead(KEYS.savedAt,null));
   const [lastBackedUp, setLastBackedUp] = useState(()=>dualRead(KEYS.backedUpAt,null));
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   const [pulseBackupBtn, setPulseBackupBtn] = useState(false);
@@ -617,7 +613,6 @@ export default function App() {
   // ── persist ────────────────────────────────────────────────────────────────
   useEffect(()=>{
     dualWrite(KEYS.entries,entries);
-    const now=Date.now(); dualWrite(KEYS.savedAt,now); setLastSaved(now);
   },[entries]);
   useEffect(()=>{ dualWrite(KEYS.toilTaken,toilTaken); },[toilTaken]);
   useEffect(()=>{ dualWrite(KEYS.settings,settings); },[settings]);
@@ -756,7 +751,7 @@ export default function App() {
 
       const otResult    = applyBandTax(cum, ot,    periodNo, pGross); cum += ot;    pGross += ot;
       const nightResult = applyBandTax(cum, night, periodNo, pGross); cum += night; pGross += night;
-      const paResult    = applyBandTax(cum, pa,    periodNo, pGross); cum += pa;    pGross += pa;
+      const paResult    = applyBandTax(cum, pa,    periodNo, pGross); cum += pa;
 
       totalGross += ot+night+pa; totalHrs += hrs;
 
@@ -963,7 +958,7 @@ export default function App() {
     const pb = pIdx>=0 ? totals.periodBreakdown[pIdx] : null;
     const periodGrossBefore = pb ? pb.baseAmt + pb.ot + pb.night + pb.pa : 0;
     const result = applyBandTax(totals.combinedGrossYTD, gross, periodNo, periodGrossBefore);
-    return { gross, net:result.net, rate:result.rate, bandName:result.bandName, night, toilBanked, has:gross>0||toilBanked>0 };
+    return { gross, net:result.net, night, toilBanked, has:gross>0||toilBanked>0 };
   },[form, settings, todayStr, totals.combinedGrossYTD, totals.periodBreakdown, currPeriodIdx]);
 
   // ── handlers ───────────────────────────────────────────────────────────────
@@ -1342,8 +1337,6 @@ export default function App() {
         @keyframes urgentPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}25%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}50%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}75%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}}
         @keyframes backupPulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}30%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}50%{box-shadow:0 0 0 0 rgba(37,99,235,0)}70%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}}
         @keyframes subtlePulse{0%{opacity:0.5}20%{opacity:1}40%{opacity:0.5}60%{opacity:1}80%,100%{opacity:0.5}}
-        @keyframes iconPulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,0.45)}50%{box-shadow:0 0 0 6px rgba(37,99,235,0)}}
-        .icon-pulse{animation:iconPulse 2s ease-in-out infinite}
         @keyframes entryFlash{0%{box-shadow:0 0 0 0 rgba(37,99,235,0.45)}60%{box-shadow:0 0 0 10px rgba(37,99,235,0)}100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}}
         .entry-flash{animation:entryFlash 1.4s ease-out 2}
         .star-tap{transition:transform 0.12s}
