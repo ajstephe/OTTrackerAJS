@@ -1482,20 +1482,22 @@ export default function App() {
             </div>
 
             {/* ── Pay period dates — simple date reference, full breakdowns live in the Breakdown tab ── */}
-            <div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'8px',padding:'0 2px'}}>Pay Periods</div>
-            <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-              {[totals.prev,totals.curr,totals.next].map((item,i)=>{
-                const isCurrent = i===1; // order is Previous, Current, Next
-                return item&&(
-                  <div key={i} style={{...S.card,background:isCurrent?'#eff6ff':'#fff',border:isCurrent?'2px solid #2563eb':'1px solid #f1f5f9',boxShadow:isCurrent?'0 4px 18px rgba(37,99,235,0.2)':'0 1px 6px rgba(0,0,0,0.05)',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 17px',marginBottom:0}}>
-                    <span style={{fontSize:'11px',fontWeight:900,color:isCurrent?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',display:'flex',alignItems:'center',gap:'6px'}}>{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}{isCurrent?'Current':i===0?'Previous':'Next'} Pay Period{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}</span>
-                    <div style={{textAlign:'right'}}>
-                      <div style={{fontWeight:900,fontSize:'16px',color:'#0f172a'}}>{item.month}</div>
-                      <div style={{fontSize:'16px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
+            <div style={S.card}>
+              <div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'10px'}}>Pay Periods</div>
+              <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                {[totals.prev,totals.curr,totals.next].map((item,i)=>{
+                  const isCurrent = i===1; // order is Previous, Current, Next
+                  return item&&(
+                    <div key={i} style={{background:isCurrent?'#eff6ff':'#f8fafc',border:isCurrent?'2px solid #2563eb':'1px solid #f1f5f9',borderRadius:'13px',boxShadow:isCurrent?'0 4px 18px rgba(37,99,235,0.2)':'none',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 17px'}}>
+                      <span style={{fontSize:'11px',fontWeight:900,color:isCurrent?'#2563eb':'#94a3b8',textTransform:'uppercase',letterSpacing:'1px',display:'flex',alignItems:'center',gap:'6px'}}>{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}{isCurrent?'Current':i===0?'Previous':'Next'} Pay Period{isCurrent&&<span style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>}</span>
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontWeight:900,fontSize:'16px',color:'#0f172a'}}>{item.month}</div>
+                        <div style={{fontSize:'16px',fontWeight:700,color:'#3b82f6',marginTop:'2px'}}>{fmtD(item.start)} – {fmtD(item.end)}</div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
