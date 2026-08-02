@@ -1483,7 +1483,6 @@ export default function App() {
 
             {/* ── Pay period dates — simple date reference, full breakdowns live in the Breakdown tab ── */}
             <div style={S.card}>
-              <div style={{fontSize:'11px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'10px'}}>Pay Periods</div>
               <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
                 {[totals.prev,totals.curr,totals.next].map((item,i)=>{
                   const isCurrent = i===1; // order is Previous, Current, Next
