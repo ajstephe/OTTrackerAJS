@@ -2320,9 +2320,10 @@ export default function App() {
                                 }}>
                                 <span style={{fontSize:'15px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1',lineHeight:1}}>{date.getDate()}</span>
                                 {info.totalHrs>0&&(
-                                  <span style={{fontSize:'10px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.05,textAlign:'center',maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'clip'}}>
-                                    {info.totalHrs}h{info.rateLabel?<><br/>{info.rateLabel}</>:''}
-                                  </span>
+                                  <div style={{display:'flex',flexDirection:'column',alignItems:'center',maxWidth:'100%',minWidth:0}}>
+                                    <span style={{fontSize:'10px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.05,maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{info.totalHrs}h</span>
+                                    {info.rateLabel&&<span style={{fontSize:'8px',fontWeight:800,color:'#2563eb',letterSpacing:'-0.2px',lineHeight:1.05,maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{info.rateLabel}</span>}
+                                  </div>
                                 )}
                                 <div style={{display:'flex',gap:'2px',marginTop:'1px',height:'4px'}}>
                                   {info.hasNight&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#818cf8'}}/>}
