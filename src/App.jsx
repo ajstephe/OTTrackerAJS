@@ -2194,9 +2194,9 @@ export default function App() {
                   {/* period breakdown boxes — same layout as List View */}
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}}>
                     <div style={{background:'#fff',borderRadius:'13px',padding:'13px',border:'1px solid #dbeafe'}}>
-                      <div style={{fontSize:'14px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
-                      <div style={{fontSize:'17px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(pb.ot)}</div>
-                      <div style={{fontSize:'16px',fontWeight:700,color:'#3b82f6',marginBottom:'7px'}}>Net: {fmt(pb.otResult.net)}</div>
+                      <div style={{fontSize:'15px',fontWeight:900,color:'#1e40af',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>OT Pay</div>
+                      <div style={{fontSize:'23px',fontWeight:700,color:'#1e3a5f',marginBottom:'1px'}}>Gross: {fmt(pb.ot)}</div>
+                      <div style={{fontSize:'23px',fontWeight:700,color:'#3b82f6',marginBottom:'7px'}}>Net: {fmt(pb.otResult.net)}</div>
                       <div style={{borderTop:'1px solid #eff6ff',paddingTop:'5px'}}>
                         {ph133>0&&<div style={{fontSize:'15px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph133}h @ 1.33x</div>}
                         {ph150>0&&<div style={{fontSize:'15px',fontWeight:700,color:'#64748b',marginBottom:'2px'}}>{ph150}h @ 1.5x</div>}
