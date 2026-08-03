@@ -2315,20 +2315,20 @@ export default function App() {
                                   aspectRatio:'1', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
                                   borderRadius:'10px', border: isToday?'2px solid #2563eb':info.hasOT?'1px solid #bfdbfe':'1px solid transparent',
                                   background: info.hasOT ? '#eff6ff' : 'transparent',
-                                  cursor:'pointer', padding:'1px', fontFamily:'inherit',
+                                  cursor:'pointer', padding:'3px', fontFamily:'inherit',
                                   minWidth:0, width:'100%', overflow:'hidden', boxSizing:'border-box',
                                 }}>
                                 <span style={{fontSize:'15px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1',lineHeight:1}}>{date.getDate()}</span>
                                 {info.totalHrs>0&&(
-                                  <div style={{display:'flex',flexDirection:'column',alignItems:'center',maxWidth:'100%',minWidth:0}}>
-                                    <span style={{fontSize:'10px',fontWeight:900,color:'#2563eb',marginTop:'1px',lineHeight:1.05,maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{info.totalHrs}h</span>
-                                    {info.rateLabel&&<span style={{fontSize:'8px',fontWeight:800,color:'#2563eb',letterSpacing:'-0.2px',lineHeight:1.05,maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{info.rateLabel}</span>}
+                                  <div style={{display:'flex',flexDirection:'column',alignItems:'center',maxWidth:'100%',minWidth:0,marginTop:'2px'}}>
+                                    <span style={{fontSize:'10px',fontWeight:900,color:'#2563eb',lineHeight:1.15,maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{info.totalHrs}h</span>
+                                    {info.rateLabel&&<span style={{fontSize:'8px',fontWeight:800,color:'#2563eb',letterSpacing:'-0.2px',lineHeight:1.15,maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{info.rateLabel}</span>}
                                   </div>
                                 )}
-                                <div style={{display:'flex',gap:'2px',marginTop:'1px',height:'4px'}}>
-                                  {info.hasNight&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#818cf8'}}/>}
-                                  {info.hasPA&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#f59e0b'}}/>}
-                                  {info.hasToil&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#7c3aed'}}/>}
+                                <div style={{display:'flex',gap:'2px',marginTop:'3px',height:'5px',flexShrink:0}}>
+                                  {info.hasNight&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#818cf8',flexShrink:0}}/>}
+                                  {info.hasPA&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#f59e0b',flexShrink:0}}/>}
+                                  {info.hasToil&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#7c3aed',flexShrink:0}}/>}
                                 </div>
                               </button>
                             );
