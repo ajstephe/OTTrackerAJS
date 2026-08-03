@@ -240,8 +240,8 @@ const LONDON_ALLOWANCE = 6588;                     // fixed p.a.
 // actually works: by period 6 you've had 6/12 of your personal allowance and
 // 6/12 of each band. Comparing cumulative pay against FULL annual thresholds
 // (the old approach) understated tax badly until the very end of the year.
-const calcUKIncomeTax = (cumGross, periodsElapsed=12) => {
-  const f = Math.max(1, Math.min(12, periodsElapsed)) / 12;
+const calcUKIncomeTax = (cumGross, yearFraction=1) => {
+  const f = Math.max(1/365, Math.min(1, yearFraction));
   // The £100k personal-allowance taper is an annual rule, so judge it on the
   // annualised run-rate, then pro-rate the resulting allowance.
   const annualised = cumGross / f;
@@ -262,8 +262,8 @@ const calcUKIncomeTax = (cumGross, periodsElapsed=12) => {
 // specifically by crossing £100k. A standard payslip generally won't have
 // withheld this portion in real time (see the £100k Tax Impact card in
 // Settings), so it's the amount most likely to arrive later as a bill.
-const calcUKIncomeTaxNoTaper = (cumGross, periodsElapsed=12) => {
-  const f = Math.max(1, Math.min(12, periodsElapsed)) / 12;
+const calcUKIncomeTaxNoTaper = (cumGross, yearFraction=1) => {
+  const f = Math.max(1/365, Math.min(1, yearFraction));
   const pa = 12570 * f;
   const taxable = Math.max(0, cumGross - pa);
   const basic = 37700 * f, higher = 74870 * f;
@@ -295,8 +295,8 @@ const TAX_BANDS = [
   { name:'Higher Rate',        min:50270,  rate:40 },
   { name:'Additional Rate',    min:125140, rate:45 },
 ];
-const getTaxBand = (cumulativeGross, periodsElapsed=12) => {
-  const f = Math.max(1, Math.min(12, periodsElapsed)) / 12;
+const getTaxBand = (cumulativeGross, yearFraction=1) => {
+  const f = Math.max(1/365, Math.min(1, yearFraction));
   let band = TAX_BANDS[0];
   for (const b of TAX_BANDS) { if (cumulativeGross >= b.min * f) band = b; else break; }
   return band;
@@ -310,14 +310,14 @@ const getTaxBand = (cumulativeGross, periodsElapsed=12) => {
 // Tax runs cumulatively across the year; NI is assessed on the pay period in
 // isolation. Both are layered the same way so the rate shown reflects what
 // actually comes off this money.
-const applyBandTax = (cumulativeBefore, amount, periodsElapsed=12, periodGrossBefore=null) => {
+const applyBandTax = (cumulativeBefore, amount, yearFraction=1, periodGrossBefore=null) => {
   if (amount <= 0) return { tax:0, ni:0, net:0, rate:0, bandName:null };
-  const tax = calcUKIncomeTax(cumulativeBefore + amount, periodsElapsed)
-            - calcUKIncomeTax(cumulativeBefore, periodsElapsed);
+  const tax = calcUKIncomeTax(cumulativeBefore + amount, yearFraction)
+            - calcUKIncomeTax(cumulativeBefore, yearFraction);
   const pg  = periodGrossBefore==null ? null : periodGrossBefore;
   const ni  = pg==null ? 0 : (calcNI(pg + amount) - calcNI(pg));
   const total = tax + ni;
-  const band = getTaxBand(cumulativeBefore + amount, periodsElapsed);
+  const band = getTaxBand(cumulativeBefore + amount, yearFraction);
   return { tax, ni, net: amount - total, rate: (total / amount) * 100, bandName: band.name };
 };
 
@@ -375,6 +375,15 @@ const addYearMinusOneDay = dateStr => {
   d.setFullYear(d.getFullYear()+1);
   d.setDate(d.getDate()-1);
   return d.toISOString().split('T')[0];
+};
+// How far into the UK tax year CONTAINING this date we are, as a continuous
+// 0-1 fraction (6 Apr = just past 0, 5 Apr next year = 1). Used to pro-rate
+// annual PA/band thresholds for a specific date, regardless of which pay
+// period it happens to fall in.
+const taxYearFractionForDate = dateStr => {
+  const tys = getUKTaxYearStart(dateStr);
+  const days = Math.max(0, (new Date(dateStr) - new Date(tys))/86400000) + 1;
+  return Math.max(1/365, Math.min(1, days/365));
 };
 
 // Salary (and similar annual amounts like London Weighting/Allowance) is paid
@@ -642,12 +651,13 @@ export default function App() {
   const [chartModal, setChartModal] = useState(null); // 'cum' | 'mon' | null
   const [payslipModalOpen, setPayslipModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState(null); // null (choosing) | 'pdf' | 'csv'
-  const [payslipMode, setPayslipMode] = useState('period'); // 'period' | 'custom' | 'selfAssessment'
+  const [payslipMode, setPayslipMode] = useState('period'); // 'period' | 'custom' | 'financialYear'
   const [payslipPeriodIdx, setPayslipPeriodIdx] = useState(null);
+  const [payslipFYYear, setPayslipFYYear] = useState(null); // calendar FY-start-year selected in 'financialYear' export mode
   const [payslipStart, setPayslipStart] = useState('');
   const [payslipEnd, setPayslipEnd] = useState('');
   const [payslipPreview, setPayslipPreview] = useState(null); // { start, end, label, data } | null
-  const [saPreview, setSaPreview] = useState(false); // Self Assessment PDF-style preview open?
+  const [sanitiseNotes, setSanitiseNotes] = useState(true); // blank the Notes column on CSV export by default — safer given notes may hold operationally sensitive detail
   const [defaultBreakdownView, setDefaultBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list'));
   const [breakdownView, setBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list')); // 'list' | 'calendar'
   const [calPeriodIdx, setCalPeriodIdx] = useState(null); // set to currPeriodIdx on first render
@@ -663,6 +673,7 @@ export default function App() {
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   const [showFYRollover, setShowFYRollover] = useState(false);
   const [fySummaryYear, setFySummaryYear] = useState(null); // calendar FY-start-year of the archived year being viewed, or null
+  const [fySummaryPrintMode, setFySummaryPrintMode] = useState(false); // true when opened via Financial Year export (all periods expanded, Print button shown)
   const [archiveExpandedPeriod, setArchiveExpandedPeriod] = useState(null); // short label of the expanded period within that year, or null
   const [trendsExpanded, setTrendsExpanded] = useState(false);
   const [taxImpactExpanded, setTaxImpactExpanded] = useState(false);
@@ -705,7 +716,7 @@ export default function App() {
 
   // Scrolls Settings so the £100k Tax Impact card sits at the top — but only
   // right after tapping through from Home's Tax Threshold tracker, not on an
-  // ordinary visit to Settings. The small delay lets the card's just-expanded
+  // ordinary visit to Options. The small delay lets the card's just-expanded
   // content finish laying out first, so the scroll target is stable.
   useEffect(()=>{
     if(tab!=='settings' || !scrollToTaxImpact.current) return;
@@ -832,11 +843,29 @@ export default function App() {
   const totals = useMemo(()=>{
     const svcData = settings.rank && settings.service ? PAY_RATES[settings.rank]?.[settings.service] : null;
 
+    // Anchored to the REAL UK tax year (6 Apr – 5 Apr), not the force's pay
+    // year (which starts 9 Feb) — HMRC resets personal allowance/bands on
+    // 6 April regardless of when the police pay calendar happens to start.
+    // Computed up front so the cascade below can use it.
+    const taxYearStart = getUKTaxYearStart(todayStr);
+    const taxYearEnd    = addYearMinusOneDay(taxYearStart);
+    const ytdRangeEnd   = todayStr <= taxYearEnd ? todayStr : taxYearEnd;
+
     // ── build the period-by-period cumulative marginal cascade ────────────────
     // For each period, in chronological order: add salary+LW+LA, then layer this
     // period's overtime, then night enhancement, then PA on top of the running
     // cumulative total. Each layer's tax is the difference in cumulative tax
     // before/after it — i.e. the true marginal rate for that slice of income.
+    //
+    // The running total only ever accumulates periods that belong to the
+    // CURRENT UK tax year — a period is treated as belonging to whichever tax
+    // year contains its end date (matching how PAYE actually works: tax
+    // follows the pay date, not a smooth day-by-day split). The pay calendar
+    // starts 9 Feb, so exactly one period each year (the one ending before
+    // 6 April) falls in the previous, already-closed tax year; its own
+    // marginal tax is estimated as a fresh start from zero rather than folded
+    // into this year's cumulative, since this view has no visibility into
+    // whatever else was earned earlier in that prior year.
     let cum = 0;
     let totalGross=0, totalHrs=0;
     const periodBreakdown = PAY_PERIODS.map((p,pIdx)=>{
@@ -847,14 +876,28 @@ export default function App() {
         ot+=c.ot; night+=c.night; pa+=c.pa; hrs+=c.h1+c.h2+c.h3;
       });
 
-      const periodNo = pIdx + 1;                  // 1-12, drives threshold pro-rating
       const baseAmt = periodBaseAmount(p, svcData); // salary + London Weighting + London Allowance
-      cum += baseAmt;                             // taxed first, so OT stacks on top of it
-      let pGross = baseAmt;                       // this period's gross so far, for NI
+      const inCurrentTaxYear = p.end >= taxYearStart;
 
-      const otResult    = applyBandTax(cum, ot,    periodNo, pGross); cum += ot;    pGross += ot;
-      const nightResult = applyBandTax(cum, night, periodNo, pGross); cum += night; pGross += night;
-      const paResult    = applyBandTax(cum, pa,    periodNo, pGross); cum += pa;
+      // How far into the relevant tax year this period's end falls, as a
+      // continuous 0-1 fraction — used to pro-rate the annual PA/band
+      // thresholds down to "so far this year", exactly as cumulative PAYE
+      // does it. A period outside the current tax year gets its own span as
+      // the reference instead (there's no larger year to measure against).
+      const daysForFraction = inCurrentTaxYear
+        ? Math.max(0, (new Date(p.end) - new Date(taxYearStart))/86400000) + 1
+        : daysInclusive(p.start, p.end);
+      const yearFraction = Math.max(1/365, Math.min(1, daysForFraction/365));
+
+      let periodCum = inCurrentTaxYear ? cum : 0; // fresh start for a prior-tax-year period
+      periodCum += baseAmt;                        // taxed first, so OT stacks on top of it
+      let pGross = baseAmt;                         // this period's gross so far, for NI (unaffected by the tax-year split — NI has no annual concept)
+
+      const otResult    = applyBandTax(periodCum, ot,    yearFraction, pGross); periodCum += ot;    pGross += ot;
+      const nightResult = applyBandTax(periodCum, night, yearFraction, pGross); periodCum += night; pGross += night;
+      const paResult    = applyBandTax(periodCum, pa,    yearFraction, pGross); periodCum += pa;
+
+      if (inCurrentTaxYear) cum = periodCum; // only carry forward into the next period if this one belongs to the current tax year
 
       totalGross += ot+night+pa; totalHrs += hrs;
 
@@ -864,7 +907,8 @@ export default function App() {
         otResult, nightResult, paResult,
         combinedGross: ot+night+pa,
         combinedNet: otResult.net+nightResult.net+paResult.net,
-        cumAfter: cum,
+        cumAfter: periodCum,
+        inCurrentTaxYear,
       };
     });
 
@@ -890,9 +934,6 @@ export default function App() {
     const effectiveEnd = todayD <= fyEndD ? todayD : fyEndD;
     const daysElapsed  = Math.max(0, (effectiveEnd - fyStartD) / 86400000); // still used for "days into FY" label (police pay-year)
 
-    const taxYearStart = getUKTaxYearStart(todayStr);
-    const taxYearEnd    = addYearMinusOneDay(taxYearStart);
-    const ytdRangeEnd   = todayStr <= taxYearEnd ? todayStr : taxYearEnd;
     const taxYearDaysElapsed = Math.max(0, (new Date(ytdRangeEnd) - new Date(taxYearStart)) / 86400000);
 
     const salaryYTD = svcData ? monthlySteppedSplitBySept(svcData.salary.pre, svcData.salary.post, taxYearStart, ytdRangeEnd) : 0;
@@ -927,26 +968,31 @@ export default function App() {
     const combinedGrossYTD = salaryYTD + lwYTD + laYTD + otPaidToDate;
 
     // Deductions on what's actually been earned so far — no projection or
-    // extrapolation. Thresholds are pro-rated to how far through the year we
-    // are, exactly as cumulative PAYE does it, so mid-year figures track a
-    // real payslip rather than only converging at year end.
-    const periodsElapsed = currPeriodIdx >= 0 ? currPeriodIdx + 1 : 12;
-    const ytdTax = calcUKIncomeTax(combinedGrossYTD, periodsElapsed);
-    // NI is assessed per pay period, so sum each completed period rather than
-    // running it against the cumulative total.
-    const ytdNI = periodBreakdown.slice(0, periodsElapsed)
+    // extrapolation. Thresholds are pro-rated to how far through the UK tax
+    // year we are (6 Apr onward), not how far through the force's pay year
+    // (which starts 9 Feb, ~2 months earlier) — using the pay-year count here
+    // would overstate how much of the tax year has elapsed and understate
+    // every YTD-based figure below.
+    const taxYearFraction = Math.max(1/365, Math.min(1, taxYearDaysElapsed/365));
+    const ytdTax = calcUKIncomeTax(combinedGrossYTD, taxYearFraction);
+    // NI is assessed per pay period in isolation (no annual concept), so sum
+    // only the periods that actually fall within the current UK tax year —
+    // slicing by pay-period position would pull in periods 1-2 of the pay
+    // year, which run 9 Feb – ~5 Apr and belong to the previous tax year.
+    const ytdNI = periodBreakdown
+      .filter(pb => pb.end >= taxYearStart && pb.start <= todayStr)
       .reduce((s,pb)=>s + calcNI(pb.baseAmt + pb.ot + pb.night + pb.pa), 0);
     const combinedNetYTD = combinedGrossYTD - ytdTax - ytdNI;
 
-    const currentBand   = getTaxBand(combinedGrossYTD, periodsElapsed);
+    const currentBand   = getTaxBand(combinedGrossYTD, taxYearFraction);
     const taxBand        = currentBand.name;
     const taxBandRate    = currentBand.rate;
 
     // Same annualisation the tax functions use internally, surfaced here so
     // the £100k tracker and the tax figures always agree with each other.
-    const projectedAnnualGross = combinedGrossYTD / (periodsElapsed/12);
+    const projectedAnnualGross = combinedGrossYTD / taxYearFraction;
     const taperExtraTax = projectedAnnualGross > 100000
-      ? calcUKIncomeTax(projectedAnnualGross, 12) - calcUKIncomeTaxNoTaper(projectedAnnualGross, 12)
+      ? calcUKIncomeTax(projectedAnnualGross, 1) - calcUKIncomeTaxNoTaper(projectedAnnualGross, 1)
       : 0;
 
     return{
@@ -1061,14 +1107,14 @@ export default function App() {
     const night = nh * r.base * 0.10;
     const pa    = PA_RATES[form.paRate]||0;
     const gross = ot + night + pa;
-    // Use the pay period this shift falls in, so both the pro-rated tax
-    // thresholds and the period-based NI reflect the right point in the year.
+    // Use the pay period this shift falls in for NI (period-based, no annual
+    // concept), and the shift's own date for pro-rating tax thresholds —
+    // reflecting the right point in the UK tax year, not the pay calendar.
     const d = form.date||todayStr;
     const pIdx = PAY_PERIODS.findIndex(p=>d>=p.start&&d<=p.end);
-    const periodNo = pIdx>=0 ? pIdx+1 : (currPeriodIdx>=0?currPeriodIdx+1:12);
     const pb = pIdx>=0 ? totals.periodBreakdown[pIdx] : null;
     const periodGrossBefore = pb ? pb.baseAmt + pb.ot + pb.night + pb.pa : 0;
-    const result = applyBandTax(totals.combinedGrossYTD, gross, periodNo, periodGrossBefore);
+    const result = applyBandTax(totals.combinedGrossYTD, gross, taxYearFractionForDate(d), periodGrossBefore);
     return { gross, net:result.net, night, toilBanked, has:gross>0||toilBanked>0 };
   },[form, settings, todayStr, totals.combinedGrossYTD, totals.periodBreakdown, currPeriodIdx]);
 
@@ -1225,7 +1271,7 @@ export default function App() {
   }
 
   // Exports all logged shifts as a CSV — opens directly in Excel/Google Sheets/Numbers.
-  function handleExportCSV(start, end){
+  function handleExportCSV(start, end, sanitise){
     const esc = v => `"${String(v??'').replace(/"/g,'""')}"`;
     const headers = [
       'Date','Duty/Reason','1.33x Hours','1.5x Hours','2.0x Hours',
@@ -1235,21 +1281,23 @@ export default function App() {
     const sorted = [...entries].filter(inRange).sort((a,b)=>new Date(a.date)-new Date(b.date));
     const rows = sorted.map(e=>{
       const c = calcEntry(e);
-      // Use the pay period this entry falls in so the exported figures match
-      // what the app displays (pro-rated tax thresholds + period-based NI).
+      // Use the pay period this entry falls in for NI (period-based), and
+      // the entry's own UK tax year for pro-rating income tax thresholds —
+      // 'prior' only sums entries within THAT SAME tax year, since anything
+      // from an earlier tax year doesn't belong in this year's cumulative.
       const pIdx = PAY_PERIODS.findIndex(p=>e.date>=p.start&&e.date<=p.end);
-      const periodNo = pIdx>=0 ? pIdx+1 : 12;
       const pb = pIdx>=0 ? totals.periodBreakdown[pIdx] : null;
-      const prior = entries.filter(x=>x.date<e.date || (x.date===e.date && x.id<e.id))
+      const taxYearStartForE = getUKTaxYearStart(e.date);
+      const prior = entries.filter(x=>x.date>=taxYearStartForE && (x.date<e.date || (x.date===e.date && x.id<e.id)))
         .reduce((sum,x)=>sum+calcEntry(x).gross,0);
       const periodGrossBefore = pb ? pb.baseAmt : 0;
-      const result = applyBandTax(prior, c.gross, periodNo, periodGrossBefore);
+      const result = applyBandTax(prior, c.gross, taxYearFractionForDate(e.date), periodGrossBefore);
       return [
         e.date, e.reason||'', c.h1||'', c.h2||'', c.h3||'',
         c.nh||'', e.paRate!=='None'?e.paRate:'',
         c.gross.toFixed(2), result.net.toFixed(2),
         result.bandName ? `${result.bandName} (${result.rate.toFixed(1)}%)` : '',
-        e.comments||''
+        sanitise ? '' : (e.comments||'')
       ].map(esc).join(',');
     });
     const csv = [headers.map(esc).join(','), ...rows].join('\r\n');
@@ -1259,29 +1307,6 @@ export default function App() {
     Object.assign(document.createElement('a'),{href:url,download:`OvertimeShiftTracker_Records${suffix}.csv`}).click();
     URL.revokeObjectURL(url);
     addToast('CSV exported');
-  }
-
-  // Self Assessment CSV — the SA102 Employment page box figures, not a
-  // per-entry record. Scoped to the current UK tax year only (6 Apr – 5
-  // Apr), reusing the same year-to-date gross/tax figures shown elsewhere
-  // in the app, so this always agrees with the rest of the numbers.
-  function handleExportSelfAssessmentCSV(){
-    const esc = v => `"${String(v??'').replace(/"/g,'""')}"`;
-    const taxYearLabel = `${totals.taxYearStart.split('-')[0]}/${(parseInt(totals.taxYearStart.split('-')[0])+1).toString().slice(-2)}`;
-    const complete = todayStr > addYearMinusOneDay(totals.taxYearStart);
-    const rows = [
-      ['Tax Year', taxYearLabel],
-      ['Status', complete ? 'Complete year' : 'Year to date — not yet complete'],
-      ['SA102 Box 1 — Pay from this employment', totals.combinedGrossYTD.toFixed(2)],
-      ['SA102 Box 2 — UK tax taken off pay in box 1', totals.ytdTax.toFixed(2)],
-      ['Generated', new Date().toISOString().split('T')[0]],
-    ];
-    const csv = rows.map(r=>r.map(esc).join(',')).join('\r\n');
-    const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    Object.assign(document.createElement('a'),{href:url,download:`SelfAssessment_SA102_${taxYearLabel.replace('/','-')}.csv`}).click();
-    URL.revokeObjectURL(url);
-    addToast('Self Assessment figures exported');
   }
 
   const handleImport=ev=>{
@@ -1344,7 +1369,7 @@ export default function App() {
     return date.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
   };
 
-  // Today's effective rates were shown on Home; now only surfaced in Settings.
+  // Today's effective rates were shown on Home; now only surfaced in Options.
 
   // ── styles ─────────────────────────────────────────────────────────────────
   const S={
@@ -1471,7 +1496,16 @@ export default function App() {
   // exports are exact since they match how totals.periodBreakdown is built;
   // custom ranges spanning multiple periods are a reasonable estimate.
   const computePayslipData = (start, end) => {
-    const rangeEntries = entries.filter(e=>e.date>=start&&e.date<=end).sort((a,b)=>a.date.localeCompare(b.date));
+    // If the requested range reaches back before the tax year containing its
+    // end date, everything shown is clipped to that tax year only — keeping
+    // hours, PA counts, and gross/tax all describing the same scope, and
+    // keeping gross consistent with combinedGrossYTD below (which is itself
+    // scoped to the current tax year). clippedFrom is exposed so the PDF can
+    // show an honest note when this happens.
+    const taxYearStartForRange = getUKTaxYearStart(end);
+    const clipped = start < taxYearStartForRange;
+    const effectiveStart = clipped ? taxYearStartForRange : start;
+    const rangeEntries = entries.filter(e=>e.date>=effectiveStart&&e.date<=end).sort((a,b)=>a.date.localeCompare(b.date));
     let ot=0, night=0, pa=0, hrs=0, toilBanked=0;
     const rateHrs = { hours133:0, hours150:0, hours200:0 };
     const paCounts = { PA1:0, PA2:0, PA3:0 };
@@ -1484,21 +1518,36 @@ export default function App() {
     const gross = ot + night + pa;
 
     const endIdx = PAY_PERIODS.findIndex(p=>end>=p.start&&end<=p.end);
-    const periodNo = endIdx>=0 ? endIdx+1 : 12;
     const pb = endIdx>=0 ? totals.periodBreakdown[endIdx] : null;
     const cumulativeBefore = Math.max(0, totals.combinedGrossYTD - gross);
     const periodGrossBefore = pb ? Math.max(0, (pb.baseAmt+pb.ot+pb.night+pb.pa) - gross) : 0;
-    const result = applyBandTax(cumulativeBefore, gross, periodNo, periodGrossBefore);
+    const result = applyBandTax(cumulativeBefore, gross, taxYearFractionForDate(end), periodGrossBefore);
     const r = getRates(settings.rank, settings.service, end);
 
     return { rangeEntries, ot, night, pa, hrs, toilBanked, rateHrs, paCounts, gross,
-      net:result.net, tax:result.tax, ni:result.ni, bandName:result.bandName, rate:result.rate, rates:r };
+      net:result.net, tax:result.tax, ni:result.ni, bandName:result.bandName, rate:result.rate, rates:r,
+      clippedFrom: clipped ? effectiveStart : null };
   };
 
   const handleGenerateExport = () => {
-    if (payslipMode==='selfAssessment') {
-      if (exportFormat==='csv') { handleExportSelfAssessmentCSV(); setPayslipModalOpen(false); }
-      else { setSaPreview(true); setPayslipModalOpen(false); }
+    if (payslipMode==='financialYear') {
+      if (payslipFYYear==null) return;
+      const yPeriods = generateFYPeriods(payslipFYYear);
+      const start = yPeriods[0].start, end = yPeriods[11].end;
+      if (exportFormat==='csv') { handleExportCSV(start, end, sanitiseNotes); setPayslipModalOpen(false); return; }
+      // PDF: the current year's tax/NI figures are accurate (same context the
+      // rest of the app uses), so it gets the normal payslip-style report.
+      // A past year's cumulative context is stale, so — same reasoning as
+      // Archived Financial Years — it opens that gross-only, period-grouped
+      // view instead, now with a Print button for exactly this purpose.
+      if (payslipFYYear===CURRENT_FY_YEAR) {
+        setPayslipPreview({ start, end, label: `FY ${payslipFYYear}/${(payslipFYYear+1).toString().slice(-2)}`, data: computePayslipData(start, end) });
+      } else {
+        setArchiveExpandedPeriod(null);
+        setFySummaryPrintMode(true);
+        setFySummaryYear(payslipFYYear);
+      }
+      setPayslipModalOpen(false);
       return;
     }
     let start, end, label;
@@ -1508,7 +1557,7 @@ export default function App() {
     } else if (payslipMode==='custom' && payslipStart && payslipEnd && payslipEnd>=payslipStart) {
       start = payslipStart; end = payslipEnd; label = `${fmtD(start)} – ${fmtD(end)}`;
     } else return;
-    if (exportFormat==='csv') { handleExportCSV(start, end); setPayslipModalOpen(false); return; }
+    if (exportFormat==='csv') { handleExportCSV(start, end, sanitiseNotes); setPayslipModalOpen(false); return; }
     setPayslipPreview({ start, end, label, data: computePayslipData(start, end) });
     setPayslipModalOpen(false);
   };
@@ -1611,7 +1660,7 @@ export default function App() {
           <div style={{background:'#dbeafe',borderRadius:'10px',padding:'7px',flexShrink:0}}><Ico n="star" s={15} c="#2563eb"/></div>
           <div style={{flex:1}}>
             <div style={{fontWeight:900,fontSize:'12px',color:'#1e3a5f',marginBottom:'2px'}}>Welcome to FY {CURRENT_FY_YEAR}/{(CURRENT_FY_YEAR+1).toString().slice(-2)}</div>
-            <div style={{fontSize:'11px',color:'#3b82f6',lineHeight:1.4,marginBottom:'8px'}}>Your {CURRENT_FY_YEAR-1}/{CURRENT_FY_YEAR.toString().slice(-2)} year is complete — find it any time under Financial Years in Settings.</div>
+            <div style={{fontSize:'11px',color:'#3b82f6',lineHeight:1.4,marginBottom:'8px'}}>Your {CURRENT_FY_YEAR-1}/{CURRENT_FY_YEAR.toString().slice(-2)} year is complete — find it any time under Financial Years in Options.</div>
             <div style={{display:'flex',gap:'7px'}}>
               <button onClick={()=>{dismissFYRollover();setTab('settings');}} style={{background:'#2563eb',border:'none',borderRadius:'8px',padding:'6px 13px',fontWeight:900,fontSize:'10px',color:'#fff',cursor:'pointer',fontFamily:'inherit'}}>View Last Year</button>
               <button onClick={dismissFYRollover} style={{background:'none',border:'none',padding:'6px 4px',fontWeight:700,fontSize:'10px',color:'#64748b',cursor:'pointer',fontFamily:'inherit'}}>Got it</button>
@@ -1631,8 +1680,8 @@ export default function App() {
                 <Ico n="uPlus" s={19} c="#dc2626"/>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:900,color:'#991b1b',fontSize:'13px',marginBottom:'3px'}}>Setup Required</div>
-                  <div style={{color:'#b91c1c',fontSize:'12px',marginBottom:'8px'}}>Configure your rank and pay in Settings.</div>
-                  <button onClick={()=>setTab('settings')} style={{background:'#fca5a5',border:'none',borderRadius:'8px',padding:'5px 11px',fontWeight:900,fontSize:'11px',color:'#7f1d1d',cursor:'pointer',fontFamily:'inherit'}}>Go to Settings →</button>
+                  <div style={{color:'#b91c1c',fontSize:'12px',marginBottom:'8px'}}>Configure your rank and pay in Options.</div>
+                  <button onClick={()=>setTab('settings')} style={{background:'#fca5a5',border:'none',borderRadius:'8px',padding:'5px 11px',fontWeight:900,fontSize:'11px',color:'#7f1d1d',cursor:'pointer',fontFamily:'inherit'}}>Go to Options →</button>
                 </div>
               </div>
             )}
@@ -1652,7 +1701,7 @@ export default function App() {
               <div style={{fontSize:'11px',fontWeight:700,color:'#94a3b8',marginBottom:'12px'}}>
                 {settings.rank&&settings.service
                   ? `${Math.round(totals.taxYearDaysElapsed)} days into ${totals.taxYearStart.split('-')[0]}/${(parseInt(totals.taxYearStart.split('-')[0])+1).toString().slice(-2)} tax year`
-                  : 'Set your rank & pay point in Settings'}
+                  : 'Set your rank & pay point in Options'}
               </div>
 
               {/* breakdown rows — London Weighting/Allowance shown as YTD / full year */}
@@ -1678,16 +1727,21 @@ export default function App() {
 
               {/* ── Tax Threshold — merged in below a divider, only this part is tappable ── */}
               {settings.rank&&settings.service&&(()=>{
-                const proj = totals.projectedAnnualGross;
-                const over100k = proj > 100000;
-                const paNow = over100k ? Math.max(0, 12570 - Math.floor((proj-100000)/2)) : 12570;
-                const scaleMax = Math.max(125140, proj*1.05);
+                // Uses actual YTD gross, not a full-year projection — overtime
+                // is lumpy (a big month early on shouldn't make this look like
+                // you're miles over £100k if the rest of the year is quiet),
+                // so this shows where you genuinely stand today, not a guess
+                // at where the year might end up.
+                const grossYTD = totals.combinedGrossYTD;
+                const over100k = grossYTD > 100000;
+                const paNow = over100k ? Math.max(0, 12570 - Math.floor((grossYTD-100000)/2)) : 12570;
+                const scaleMax = Math.max(125140, grossYTD*1.05);
                 const pct = v => Math.max(0, Math.min(100, (v/scaleMax)*100));
                 // Brightened versions of the usual green/amber/red so the
                 // zone colour stays readable against the dark card — same
                 // thresholds, same logic, just tuned for contrast.
-                const barColor = proj>=100000 ? '#f87171' : proj>=50270 ? '#fbbf24' : '#34d399';
-                const statusText = proj>=100000 ? 'Over £100k — allowance tapering' : proj>=50270 ? 'Higher rate' : 'Basic rate';
+                const barColor = grossYTD>=100000 ? '#f87171' : grossYTD>=50270 ? '#fbbf24' : '#34d399';
+                const statusText = grossYTD>=100000 ? 'Over £100k — allowance tapering' : grossYTD>=50270 ? 'Higher rate' : 'Basic rate';
                 const markers = [
                   { key:'pa',  value: paNow,  label: over100k ? `PA £${(paNow/1000).toFixed(1)}k` : 'PA £12.6k' },
                   { key:'hr',  value: 50270,  label: '£50.3k' },
@@ -1696,23 +1750,21 @@ export default function App() {
                 ];
                 return (
                   <div onClick={()=>{scrollToTaxImpact.current=true;setTaxImpactExpanded(true);setTab('settings');}} style={{borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:'14px',paddingTop:'12px',cursor:'pointer'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'8px'}}>
-                      <div style={{fontSize:'11px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px'}}>Forecasted Tax &amp; Thresholds</div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'14px'}}>
+                      <div style={{fontSize:'11px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px'}}>Tax Threshold</div>
                       <div style={{fontSize:'10px',fontWeight:800,color:barColor}}>{statusText}</div>
                     </div>
-                    <div style={{fontSize:'18px',fontWeight:900,color:'#fff',marginBottom:'3px'}}>{fmtGBP(proj)}</div>
-                    <div style={{fontSize:'9.5px',fontWeight:600,color:'#64748b',marginBottom:'12px'}}>Full-year forecast at your current pace — not the same as Total Gross YTD above</div>
 
                     <div style={{position:'relative',marginBottom:'16px'}}>
                       <div style={{background:'rgba(255,255,255,0.12)',borderRadius:'2px',height:'10px',overflow:'hidden',position:'relative'}}>
-                        <div style={{width:`${pct(proj)}%`,height:'100%',background:barColor,transition:'width 0.3s, background 0.3s'}}/>
+                        <div style={{width:`${pct(grossYTD)}%`,height:'100%',background:barColor,transition:'width 0.3s, background 0.3s'}}/>
                       </div>
                       {markers.map(m=>(
                         <div key={m.key} style={{position:'absolute',left:`${pct(m.value)}%`,top:'-2px',width:'2px',height:'14px',background:'rgba(255,255,255,0.35)',transform:'translateX(-1px)'}}>
                           <div style={{position:'absolute',top:'17px',left:'50%',transform:'translateX(-50%)',fontSize:'8px',fontWeight:800,color:'#93c5fd',whiteSpace:'nowrap'}}>{m.label}</div>
                         </div>
                       ))}
-                      <div style={{position:'absolute',left:`${pct(proj)}%`,top:'-5px',width:'3px',height:'20px',background:barColor,transform:'translateX(-1.5px)',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
+                      <div style={{position:'absolute',left:`${pct(grossYTD)}%`,top:'-5px',width:'3px',height:'20px',background:barColor,transform:'translateX(-1.5px)',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
                     </div>
                   </div>
                 );
@@ -1775,8 +1827,8 @@ export default function App() {
                   <Ico n="uPlus" s={24} c="#dc2626"/>
                 </div>
                 <div style={{fontWeight:900,fontSize:'15px',color:'#991b1b',marginBottom:'6px'}}>Setup Required</div>
-                <div style={{fontSize:'12px',color:'#b91c1c',lineHeight:1.6,marginBottom:'16px'}}>You need to select your rank and pay point in Settings before you can log overtime. This ensures your pay is calculated correctly from the start.</div>
-                <button onClick={()=>setTab('settings')} style={{background:'#dc2626',border:'none',borderRadius:'11px',padding:'12px 22px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(220,38,38,0.3)'}}>Go to Settings →</button>
+                <div style={{fontSize:'12px',color:'#b91c1c',lineHeight:1.6,marginBottom:'16px'}}>You need to select your rank and pay point in Options before you can log overtime. This ensures your pay is calculated correctly from the start.</div>
+                <button onClick={()=>setTab('settings')} style={{background:'#dc2626',border:'none',borderRadius:'11px',padding:'12px 22px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(220,38,38,0.3)'}}>Go to Options →</button>
               </div>
             ) : (
             <>
@@ -2568,7 +2620,7 @@ export default function App() {
         {tab==='settings'&&(
           <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
-              <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:0,letterSpacing:'-0.5px'}}>Settings</h2>
+              <h2 style={{fontSize:'19px',fontWeight:900,color:'#0f172a',margin:0,letterSpacing:'-0.5px'}}>Options, Settings, Export and Backup</h2>
               {savedBadge&&<div style={{display:'flex',alignItems:'center',gap:'5px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'9px',padding:'4px 9px'}}><Ico n="check" s={12} c="#059669"/><span style={{fontSize:'11px',fontWeight:900,color:'#065f46'}}>Saved</span></div>}
             </div>
 
@@ -2617,7 +2669,7 @@ export default function App() {
                   <div onClick={()=>setHourlyRatesExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',cursor:'pointer',marginBottom:hourlyRatesExpanded?'12px':0}}>
                     <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                       <div style={{background:'#fff',padding:'9px',borderRadius:'11px'}}><Ico n="clock" s={17} c="#0f172a"/></div>
-                      <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Rates ({settings.rank}, {settings.service}) &amp; Pay Scales</div>
+                      <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Hourly Rates ({settings.service}) &amp; Payscales</div>
                     </div>
                     <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{hourlyRatesExpanded?'Tap to Close':'Tap to expand'}</span>
                   </div>
@@ -2700,7 +2752,17 @@ export default function App() {
                           <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'11px',padding:'12px 14px'}}>
                             <div style={{fontSize:'10px',fontWeight:900,color:'#991b1b',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'4px'}}>Estimated Extra Tax</div>
                             <div style={{fontSize:'20px',fontWeight:900,color:'#991b1b'}}>{fmtGBP(totals.taperExtraTax)}</div>
-                            <div style={{fontSize:'10.5px',color:'#b91c1c',marginTop:'6px',lineHeight:1.5}}>The extra tax caused specifically by losing personal allowance above £100k. A standard payslip generally won't have withheld this in real time — it's the portion most likely to arrive later as a P800 calculation or self-assessment bill rather than a smaller payslip.</div>
+                            {paLost>0&&(()=>{
+                              const impliedRate = (totals.taperExtraTax/paLost)*100;
+                              return (
+                                <div style={{fontSize:'10.5px',color:'#991b1b',marginTop:'8px',paddingTop:'8px',borderTop:'1px solid #fecaca',lineHeight:1.8}}>
+                                  {fmtGBP(proj-100000)} over £100k<br/>
+                                  → £1 of allowance lost per £2 over → {fmtGBP(paLost)} allowance lost<br/>
+                                  → taxed at {impliedRate.toFixed(1)}% = {fmtGBP(totals.taperExtraTax)}
+                                </div>
+                              );
+                            })()}
+                            <div style={{fontSize:'10.5px',color:'#b91c1c',marginTop:'8px',lineHeight:1.5}}>The extra tax caused specifically by losing personal allowance above £100k. A standard payslip generally won't have withheld this in real time — it's the portion most likely to arrive later as a P800 calculation or self-assessment bill rather than a smaller payslip.</div>
                           </div>
                         </>
                       )}
@@ -2762,22 +2824,19 @@ export default function App() {
               {financialYearsExpanded&&(
                 <>
                   <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-                    {[CURRENT_FY_YEAR+1, CURRENT_FY_YEAR, ...yearsWithData].map(y=>{
+                    {[CURRENT_FY_YEAR, ...yearsWithData].map(y=>{
                       const yPeriods = generateFYPeriods(y);
                       const isCurrent = y===CURRENT_FY_YEAR;
-                      const isPast = y<CURRENT_FY_YEAR;
                       const label = `${y} / ${(y+1).toString().slice(-2)}`;
                       return (
-                        <div key={y} onClick={()=>{ if(isPast){ setArchiveExpandedPeriod(null); setFySummaryYear(y); } }} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',borderRadius:'12px',background:isCurrent?'#eff6ff':'#f8fafc',border:isCurrent?'2px solid #2563eb':'1px solid #f1f5f9',cursor:isPast?'pointer':'default'}}>
+                        <div key={y} onClick={()=>{ if(!isCurrent){ setArchiveExpandedPeriod(null); setFySummaryPrintMode(false); setFySummaryYear(y); } }} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',borderRadius:'12px',background:isCurrent?'#eff6ff':'#f8fafc',border:isCurrent?'2px solid #2563eb':'1px solid #f1f5f9',cursor:isCurrent?'default':'pointer'}}>
                           <div>
                             <div style={{fontWeight:800,fontSize:'13px',color:'#0f172a'}}>{label}</div>
                             <div style={{fontSize:'10px',color:'#94a3b8',marginTop:'1px'}}>{fmtD(yPeriods[0].start)} – {fmtD(yPeriods[11].end)}</div>
                           </div>
                           {isCurrent
                             ? <span style={{fontSize:'8px',fontWeight:900,textTransform:'uppercase',letterSpacing:'0.5px',padding:'2px 7px',borderRadius:'20px',background:'#2563eb',color:'#fff'}}>Current</span>
-                            : isPast
-                              ? <Ico n="cR" s={14} c="#94a3b8"/>
-                              : <span style={{fontSize:'8px',fontWeight:900,textTransform:'uppercase',letterSpacing:'0.5px',padding:'2px 7px',borderRadius:'20px',background:'#f1f5f9',color:'#94a3b8'}}>Upcoming</span>}
+                            : <Ico n="cR" s={14} c="#94a3b8"/>}
                         </div>
                       );
                     })}
@@ -2793,7 +2852,7 @@ export default function App() {
               <div onClick={()=>setExportDataExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:exportDataExpanded?'11px':0,cursor:'pointer'}}>
                 <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                   <div style={{background:'#fffbeb',padding:'9px',borderRadius:'11px'}}><Ico n="share" s={17} c="#d97706"/></div>
-                  <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Export Data</div>
+                  <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Financial Reports &amp; Export</div>
                 </div>
                 <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{exportDataExpanded?'Tap to Close':'Tap to expand'}</span>
               </div>
@@ -2803,9 +2862,9 @@ export default function App() {
                     <Ico n="uPlus" s={14} c="#d97706"/>
                     <div style={{fontSize:'10px',fontWeight:700,color:'#92400e',lineHeight:1.5}}>This is <strong>not a backup</strong>. It's a read-only CSV for viewing your records in Excel, Google Sheets or Numbers — use the Backup button above to protect your data.</div>
                   </div>
-                  <button onClick={()=>{setExportFormat(null);setPayslipMode('period');setPayslipPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0);setPayslipModalOpen(true);}} disabled={entries.length===0} style={{width:'100%',padding:'12px',background: entries.length===0 ? '#f1f5f9' : '#0f2744',border:'none',borderRadius:'11px',color: entries.length===0 ? '#94a3b8' : '#fff',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor: entries.length===0 ? 'default' : 'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',textTransform:'uppercase',letterSpacing:'1px',boxShadow: entries.length===0 ? 'none' : '0 4px 14px rgba(15,39,68,0.3)'}}><Ico n="share" s={13} c={entries.length===0?'#94a3b8':'#fff'}/> Export to PDF or Spreadsheet</button>
+                  <button onClick={()=>{setExportFormat(null);setPayslipMode('period');setPayslipPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0);setPayslipFYYear(CURRENT_FY_YEAR);setPayslipModalOpen(true);}} disabled={entries.length===0} style={{width:'100%',padding:'12px',background: entries.length===0 ? '#f1f5f9' : '#0f2744',border:'none',borderRadius:'11px',color: entries.length===0 ? '#94a3b8' : '#fff',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor: entries.length===0 ? 'default' : 'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',textTransform:'uppercase',letterSpacing:'1px',boxShadow: entries.length===0 ? 'none' : '0 4px 14px rgba(15,39,68,0.3)'}}><Ico n="share" s={13} c={entries.length===0?'#94a3b8':'#fff'}/> Export to PDF or Spreadsheet</button>
                   {entries.length===0&&<div style={{fontSize:'10px',color:'#94a3b8',textAlign:'center',marginTop:'8px',fontWeight:600}}>Log a shift first to enable export</div>}
-                  <div style={{fontSize:'9.5px',color:'#94a3b8',textAlign:'center',marginTop:'8px'}}>A formatted summary for a period, date range, or Self Assessment — good for sharing or checking a figure with payroll</div>
+                  <div style={{fontSize:'9.5px',color:'#94a3b8',textAlign:'center',marginTop:'8px'}}>A formatted summary for a period or date range — good for sharing or checking a figure with payroll</div>
                 </>
               )}
             </div>
@@ -2868,21 +2927,19 @@ export default function App() {
         )}
       </main>
 
-      {/* Export Data — shared modal for both PDF and Spreadsheet formats */}
+      {/* Financial Reports & Export — shared modal for both PDF and Spreadsheet formats */}
       {payslipModalOpen&&(()=>{
         const periodChoices = (currPeriodIdx>=0 ? PAY_PERIODS.slice(0,currPeriodIdx+1) : PAY_PERIODS).map((p,i)=>({...p,idx:i})).reverse();
         const rangeValid = payslipStart && payslipEnd && payslipEnd>=payslipStart;
-        const canGenerate = payslipMode==='selfAssessment' ? true : payslipMode==='period' ? payslipPeriodIdx!=null : rangeValid;
+        const canGenerate = payslipMode==='period' ? payslipPeriodIdx!=null : payslipMode==='financialYear' ? payslipFYYear!=null : rangeValid;
         const formatLabel = exportFormat==='csv' ? 'Spreadsheet' : 'PDF';
-        const saComplete = todayStr > addYearMinusOneDay(totals.taxYearStart);
-        const saYearLabel = `${totals.taxYearStart.split('-')[0]}/${(parseInt(totals.taxYearStart.split('-')[0])+1).toString().slice(-2)}`;
         return (
           <div onClick={()=>setPayslipModalOpen(false)} style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'flex-end',justifyContent:'center',zIndex:60}}>
             <div onClick={e=>e.stopPropagation()} className="fi" style={{background:'#fff',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:'430px',padding:'20px',maxHeight:'85%',overflowY:'auto'}}>
               <div style={{width:'36px',height:'4px',background:'#e2e8f0',borderRadius:'4px',margin:'0 auto 14px'}}/>
               {exportFormat===null ? (
                 <>
-                  <div style={{fontSize:'15px',fontWeight:900,marginBottom:'4px'}}>Export Data</div>
+                  <div style={{fontSize:'15px',fontWeight:900,marginBottom:'4px'}}>Financial Reports &amp; Export</div>
                   <div style={{fontSize:'11px',color:'#94a3b8',marginBottom:'18px'}}>Choose a format to continue</div>
                   <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
                     <button onClick={()=>setExportFormat('pdf')} style={{display:'flex',alignItems:'center',gap:'12px',padding:'16px',borderRadius:'14px',border:'1.5px solid #dbeafe',background:'#eff6ff',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
@@ -2905,12 +2962,12 @@ export default function App() {
               ) : (
               <>
               <div style={{fontSize:'15px',fontWeight:900,marginBottom:'4px'}}>Export to {formatLabel}</div>
-              <div style={{fontSize:'11px',color:'#94a3b8',marginBottom:'16px'}}>Choose a period, set your own date range, or pull your Self Assessment figures</div>
+              <div style={{fontSize:'11px',color:'#94a3b8',marginBottom:'16px'}}>Choose a period, or set your own date range</div>
 
               <div style={{display:'flex',gap:'6px',background:'#f1f5f9',borderRadius:'12px',padding:'3px',marginBottom:'16px'}}>
-                <button onClick={()=>setPayslipMode('period')} style={{flex:1,textAlign:'center',padding:'9px 4px',borderRadius:'9px',fontWeight:800,fontSize:'10.5px',border:'none',fontFamily:'inherit',cursor:'pointer',background:payslipMode==='period'?'#fff':'transparent',color:payslipMode==='period'?'#2563eb':'#64748b',boxShadow:payslipMode==='period'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}>Pay Period</button>
-                <button onClick={()=>setPayslipMode('custom')} style={{flex:1,textAlign:'center',padding:'9px 4px',borderRadius:'9px',fontWeight:800,fontSize:'10.5px',border:'none',fontFamily:'inherit',cursor:'pointer',background:payslipMode==='custom'?'#fff':'transparent',color:payslipMode==='custom'?'#2563eb':'#64748b',boxShadow:payslipMode==='custom'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}>Custom Range</button>
-                <button onClick={()=>setPayslipMode('selfAssessment')} style={{flex:1,textAlign:'center',padding:'9px 4px',borderRadius:'9px',fontWeight:800,fontSize:'10.5px',border:'none',fontFamily:'inherit',cursor:'pointer',background:payslipMode==='selfAssessment'?'#fff':'transparent',color:payslipMode==='selfAssessment'?'#2563eb':'#64748b',boxShadow:payslipMode==='selfAssessment'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}>Self Assessment</button>
+                <button onClick={()=>setPayslipMode('period')} style={{flex:1,textAlign:'center',padding:'9px 4px',borderRadius:'9px',fontWeight:800,fontSize:'11.5px',border:'none',fontFamily:'inherit',cursor:'pointer',background:payslipMode==='period'?'#fff':'transparent',color:payslipMode==='period'?'#2563eb':'#64748b',boxShadow:payslipMode==='period'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}>Pay Period</button>
+                <button onClick={()=>setPayslipMode('custom')} style={{flex:1,textAlign:'center',padding:'9px 4px',borderRadius:'9px',fontWeight:800,fontSize:'11.5px',border:'none',fontFamily:'inherit',cursor:'pointer',background:payslipMode==='custom'?'#fff':'transparent',color:payslipMode==='custom'?'#2563eb':'#64748b',boxShadow:payslipMode==='custom'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}>Custom Range</button>
+                <button onClick={()=>setPayslipMode('financialYear')} style={{flex:1,textAlign:'center',padding:'9px 4px',borderRadius:'9px',fontWeight:800,fontSize:'11.5px',border:'none',fontFamily:'inherit',cursor:'pointer',background:payslipMode==='financialYear'?'#fff':'transparent',color:payslipMode==='financialYear'?'#2563eb':'#64748b',boxShadow:payslipMode==='financialYear'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}>Financial Year</button>
               </div>
 
               {payslipMode==='period' ? (
@@ -2947,99 +3004,52 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'8px'}}>Self Assessment — SA102 Employment Page</div>
-                  <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'12px',padding:'14px'}}>
-                    <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a',marginBottom:'2px'}}>Tax Year {saYearLabel}</div>
-                    <div style={{fontSize:'10.5px',color:'#3b82f6',fontWeight:700,marginBottom:'10px'}}>{saComplete?'Complete year':'Year to date — not yet complete'}</div>
-                    <div style={{fontSize:'11px',color:'#1e40af',lineHeight:1.6}}>Gives you Box 1 (pay from this employment) and Box 2 (UK tax taken off), scoped to income tracked in this app for the current UK tax year only. Not a substitute for your P60, and doesn't cover other income, employments, or reliefs.</div>
+                  <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'8px'}}>Financial Year</div>
+                  <div style={{display:'flex',flexDirection:'column',gap:'7px',marginBottom:'6px'}}>
+                    {[CURRENT_FY_YEAR, ...yearsWithData].map(y=>{
+                      const yPeriods = generateFYPeriods(y);
+                      const isCurrent = y===CURRENT_FY_YEAR;
+                      return (
+                        <div key={y} onClick={()=>setPayslipFYYear(y)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',borderRadius:'12px',border:y===payslipFYYear?'1.5px solid #2563eb':'1.5px solid #f1f5f9',background:y===payslipFYYear?'#eff6ff':'#fff',cursor:'pointer'}}>
+                          <div>
+                            <div style={{fontWeight:800,fontSize:'12.5px',color:'#0f172a'}}>{y} / {(y+1).toString().slice(-2)}{isCurrent&&<span style={{color:'#2563eb',fontSize:'9px',marginLeft:'6px'}}>· Current</span>}</div>
+                            <div style={{fontSize:'10px',color:'#94a3b8',marginTop:'1px'}}>{fmtD(yPeriods[0].start)} – {fmtD(yPeriods[11].end)}{!isCurrent&&exportFormat==='pdf'&&' · gross only, no tax/NI'}</div>
+                          </div>
+                          <div style={{width:'18px',height:'18px',borderRadius:'50%',border:`2px solid ${y===payslipFYYear?'#2563eb':'#cbd5e1'}`,flexShrink:0,position:'relative'}}>
+                            {y===payslipFYYear&&<div style={{position:'absolute',inset:'3px',background:'#2563eb',borderRadius:'50%'}}/>}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               )}
 
-              {payslipMode!=='selfAssessment' && (
-                <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'12px',padding:'11px 14px',margin:'16px 0',fontSize:'12px',color:'#1e40af',fontWeight:700,textAlign:'center'}}>
-                  {payslipMode==='period'
-                    ? (payslipPeriodIdx!=null ? `${fmtD(PAY_PERIODS[payslipPeriodIdx].start)} – ${fmtD(PAY_PERIODS[payslipPeriodIdx].end)}` : 'Pick a pay period')
-                    : (rangeValid ? `${fmtD(payslipStart)} – ${fmtD(payslipEnd)}` : 'Pick a valid start and end date')}
+              <div onClick={()=>setSanitiseNotes(v=>!v)} style={{display:'flex',alignItems:'flex-start',gap:'10px',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'12px',padding:'12px 14px',marginTop:'12px',cursor:'pointer'}}>
+                <div style={{width:'20px',height:'20px',borderRadius:'6px',border:`2px solid ${sanitiseNotes?'#dc2626':'#cbd5e1'}`,background:sanitiseNotes?'#dc2626':'#fff',flexShrink:0,marginTop:'1px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {sanitiseNotes&&<Ico n="check" s={12} c="#fff" w={3}/>}
                 </div>
-              )}
+                <div>
+                  <div style={{fontSize:'12px',fontWeight:800,color:'#991b1b'}}>Sanitise Notes Field</div>
+                  <div style={{fontSize:'10.5px',color:'#991b1b',marginTop:'2px',lineHeight:1.5}}>Recommended — shift notes may hold operationally sensitive detail.</div>
+                </div>
+              </div>
 
-              <button onClick={handleGenerateExport} disabled={!canGenerate} style={{width:'100%',background:canGenerate?'#2563eb':'#cbd5e1',color:'#fff',border:'none',borderRadius:'12px',padding:'14px',fontWeight:900,fontSize:'13px',cursor:canGenerate?'pointer':'default',fontFamily:'inherit',marginTop:payslipMode==='selfAssessment'?'16px':0}}>{payslipMode==='selfAssessment' ? `Export Self Assessment Figures` : exportFormat==='csv' ? 'Export Spreadsheet' : 'Generate Payslip'}</button>
+              <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'12px',padding:'11px 14px',margin:'16px 0',fontSize:'12px',color:'#1e40af',fontWeight:700,textAlign:'center'}}>
+                {payslipMode==='period'
+                  ? (payslipPeriodIdx!=null ? `${fmtD(PAY_PERIODS[payslipPeriodIdx].start)} – ${fmtD(PAY_PERIODS[payslipPeriodIdx].end)}` : 'Pick a pay period')
+                  : payslipMode==='financialYear'
+                    ? (payslipFYYear!=null ? `${fmtD(generateFYPeriods(payslipFYYear)[0].start)} – ${fmtD(generateFYPeriods(payslipFYYear)[11].end)}` : 'Pick a financial year')
+                    : (rangeValid ? `${fmtD(payslipStart)} – ${fmtD(payslipEnd)}` : 'Pick a valid start and end date')}
+              </div>
+
+              <button onClick={handleGenerateExport} disabled={!canGenerate} style={{width:'100%',background:canGenerate?'#2563eb':'#cbd5e1',color:'#fff',border:'none',borderRadius:'12px',padding:'14px',fontWeight:900,fontSize:'13px',cursor:canGenerate?'pointer':'default',fontFamily:'inherit'}}>{exportFormat==='csv' ? 'Export Spreadsheet' : payslipMode==='financialYear'&&payslipFYYear!=null&&payslipFYYear!==CURRENT_FY_YEAR ? 'View Year Summary' : 'Generate Payslip'}</button>
               <div style={{display:'flex',gap:'6px',marginTop:'4px'}}>
                 <button onClick={()=>setExportFormat(null)} style={{flex:1,background:'none',border:'none',padding:'12px',fontWeight:800,fontSize:'12px',color:'#64748b',cursor:'pointer',fontFamily:'inherit'}}>‹ Back</button>
                 <button onClick={()=>setPayslipModalOpen(false)} style={{flex:1,background:'none',border:'none',padding:'12px',fontWeight:800,fontSize:'12px',color:'#64748b',cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
               </div>
               </>
               )}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Self Assessment preview / print document — SA102 box figures, current UK tax year */}
-      {saPreview&&(()=>{
-        const taxYearLabel = `${totals.taxYearStart.split('-')[0]}/${(parseInt(totals.taxYearStart.split('-')[0])+1).toString().slice(-2)}`;
-        const complete = todayStr > addYearMinusOneDay(totals.taxYearStart);
-        return (
-          <div className="payslip-print-area" style={{position:'absolute',inset:0,background:'#e2e8f0',zIndex:70,overflowY:'auto',padding:'16px'}}>
-            <div className="no-print" style={{display:'flex',gap:'8px',marginBottom:'14px',maxWidth:'560px',margin:'0 auto 14px'}}>
-              <button onClick={()=>window.print()} style={{flex:1,background:'#2563eb',color:'#fff',border:'none',borderRadius:'11px',padding:'12px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}><Ico n="dl" s={13} c="#fff"/> Print / Save as PDF</button>
-              <button onClick={()=>setSaPreview(false)} style={{background:'#fff',color:'#475569',border:'1px solid #e2e8f0',borderRadius:'11px',padding:'12px 18px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit'}}>Close</button>
-            </div>
-
-            <div className="payslip-print-doc" style={{maxWidth:'560px',margin:'0 auto',background:'#fff',borderRadius:'6px',boxShadow:'0 4px 24px rgba(0,0,0,0.12)',overflow:'hidden'}}>
-              <div style={{background:'#0f2744',color:'#fff',padding:'26px 26px 20px'}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'18px'}}>
-                  <div>
-                    <div style={{fontSize:'10px',fontWeight:800,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.4px'}}>Overtime &amp; Shift Tracker</div>
-                    <div style={{fontSize:'19px',fontWeight:900,marginTop:'3px',letterSpacing:'-0.3px'}}>Self Assessment Figures</div>
-                  </div>
-                  <div style={{fontSize:'9.5px',color:'#93c5fd',textAlign:'right',lineHeight:1.5,flexShrink:0}}>
-                    Generated {new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
-                  </div>
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
-                  <div>
-                    <div style={{fontSize:'9px',fontWeight:800,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'3px'}}>Tax Year</div>
-                    <div style={{fontWeight:800,fontSize:'13px'}}>{taxYearLabel}</div>
-                  </div>
-                  <div>
-                    <div style={{fontSize:'9px',fontWeight:800,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'3px'}}>Status</div>
-                    <div style={{fontWeight:800,fontSize:'13px'}}>{complete?'Complete year':'Year to date'}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{padding:'22px 26px 10px'}}>
-                <div style={{fontSize:'10.5px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'12px'}}>SA102 — Employment Page</div>
-
-                <div style={{border:'1.5px solid #dbeafe',borderRadius:'12px',padding:'16px',marginBottom:'12px'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                    <div>
-                      <div style={{fontSize:'11px',fontWeight:900,color:'#2563eb'}}>Box 1</div>
-                      <div style={{fontSize:'12.5px',fontWeight:700,color:'#334155',marginTop:'2px'}}>Pay from this employment</div>
-                      <div style={{fontSize:'10px',color:'#94a3b8',marginTop:'2px'}}>Total before tax was taken off</div>
-                    </div>
-                    <div style={{fontSize:'19px',fontWeight:900,color:'#0f172a',flexShrink:0}}>{fmtGBP(totals.combinedGrossYTD)}</div>
-                  </div>
-                </div>
-
-                <div style={{border:'1.5px solid #dbeafe',borderRadius:'12px',padding:'16px',marginBottom:'18px'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                    <div>
-                      <div style={{fontSize:'11px',fontWeight:900,color:'#2563eb'}}>Box 2</div>
-                      <div style={{fontSize:'12.5px',fontWeight:700,color:'#334155',marginTop:'2px'}}>UK tax taken off pay in box 1</div>
-                    </div>
-                    <div style={{fontSize:'19px',fontWeight:900,color:'#0f172a',flexShrink:0}}>{fmtGBP(totals.ytdTax)}</div>
-                  </div>
-                </div>
-
-                {!complete&&<div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'10px',padding:'11px 14px',marginBottom:'12px',fontSize:'11px',color:'#92400e',lineHeight:1.5}}>This tax year isn't finished yet — these are year-to-date figures, not final ones. Wait for your P60 before filing.</div>}
-              </div>
-
-              <div style={{fontSize:'9.5px',color:'#94a3b8',lineHeight:1.6,padding:'16px 26px 26px',borderTop:'1px solid #f1f5f9',marginTop:'6px'}}>
-                <strong style={{color:'#64748b'}}>Scope:</strong> these figures cover only the income tracked in Overtime &amp; Shift Tracker by Adam Stephens — this employment's salary, weighting, allowance, and overtime. National Insurance isn't entered on the Self Assessment return, so it's not shown here. If you have other income, employments, benefits, reliefs, or student loan deductions, those need adding separately — this isn't a substitute for your P60, and box numbers can change between tax years, so check the current SA102 form before filing.
-              </div>
             </div>
           </div>
         );
@@ -3084,6 +3094,7 @@ export default function App() {
               </div>
 
               <div style={{padding:'22px 26px 10px'}}>
+                {d.clippedFrom&&<div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'10px',padding:'11px 14px',marginBottom:'14px',fontSize:'11px',color:'#92400e',lineHeight:1.5}}>This range crosses 6 April, where the tax year resets. Figures below cover {fmtD(d.clippedFrom)} – {fmtD(payslipPreview.end)} only, since combining two tax years' allowances into one total wouldn't be accurate.</div>}
                 {d.rangeEntries.length===0 ? (
                   <div style={{textAlign:'center',padding:'30px 10px',color:'#94a3b8',fontSize:'13px',fontWeight:600}}>No shifts recorded in this range.</div>
                 ) : (
@@ -3163,10 +3174,15 @@ export default function App() {
         const y = computeArchivedYear(fySummaryYear);
         const label = `${fySummaryYear} / ${(fySummaryYear+1).toString().slice(-2)}`;
         return (
-          <div style={{position:'absolute',inset:0,background:'#f8fafc',zIndex:65,overflowY:'auto'}}>
-            <div style={{background:'#fef3c7',padding:'8px',fontSize:'10px',fontWeight:800,color:'#92400e',textAlign:'center'}}>📁 Archived — {label} is read-only</div>
-            <div style={{background:'#0f2744',color:'#fff',padding:'16px'}}>
-              <button onClick={()=>setFySummaryYear(null)} style={{background:'rgba(255,255,255,0.12)',border:'none',borderRadius:'9px',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',cursor:'pointer',marginBottom:'12px'}}><Ico n="back" s={16} c="#fff"/></button>
+          <div className={fySummaryPrintMode?'payslip-print-area':''} style={{position:'absolute',inset:0,background:'#f8fafc',zIndex:65,overflowY:'auto'}}>
+            <div className="no-print" style={{background:'#fef3c7',padding:'8px',fontSize:'10px',fontWeight:800,color:'#92400e',textAlign:'center'}}>📁 Archived — {label} is read-only</div>
+            {fySummaryPrintMode&&(
+              <div className="no-print" style={{padding:'12px 12px 0'}}>
+                <button onClick={()=>window.print()} style={{width:'100%',background:'#2563eb',color:'#fff',border:'none',borderRadius:'11px',padding:'12px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}><Ico n="dl" s={13} c="#fff"/> Print / Save as PDF</button>
+              </div>
+            )}
+            <div className={fySummaryPrintMode?'payslip-print-doc':''} style={{background:'#0f2744',color:'#fff',padding:'16px',margin:fySummaryPrintMode?'12px':0,borderRadius:fySummaryPrintMode?'12px':0}}>
+              <button className="no-print" onClick={()=>{setFySummaryYear(null);setFySummaryPrintMode(false);}} style={{background:'rgba(255,255,255,0.12)',border:'none',borderRadius:'9px',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',cursor:'pointer',marginBottom:'12px'}}><Ico n="back" s={16} c="#fff"/></button>
               <div style={{fontSize:'10px',fontWeight:800,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.2px'}}>Financial Year</div>
               <div style={{fontSize:'19px',fontWeight:900}}>{label}</div>
               <div style={{fontSize:'10px',color:'#93c5fd',marginTop:'2px'}}>{fmtD(y.start)} – {fmtD(y.end)}</div>
@@ -3184,22 +3200,22 @@ export default function App() {
             </div>
 
             <div style={{padding:'14px',paddingBottom:'40px'}}>
-              <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'10px',padding:'10px 12px',marginBottom:'12px',fontSize:'10.5px',color:'#1e40af',lineHeight:1.5}}>Tap a period to see individual shifts, this is a record not a working copy. Gross figures only</div>
+              <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'10px',padding:'10px 12px',marginBottom:'12px',fontSize:'10.5px',color:'#1e40af',lineHeight:1.5}}>{fySummaryPrintMode ? 'Grouped by pay period. Gross figures only — no tax or NI estimate, since that math needs the current year\'s context to be accurate.' : 'Tap a period to see individual shifts, this is a record not a working copy. Gross figures only'}</div>
 
               {y.periods.length===0 ? (
                 <div style={{textAlign:'center',padding:'30px 10px',color:'#94a3b8',fontSize:'13px',fontWeight:600}}>No entries recorded in this year.</div>
               ) : y.periods.map(p=>{
-                const expanded = archiveExpandedPeriod===p.short+fySummaryYear;
+                const expanded = fySummaryPrintMode || archiveExpandedPeriod===p.short+fySummaryYear;
                 return (
                   <div key={p.short} style={{background:'#fff',borderRadius:'14px',padding:'13px',border:'1px solid #f1f5f9',marginBottom:'9px'}}>
-                    <div onClick={()=>setArchiveExpandedPeriod(expanded?null:p.short+fySummaryYear)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
+                    <div onClick={()=>{ if(!fySummaryPrintMode) setArchiveExpandedPeriod(expanded?null:p.short+fySummaryYear); }} style={{display:'flex',justifyContent:'space-between',alignItems:'center',cursor:fySummaryPrintMode?'default':'pointer'}}>
                       <div>
                         <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>{p.month}</div>
                         <div style={{fontSize:'10px',color:'#94a3b8',marginTop:'1px'}}>{fmtD(p.start)} – {fmtD(p.end)} · {p.entries.length} shift{p.entries.length===1?'':'s'}</div>
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                         <div style={{fontWeight:900,fontSize:'13px',color:'#1e3a5f'}}>{fmtGBP(p.gross)}</div>
-                        <Ico n={expanded?'cU':'cD'} s={14} c="#94a3b8"/>
+                        {!fySummaryPrintMode&&<Ico n={expanded?'cU':'cD'} s={14} c="#94a3b8"/>}
                       </div>
                     </div>
                     {expanded&&(
@@ -3376,7 +3392,7 @@ export default function App() {
           {id:'months',   n:'cal',  lbl:'Breakdown'},
           {id:'add',      n:'plus', lbl:'Log Overtime'},
           {id:'graph',    n:'clock', lbl:'TOIL'},
-          {id:'settings', n:'cog',  lbl:'Settings +'},
+          {id:'settings', n:'cog',  lbl:'Options'},
         ].map(t=>(
           <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') { setForm({...blankForm,date:todayStr}); } if(t.id==='months'&&defaultBreakdownView==='list') snapToActiveMonth(false,140); setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
             <Ico n={t.n} s={t.id==='add'?21:18} c={t.id==='add'?'#fff':tab===t.id?'#2563eb':'#94a3b8'} w={tab===t.id||t.id==='add'?2.5:2}/>
