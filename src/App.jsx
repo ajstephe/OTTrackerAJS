@@ -2251,10 +2251,12 @@ export default function App() {
                 const hasNight = dEntries.some(e=>parseFloat(e.nightHours)>0);
                 const hasPA = dEntries.some(e=>e.paRate&&e.paRate!=='None');
                 const hasToil = dEntries.some(e=>e.otRateTier&&(parseFloat(e.toilHours)||0)>0);
-                // build a compact rate label — single rate shows e.g. "1.33x", mixed rates omitted for space
-                const ratesUsed = [h1>0&&'1.33x', h2>0&&'1.5x', h3>0&&'2.0x'].filter(Boolean);
-                const rateLabel = ratesUsed.length===1 ? ratesUsed[0] : null;
-                return { ds, dEntries, totalHrs, hasNight, hasPA, hasToil, hasOT: dEntries.length>0, periodIdx: cIdx, rateLabel };
+                // color the hours figure by rate tier instead of adding a second
+                // line of text — blue 1.33x, green 1.5x, red 2.0x. Mixed-rate
+                // days (more than one tier worked) fall back to the default blue.
+                const ratesUsed = [h1>0, h2>0, h3>0].filter(Boolean).length;
+                const rateColor = ratesUsed===1 ? (h1>0?'#0f172a':h2>0?'#059669':'#dc2626') : '#0f172a';
+                return { ds, dEntries, totalHrs, hasNight, hasPA, hasToil, hasOT: dEntries.length>0, periodIdx: cIdx, rateColor };
               };
 
               return (
@@ -2312,24 +2314,23 @@ export default function App() {
                                   else { setConfirmCreateDay(info.ds); }
                                 }}
                                 style={{
-                                  aspectRatio:'1', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                                  aspectRatio:'1', minHeight:'42px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
                                   borderRadius:'10px', border: isToday?'2px solid #2563eb':info.hasOT?'1px solid #bfdbfe':'1px solid transparent',
                                   background: info.hasOT ? '#eff6ff' : 'transparent',
-                                  cursor:'pointer', padding:'3px', fontFamily:'inherit',
-                                  minWidth:0, width:'100%', overflow:'hidden', boxSizing:'border-box',
+                                  cursor:'pointer', padding:'2px 1px', fontFamily:'inherit',
+                                  minWidth:0, width:'100%', overflow:'hidden', boxSizing:'border-box', gap:'2px',
                                 }}>
-                                <span style={{fontSize:'15px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1e3a5f':'#cbd5e1',lineHeight:1}}>{date.getDate()}</span>
+                                <span style={{fontSize:'13px',fontWeight:info.hasOT?900:600,color:info.hasOT?'#1d4ed8':'#cbd5e1',lineHeight:1}}>{date.getDate()}</span>
                                 {info.totalHrs>0&&(
-                                  <div style={{display:'flex',flexDirection:'column',alignItems:'center',maxWidth:'100%',minWidth:0,marginTop:'2px'}}>
-                                    <span style={{fontSize:'10px',fontWeight:900,color:'#2563eb',lineHeight:1.15,maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{info.totalHrs}h</span>
-                                    {info.rateLabel&&<span style={{fontSize:'8px',fontWeight:800,color:'#2563eb',letterSpacing:'-0.2px',lineHeight:1.15,maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{info.rateLabel}</span>}
+                                  <span style={{fontSize:'9px',fontWeight:900,color:info.rateColor,lineHeight:1,maxWidth:'100%',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{info.totalHrs}h</span>
+                                )}
+                                {(info.hasNight||info.hasPA||info.hasToil)&&(
+                                  <div style={{display:'flex',gap:'2px',flexShrink:0}}>
+                                    {info.hasNight&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#818cf8',flexShrink:0}}/>}
+                                    {info.hasPA&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#f59e0b',flexShrink:0}}/>}
+                                    {info.hasToil&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#7c3aed',flexShrink:0}}/>}
                                   </div>
                                 )}
-                                <div style={{display:'flex',gap:'2px',marginTop:'3px',height:'5px',flexShrink:0}}>
-                                  {info.hasNight&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#818cf8',flexShrink:0}}/>}
-                                  {info.hasPA&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#f59e0b',flexShrink:0}}/>}
-                                  {info.hasToil&&<div style={{width:'4px',height:'4px',borderRadius:'50%',background:'#7c3aed',flexShrink:0}}/>}
-                                </div>
                               </button>
                             );
                           })}
@@ -2343,6 +2344,11 @@ export default function App() {
                       <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#818cf8'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>Night</span></div>
                       <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#f59e0b'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>PA</span></div>
                       <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:'#7c3aed'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>TOIL</span></div>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'center',gap:'16px',marginTop:'9px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'11px',height:'11px',borderRadius:'3px',background:'#0f172a'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>1.33x</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'11px',height:'11px',borderRadius:'3px',background:'#059669'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>1.5x</span></div>
+                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'11px',height:'11px',borderRadius:'3px',background:'#dc2626'}}/><span style={{fontSize:'13px',fontWeight:700,color:'#64748b'}}>2.0x</span></div>
                     </div>
                   </div>
 
