@@ -512,6 +512,7 @@ const Ico = ({ n, s=20, c, w=2, f='none' }) => (
     {n==='uPlus' &&<><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></>}
     {n==='check' &&<polyline points="20 6 9 17 4 12"/>}
     {n==='shield'&&<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>}
+    {n==='calc'  &&<><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M16 14h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M16 18h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></>}
     {n==='tUp'   &&<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>}
     {n==='back'  &&<><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></>}
     {n==='undo'  &&<><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.31"/></>}
@@ -2745,7 +2746,7 @@ export default function App() {
                 <div ref={taxImpactCardRef} style={S.card}>
                   <div onClick={()=>setTaxImpactExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:taxImpactExpanded?'12px':0,cursor:'pointer'}}>
                     <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                      <div style={{background:over?'#fef2f2':'#f0fdf4',padding:'9px',borderRadius:'11px'}}><Ico n="shield" s={17} c={over?'#dc2626':'#059669'}/></div>
+                      <div style={{background:over?'#fef2f2':'#f0fdf4',padding:'9px',borderRadius:'11px'}}><Ico n="calc" s={17} c={over?'#dc2626':'#059669'}/></div>
                       <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>£100k Tax Calculator</div>
                     </div>
                     <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{taxImpactExpanded?'Tap to Close':'Tap to expand'}</span>
@@ -2873,10 +2874,6 @@ export default function App() {
               </div>
               {exportDataExpanded&&(
                 <>
-                  <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'11px',padding:'10px 12px',marginBottom:'12px',display:'flex',gap:'8px',alignItems:'flex-start'}}>
-                    <Ico n="uPlus" s={14} c="#d97706"/>
-                    <div style={{fontSize:'10px',fontWeight:700,color:'#92400e',lineHeight:1.5}}>This is <strong>not a backup</strong>. It's a read-only CSV for viewing your records in Excel, Google Sheets or Numbers — use the Backup button above to protect your data.</div>
-                  </div>
                   <button onClick={()=>{setExportFormat(null);setPayslipMode('period');setPayslipPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0);setPayslipFYYear(CURRENT_FY_YEAR);setPayslipModalOpen(true);}} disabled={entries.length===0} style={{width:'100%',padding:'12px',background: entries.length===0 ? '#f1f5f9' : '#0f2744',border:'none',borderRadius:'11px',color: entries.length===0 ? '#94a3b8' : '#fff',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor: entries.length===0 ? 'default' : 'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',textTransform:'uppercase',letterSpacing:'1px',boxShadow: entries.length===0 ? 'none' : '0 4px 14px rgba(15,39,68,0.3)'}}><Ico n="share" s={13} c={entries.length===0?'#94a3b8':'#fff'}/> Export to PDF or Spreadsheet</button>
                   {entries.length===0&&<div style={{fontSize:'10px',color:'#94a3b8',textAlign:'center',marginTop:'8px',fontWeight:600}}>Log a shift first to enable export</div>}
                 </>
