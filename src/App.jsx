@@ -724,6 +724,21 @@ export default function App() {
     setTimeout(()=>{ taxImpactCardRef.current?.scrollIntoView({behavior:'auto',block:'start'}); }, 60);
   },[tab]);
 
+  // Collapse every expandable Options card the moment the person leaves the
+  // Options tab, so it's back to a clean, collapsed state next time they
+  // arrive — rather than remembering whatever was left open.
+  const prevTabRef = useRef(tab);
+  useEffect(()=>{
+    if(prevTabRef.current==='settings' && tab!=='settings'){
+      setTrendsExpanded(false);
+      setTaxImpactExpanded(false);
+      setHourlyRatesExpanded(false);
+      setExportDataExpanded(false);
+      setFinancialYearsExpanded(false);
+    }
+    prevTabRef.current = tab;
+  },[tab]);
+
   // ── snap zoom back to default when switching tabs ───────────────────────────
   // Pinch-zoom is allowed while browsing a tab. When the person switches tabs,
   // this forces the browser to reprocess the viewport at scale=1. Simply
@@ -2112,7 +2127,7 @@ export default function App() {
                 {preview.night>0&&(
                   <div style={{borderTop:'1px solid rgba(255,255,255,0.1)',paddingTop:'8px',display:'flex',alignItems:'center',gap:'6px',marginBottom:preview.toilBanked>0?'6px':0}}>
                     <Ico n="moon" s={11} c="#818cf8"/>
-                    <span style={{fontSize:'15px',fontWeight:700,color:'#a5b4fc'}}>inc. £{preview.night.toFixed(2)} night enhancement (paid as cash)</span>
+                    <span style={{fontSize:'15px',fontWeight:700,color:'#a5b4fc'}}>inc. £{preview.night.toFixed(2)} night enhancement</span>
                   </div>
                 )}
                 {preview.toilBanked>0&&(
@@ -2731,7 +2746,7 @@ export default function App() {
                   <div onClick={()=>setTaxImpactExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:taxImpactExpanded?'12px':0,cursor:'pointer'}}>
                     <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                       <div style={{background:over?'#fef2f2':'#f0fdf4',padding:'9px',borderRadius:'11px'}}><Ico n="shield" s={17} c={over?'#dc2626':'#059669'}/></div>
-                      <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>£100k Tax Impact</div>
+                      <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>£100k Tax Calculator</div>
                     </div>
                     <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{taxImpactExpanded?'Tap to Close':'Tap to expand'}</span>
                   </div>
@@ -2766,7 +2781,7 @@ export default function App() {
                           </div>
                         </>
                       )}
-                      <div style={{fontSize:'9.5px',color:'#94a3b8',lineHeight:1.5,marginTop:'10px'}}>Based on your current pay run-rate projected across the full tax year — not a final figure. Overtime is unpredictable, so this will move as your actual earnings change. For anything you're relying on, check against HMRC or an accountant.</div>
+                      <div style={{fontSize:'9.5px',color:'#94a3b8',lineHeight:1.5,marginTop:'10px'}}>Based on your current pay rate projected across the tax year. Please do your own due diligence and if needs be consult an accountant/HMRC.</div>
                     </>
                   )}
                 </div>
@@ -2778,7 +2793,7 @@ export default function App() {
               <div onClick={()=>setTrendsExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:trendsExpanded?'12px':0,cursor:'pointer'}}>
                 <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                   <div style={{background:'#f5f3ff',padding:'9px',borderRadius:'11px'}}><Ico n="tUp" s={17} c="#7c3aed"/></div>
-                  <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Trends</div>
+                  <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Graphs</div>
                 </div>
                 <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{trendsExpanded?'Tap to Close':'Tap to expand'}</span>
               </div>
@@ -2864,7 +2879,6 @@ export default function App() {
                   </div>
                   <button onClick={()=>{setExportFormat(null);setPayslipMode('period');setPayslipPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0);setPayslipFYYear(CURRENT_FY_YEAR);setPayslipModalOpen(true);}} disabled={entries.length===0} style={{width:'100%',padding:'12px',background: entries.length===0 ? '#f1f5f9' : '#0f2744',border:'none',borderRadius:'11px',color: entries.length===0 ? '#94a3b8' : '#fff',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor: entries.length===0 ? 'default' : 'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',textTransform:'uppercase',letterSpacing:'1px',boxShadow: entries.length===0 ? 'none' : '0 4px 14px rgba(15,39,68,0.3)'}}><Ico n="share" s={13} c={entries.length===0?'#94a3b8':'#fff'}/> Export to PDF or Spreadsheet</button>
                   {entries.length===0&&<div style={{fontSize:'10px',color:'#94a3b8',textAlign:'center',marginTop:'8px',fontWeight:600}}>Log a shift first to enable export</div>}
-                  <div style={{fontSize:'9.5px',color:'#94a3b8',textAlign:'center',marginTop:'8px'}}>A formatted summary for a period or date range — good for sharing or checking a figure with payroll</div>
                 </>
               )}
             </div>
@@ -2970,6 +2984,16 @@ export default function App() {
                 <button onClick={()=>setPayslipMode('financialYear')} style={{flex:1,textAlign:'center',padding:'9px 4px',borderRadius:'9px',fontWeight:800,fontSize:'11.5px',border:'none',fontFamily:'inherit',cursor:'pointer',background:payslipMode==='financialYear'?'#fff':'transparent',color:payslipMode==='financialYear'?'#2563eb':'#64748b',boxShadow:payslipMode==='financialYear'?'0 2px 6px rgba(0,0,0,0.1)':'none'}}>Financial Year</button>
               </div>
 
+              <div onClick={()=>setSanitiseNotes(v=>!v)} style={{display:'flex',alignItems:'flex-start',gap:'10px',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'12px',padding:'12px 14px',marginBottom:'16px',cursor:'pointer'}}>
+                <div style={{width:'20px',height:'20px',borderRadius:'6px',border:`2px solid ${sanitiseNotes?'#dc2626':'#cbd5e1'}`,background:sanitiseNotes?'#dc2626':'#fff',flexShrink:0,marginTop:'1px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {sanitiseNotes&&<Ico n="check" s={12} c="#fff" w={3}/>}
+                </div>
+                <div>
+                  <div style={{fontSize:'12px',fontWeight:800,color:'#991b1b'}}>Sanitise Notes Field</div>
+                  <div style={{fontSize:'10.5px',color:'#991b1b',marginTop:'2px',lineHeight:1.5}}>Recommended — shift notes may hold operationally sensitive detail.</div>
+                </div>
+              </div>
+
               {payslipMode==='period' ? (
                 <>
                   <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'8px'}}>Pay Periods</div>
@@ -3024,16 +3048,6 @@ export default function App() {
                   </div>
                 </>
               )}
-
-              <div onClick={()=>setSanitiseNotes(v=>!v)} style={{display:'flex',alignItems:'flex-start',gap:'10px',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'12px',padding:'12px 14px',marginTop:'12px',cursor:'pointer'}}>
-                <div style={{width:'20px',height:'20px',borderRadius:'6px',border:`2px solid ${sanitiseNotes?'#dc2626':'#cbd5e1'}`,background:sanitiseNotes?'#dc2626':'#fff',flexShrink:0,marginTop:'1px',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  {sanitiseNotes&&<Ico n="check" s={12} c="#fff" w={3}/>}
-                </div>
-                <div>
-                  <div style={{fontSize:'12px',fontWeight:800,color:'#991b1b'}}>Sanitise Notes Field</div>
-                  <div style={{fontSize:'10.5px',color:'#991b1b',marginTop:'2px',lineHeight:1.5}}>Recommended — shift notes may hold operationally sensitive detail.</div>
-                </div>
-              </div>
 
               <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'12px',padding:'11px 14px',margin:'16px 0',fontSize:'12px',color:'#1e40af',fontWeight:700,textAlign:'center'}}>
                 {payslipMode==='period'
