@@ -291,6 +291,44 @@ const calcNI = periodGross => {
   return ni;
 };
 
+// NI has no annual concept — it's assessed per pay period, which is exactly
+// why totals.ytdNI is built by summing each period's own NI rather than
+// feeding a lump YTD figure through calcNI (which expects one period's
+// gross against monthly thresholds, and would badly overstate NI if given
+// a whole year's money at once). This estimate exists only for the Forecast
+// figure, where there's no set of real periods to sum — it applies the
+// annual-equivalent thresholds directly to the projected annual gross, a
+// reasonable approximation for a full-year projection.
+const estimateAnnualNI = grossAnnual => {
+  const ptAnnual = 12570, uelAnnual = 50270;
+  let ni = 0;
+  if (grossAnnual > ptAnnual)  ni += Math.min(grossAnnual - ptAnnual, uelAnnual - ptAnnual) * 0.08;
+  if (grossAnnual > uelAnnual) ni += (grossAnnual - uelAnnual) * 0.02;
+  return ni;
+};
+
+// Full band-by-band income tax split for a given gross and year-fraction —
+// how much sits in the tax-free Personal Allowance, how much at 20%, 40%,
+// and 45%. Used for the £100k Tax Calculator's detailed breakdown. Summing
+// basicTax+higherTax+additionalTax always equals calcUKIncomeTax's result
+// for the same inputs — same underlying math, just itemised.
+const computeTaxBandBreakdown = (gross, yearFraction=1) => {
+  const f = Math.max(1/365, Math.min(1, yearFraction));
+  const annualised = gross / f;
+  let paAnnual = 12570;
+  if (annualised > 100000) paAnnual = Math.max(0, 12570 - Math.floor((annualised - 100000) / 2));
+  const pa = paAnnual * f;
+  const basicWidth = 37700 * f, higherWidth = 87440 * f;
+  const taxable = Math.max(0, gross - pa);
+  const basicAmt = Math.min(taxable, basicWidth);
+  const basicTax = basicAmt * 0.20;
+  const higherAmt = Math.max(0, Math.min(taxable - basicWidth, higherWidth));
+  const higherTax = higherAmt * 0.40;
+  const additionalAmt = Math.max(0, taxable - basicWidth - higherWidth);
+  const additionalTax = additionalAmt * 0.45;
+  return { pa, basicAmt, basicTax, higherAmt, higherTax, additionalAmt, additionalTax, totalTax: basicTax+higherTax+additionalTax };
+};
+
 // Named bands, used to tell the person plainly which bracket their overtime/PA
 // lands in, rather than a blended "effective %" figure.
 const TAX_BANDS = [
@@ -682,6 +720,8 @@ export default function App() {
   const [archiveExpandedPeriod, setArchiveExpandedPeriod] = useState(null); // short label of the expanded period within that year, or null
   const [trendsExpanded, setTrendsExpanded] = useState(false);
   const [taxImpactExpanded, setTaxImpactExpanded] = useState(false);
+  const [taxCalcActualDetailOpen, setTaxCalcActualDetailOpen] = useState(false);
+  const [taxCalcForecastDetailOpen, setTaxCalcForecastDetailOpen] = useState(false);
   const [hourlyRatesExpanded, setHourlyRatesExpanded] = useState(false);
   const [exportDataExpanded, setExportDataExpanded] = useState(false);
   const [financialYearsExpanded, setFinancialYearsExpanded] = useState(false);
@@ -737,6 +777,8 @@ export default function App() {
     if(prevTabRef.current==='settings' && tab!=='settings'){
       setTrendsExpanded(false);
       setTaxImpactExpanded(false);
+      setTaxCalcActualDetailOpen(false);
+      setTaxCalcForecastDetailOpen(false);
       setHourlyRatesExpanded(false);
       setExportDataExpanded(false);
       setFinancialYearsExpanded(false);
@@ -1019,7 +1061,7 @@ export default function App() {
       totalGross, totalNet, totalHrs, cumData, periodBreakdown,
       prev:getP(currPeriodIdx-1), curr:getP(currPeriodIdx), next:getP(currPeriodIdx+1),
       salaryYTD, lwYTD, laYTD, lwAnnualTotal, laAnnualTotal, combinedGrossYTD, combinedNetYTD,
-      ytdTax, taxBand, taxBandRate, daysElapsed, taxYearDaysElapsed, taxYearStart, hoursByBand,
+      ytdTax, ytdNI, taxBand, taxBandRate, daysElapsed, taxYearDaysElapsed, taxYearStart, hoursByBand,
       projectedAnnualGross, taperExtraTax,
     };
   },[fyEntries,calcEntry,settings,currPeriodIdx,todayStr]);
@@ -2779,12 +2821,45 @@ export default function App() {
               );
             })()}
 
-            {/* ── £100k Tax Impact — estimated extra tax from the personal allowance taper ── */}
+            {/* ── £100k Tax Calculator — Actual (YTD) and Forecast (full year), side by side ── */}
             {settings.rank&&settings.service&&(()=>{
               const proj = totals.projectedAnnualGross;
-              const over = proj > 100000;
-              const paLost = over ? Math.min(12570, Math.floor((proj-100000)/2)) : 0;
-              const paRemaining = 12570 - paLost;
+              const ytd  = totals.combinedGrossYTD;
+              const taxYearFraction = Math.max(1/365, Math.min(1, totals.taxYearDaysElapsed/365));
+
+              // Forecast — full year, matches how the rest of the app already
+              // treats projections (yearFraction = 1).
+              const overF = proj > 100000;
+              const paLostF = overF ? Math.min(12570, Math.floor((proj-100000)/2)) : 0;
+              const paRemainingF = 12570 - paLostF;
+              const extraTaxF = totals.taperExtraTax; // already computed elsewhere in totals — reused, not recalculated
+              const breakdownF = computeTaxBandBreakdown(proj, 1);
+              const niF = estimateAnnualNI(proj);
+              const netF = proj - breakdownF.totalTax - niF;
+
+              // Actual — year to date. Personal Allowance is always an annual
+              // concept, so the taper is still judged on the annualised
+              // run-rate; but the amount of that annual allowance genuinely
+              // "used up" by money already banked is the pro-rated slice.
+              const annualisedFromYTD = ytd / taxYearFraction;
+              const overA = annualisedFromYTD > 100000;
+              const paLostAnnualA = overA ? Math.min(12570, Math.floor((annualisedFromYTD-100000)/2)) : 0;
+              const paRemainingA = 12570 - paLostAnnualA;
+              const paLostProRatedA = paLostAnnualA * taxYearFraction;
+              const extraTaxA = overA ? (calcUKIncomeTax(ytd, taxYearFraction) - calcUKIncomeTaxNoTaper(ytd, taxYearFraction)) : 0;
+              const breakdownA = computeTaxBandBreakdown(ytd, taxYearFraction);
+              const niA = totals.ytdNI; // reuse the real, period-summed figure rather than a lump estimate
+              const netA = ytd - breakdownA.totalTax - niA;
+
+              const over = overA || overF; // header icon reflects risk from either view
+
+              const col = (label, value) => (
+                <div style={{background:'#f8fafc',borderRadius:'11px',padding:'10px',textAlign:'center'}}>
+                  <div style={{fontSize:'9px',fontWeight:700,color:'#94a3b8',marginBottom:'3px'}}>{label}</div>
+                  <div style={{fontSize:'14px',fontWeight:900,color:'#0f172a'}}>{value}</div>
+                </div>
+              );
+
               return (
                 <div ref={taxImpactCardRef} style={S.card}>
                   <div onClick={()=>setTaxImpactExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:taxImpactExpanded?'12px':0,cursor:'pointer'}}>
@@ -2796,35 +2871,121 @@ export default function App() {
                   </div>
                   {taxImpactExpanded&&(
                     <>
-                      <div style={{display:'flex',justifyContent:'space-between',background:'#f8fafc',borderRadius:'11px',padding:'11px 14px',marginBottom:'8px'}}>
-                        <span style={{fontSize:'12px',fontWeight:700,color:'#64748b'}}>Projected Annual Gross</span>
-                        <span style={{fontSize:'13px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(proj)}</span>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
+                        <div style={{fontSize:'9px',fontWeight:900,color:overA?'#dc2626':'#059669',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',background:overA?'#fef2f2':'#f0fdf4',borderRadius:'8px',padding:'5px 0'}}>Actual (YTD)</div>
+                        <div style={{fontSize:'9px',fontWeight:900,color:overF?'#dc2626':'#059669',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',background:overF?'#fef2f2':'#f0fdf4',borderRadius:'8px',padding:'5px 0'}}>Forecast</div>
                       </div>
-                      {!over ? (
-                        <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'11px',padding:'11px 14px',fontSize:'11.5px',color:'#166534',lineHeight:1.5}}>Projected to stay under £100k this year — the personal allowance taper doesn't apply. You're {fmtGBP(100000-proj)} below the threshold at the current run rate.</div>
-                      ) : (
-                        <>
-                          <div style={{display:'flex',justifyContent:'space-between',background:'#f8fafc',borderRadius:'11px',padding:'11px 14px',marginBottom:'8px'}}>
-                            <span style={{fontSize:'12px',fontWeight:700,color:'#64748b'}}>Personal Allowance Remaining</span>
-                            <span style={{fontSize:'13px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(paRemaining)} <span style={{fontSize:'10px',fontWeight:700,color:'#94a3b8'}}>of £12,570</span></span>
+
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
+                        {col('Gross', fmtGBP(ytd))}
+                        {col('Gross', fmtGBP(proj))}
+                      </div>
+
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
+                        {col('PA Remaining', fmtGBP(paRemainingA))}
+                        {col('PA Remaining', fmtGBP(paRemainingF))}
+                      </div>
+
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
+                        <div style={{background:overA?'#fef2f2':'#f0fdf4',border:`1px solid ${overA?'#fecaca':'#bbf7d0'}`,borderRadius:'11px',padding:'11px 10px',textAlign:'center'}}>
+                          <div style={{fontSize:'9px',fontWeight:900,color:overA?'#991b1b':'#166534',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>Extra Tax</div>
+                          <div style={{fontSize:'17px',fontWeight:900,color:overA?'#991b1b':'#166534'}}>{fmtGBP(extraTaxA)}</div>
+                        </div>
+                        <div style={{background:overF?'#fef2f2':'#f0fdf4',border:`1px solid ${overF?'#fecaca':'#bbf7d0'}`,borderRadius:'11px',padding:'11px 10px',textAlign:'center'}}>
+                          <div style={{fontSize:'9px',fontWeight:900,color:overF?'#991b1b':'#166534',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'3px'}}>Extra Tax</div>
+                          <div style={{fontSize:'17px',fontWeight:900,color:overF?'#991b1b':'#166534'}}>{fmtGBP(extraTaxF)}</div>
+                        </div>
+                      </div>
+
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+                        <div onClick={()=>setTaxCalcActualDetailOpen(v=>!v)} style={{background:overA?'#fef2f2':'#f0fdf4',border:`1px solid ${overA?'#fecaca':'#bbf7d0'}`,borderRadius:'11px',padding:'10px',cursor:'pointer'}}>
+                          <div style={{fontSize:'9px',fontWeight:900,color:overA?'#991b1b':'#166534',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'6px'}}>Calculations</div>
+                          {overA ? (
+                            <div style={{fontSize:'9.5px',color:'#991b1b',lineHeight:1.7}}>
+                              Run-rate: {fmtGBP(annualisedFromYTD)}/yr<br/>
+                              {fmtGBP(annualisedFromYTD-100000)} over £100k<br/>
+                              → {fmtGBP(paLostProRatedA)} allowance used so far<br/>
+                              → at {((extraTaxA/paLostProRatedA)*100).toFixed(1)}% = {fmtGBP(extraTaxA)}
+                            </div>
+                          ) : (
+                            <div style={{fontSize:'9.5px',color:'#166534',lineHeight:1.7}}>Under £100k so far this year — no allowance used yet.</div>
+                          )}
+                          <div style={{fontSize:'8.5px',fontWeight:800,color:overA?'#dc2626':'#059669',textDecoration:'underline',marginTop:'8px',textAlign:'center'}}>{taxCalcActualDetailOpen?'Showing full breakdown below':'Tap to see full breakdown'}</div>
+                        </div>
+                        <div onClick={()=>setTaxCalcForecastDetailOpen(v=>!v)} style={{background:overF?'#fef2f2':'#f0fdf4',border:`1px solid ${overF?'#fecaca':'#bbf7d0'}`,borderRadius:'11px',padding:'10px',cursor:'pointer'}}>
+                          <div style={{fontSize:'9px',fontWeight:900,color:overF?'#991b1b':'#166534',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'6px'}}>Calculations</div>
+                          {overF ? (
+                            <div style={{fontSize:'9.5px',color:'#991b1b',lineHeight:1.7}}>
+                              {fmtGBP(proj)} projected<br/>
+                              {fmtGBP(proj-100000)} over £100k<br/>
+                              → {fmtGBP(paLostF)} allowance lost<br/>
+                              → at {((extraTaxF/paLostF)*100).toFixed(1)}% = {fmtGBP(extraTaxF)}
+                            </div>
+                          ) : (
+                            <div style={{fontSize:'9.5px',color:'#166534',lineHeight:1.7}}>Projected to stay under £100k — {fmtGBP(100000-proj)} of headroom at this pace.</div>
+                          )}
+                          <div style={{fontSize:'8.5px',fontWeight:800,color:overF?'#dc2626':'#059669',textDecoration:'underline',marginTop:'8px',textAlign:'center'}}>{taxCalcForecastDetailOpen?'Showing full breakdown below':'Tap to see full breakdown'}</div>
+                        </div>
+                      </div>
+
+                      {taxCalcActualDetailOpen&&(
+                        <div style={{borderTop:'2px solid #fecaca',marginTop:'12px',paddingTop:'12px'}}>
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}}>
+                            <div style={{fontWeight:900,fontSize:'12px',color:'#0f172a'}}>Full Calculation — Actual (YTD)</div>
+                            <span onClick={()=>setTaxCalcActualDetailOpen(false)} style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',cursor:'pointer'}}>Show less</span>
                           </div>
-                          <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'11px',padding:'12px 14px'}}>
-                            <div style={{fontSize:'10px',fontWeight:900,color:'#991b1b',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'4px'}}>Estimated Extra Tax</div>
-                            <div style={{fontSize:'20px',fontWeight:900,color:'#991b1b'}}>{fmtGBP(totals.taperExtraTax)}</div>
-                            {paLost>0&&(()=>{
-                              const impliedRate = (totals.taperExtraTax/paLost)*100;
-                              return (
-                                <div style={{fontSize:'10.5px',color:'#991b1b',marginTop:'8px',paddingTop:'8px',borderTop:'1px solid #fecaca',lineHeight:1.8}}>
-                                  {fmtGBP(proj-100000)} over £100k<br/>
-                                  → £1 of allowance lost per £2 over → {fmtGBP(paLost)} allowance lost<br/>
-                                  → taxed at {impliedRate.toFixed(1)}% = {fmtGBP(totals.taperExtraTax)}
-                                </div>
-                              );
-                            })()}
-                            <div style={{fontSize:'10.5px',color:'#b91c1c',marginTop:'8px',lineHeight:1.5}}>The extra tax caused specifically by losing personal allowance above £100k. A standard payslip generally won't have withheld this in real time — it's the portion most likely to arrive later as a P800 calculation or self-assessment bill rather than a smaller payslip.</div>
+                          <div style={{background:'#f8fafc',borderRadius:'11px',padding:'12px 14px',marginBottom:'10px'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Gross (YTD)</span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(ytd)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Personal Allowance <span style={{color:'#94a3b8',fontWeight:600}}>(0%, pro-rated)</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#059669'}}>{fmtGBP(breakdownA.pa)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Basic Rate <span style={{color:'#94a3b8',fontWeight:600}}>(20% on {fmtGBP(breakdownA.basicAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownA.basicTax)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Higher Rate <span style={{color:'#94a3b8',fontWeight:600}}>(40% on {fmtGBP(breakdownA.higherAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownA.higherTax)}</span></div>
+                            {breakdownA.additionalAmt>0&&<div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderTop:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Additional Rate <span style={{color:'#94a3b8',fontWeight:600}}>(45% on {fmtGBP(breakdownA.additionalAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownA.additionalTax)}</span></div>}
                           </div>
-                        </>
+                          <div style={{display:'flex',justifyContent:'space-between',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'11px',padding:'11px 14px',marginBottom:'8px'}}>
+                            <span style={{fontSize:'11.5px',fontWeight:800,color:'#991b1b'}}>Total Income Tax (YTD)</span>
+                            <span style={{fontSize:'13px',fontWeight:900,color:'#991b1b'}}>{fmtGBP(breakdownA.totalTax)}</span>
+                          </div>
+                          <div style={{display:'flex',justifyContent:'space-between',background:'#f8fafc',borderRadius:'11px',padding:'10px 14px',marginBottom:'8px'}}>
+                            <span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>National Insurance (YTD)</span>
+                            <span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(niA)}</span>
+                          </div>
+                          <div style={{display:'flex',justifyContent:'space-between',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'11px',padding:'11px 14px'}}>
+                            <span style={{fontSize:'11.5px',fontWeight:800,color:'#166534'}}>Estimated Net (YTD)</span>
+                            <span style={{fontSize:'14px',fontWeight:900,color:'#166534'}}>{fmtGBP(netA)}</span>
+                          </div>
+                          <div style={{fontSize:'9px',color:'#94a3b8',lineHeight:1.5,marginTop:'8px'}}>What's owed on money genuinely banked so far — not a projection.</div>
+                        </div>
                       )}
+
+                      {taxCalcForecastDetailOpen&&(
+                        <div style={{borderTop:'2px solid #fecaca',marginTop:'12px',paddingTop:'12px'}}>
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}}>
+                            <div style={{fontWeight:900,fontSize:'12px',color:'#0f172a'}}>Full Calculation — Forecast</div>
+                            <span onClick={()=>setTaxCalcForecastDetailOpen(false)} style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',cursor:'pointer'}}>Show less</span>
+                          </div>
+                          <div style={{background:'#f8fafc',borderRadius:'11px',padding:'12px 14px',marginBottom:'10px'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Gross (projected annual)</span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(proj)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Personal Allowance <span style={{color:'#94a3b8',fontWeight:600}}>(0%)</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#059669'}}>{fmtGBP(breakdownF.pa)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Basic Rate <span style={{color:'#94a3b8',fontWeight:600}}>(20% on {fmtGBP(breakdownF.basicAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownF.basicTax)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:breakdownF.additionalAmt>0?'1px solid #f1f5f9':'none'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Higher Rate <span style={{color:'#94a3b8',fontWeight:600}}>(40% on {fmtGBP(breakdownF.higherAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownF.higherTax)}</span></div>
+                            {breakdownF.additionalAmt>0&&<div style={{display:'flex',justifyContent:'space-between',padding:'7px 0'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Additional Rate <span style={{color:'#94a3b8',fontWeight:600}}>(45% on {fmtGBP(breakdownF.additionalAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownF.additionalTax)}</span></div>}
+                          </div>
+                          <div style={{display:'flex',justifyContent:'space-between',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'11px',padding:'11px 14px',marginBottom:'8px'}}>
+                            <span style={{fontSize:'11.5px',fontWeight:800,color:'#991b1b'}}>Total Income Tax</span>
+                            <span style={{fontSize:'13px',fontWeight:900,color:'#991b1b'}}>{fmtGBP(breakdownF.totalTax)}</span>
+                          </div>
+                          <div style={{display:'flex',justifyContent:'space-between',background:'#f8fafc',borderRadius:'11px',padding:'10px 14px',marginBottom:'8px'}}>
+                            <span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>National Insurance <span style={{color:'#94a3b8',fontWeight:600}}>(est.)</span></span>
+                            <span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(niF)}</span>
+                          </div>
+                          <div style={{display:'flex',justifyContent:'space-between',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'11px',padding:'11px 14px'}}>
+                            <span style={{fontSize:'11.5px',fontWeight:800,color:'#166534'}}>Estimated Net Pay</span>
+                            <span style={{fontSize:'14px',fontWeight:900,color:'#166534'}}>{fmtGBP(netF)}</span>
+                          </div>
+                          <div style={{fontSize:'9px',color:'#94a3b8',lineHeight:1.5,marginTop:'8px'}}>The full income tax and NI computation for the whole year, not just the extra caused by crossing £100k.</div>
+                        </div>
+                      )}
+
                       <div style={{fontSize:'9.5px',color:'#94a3b8',lineHeight:1.5,marginTop:'10px'}}>Based on your current pay rate projected across the tax year. Please do your own due diligence and if needs be consult an accountant/HMRC.</div>
                     </>
                   )}
