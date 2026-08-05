@@ -249,7 +249,11 @@ const calcUKIncomeTax = (cumGross, yearFraction=1) => {
   if (annualised > 100000) paAnnual = Math.max(0, 12570 - Math.floor((annualised - 100000) / 2));
   const pa = paAnnual * f;
   const taxable = Math.max(0, cumGross - pa);
-  const basic = 37700 * f, higher = 74870 * f;
+  // Band widths are in TAXABLE income terms. The 40% band runs from £37,700
+  // to £125,140 of taxable income (width £87,440) — this is what makes the
+  // Additional Rate start exactly at £125,140 of total income once the
+  // allowance has fully tapered to zero, matching the official HMRC bands.
+  const basic = 37700 * f, higher = 87440 * f;
   let tax = 0;
   if (taxable > 0)             tax += Math.min(taxable, basic)          * 0.20;
   if (taxable > basic)         tax += Math.min(taxable - basic, higher) * 0.40;
@@ -266,7 +270,7 @@ const calcUKIncomeTaxNoTaper = (cumGross, yearFraction=1) => {
   const f = Math.max(1/365, Math.min(1, yearFraction));
   const pa = 12570 * f;
   const taxable = Math.max(0, cumGross - pa);
-  const basic = 37700 * f, higher = 74870 * f;
+  const basic = 37700 * f, higher = 87440 * f;
   let tax = 0;
   if (taxable > 0)             tax += Math.min(taxable, basic)          * 0.20;
   if (taxable > basic)         tax += Math.min(taxable - basic, higher) * 0.40;
@@ -1741,13 +1745,14 @@ export default function App() {
                 ))}
               </div>
 
-              {/* ── Tax Threshold — merged in below a divider, only this part is tappable ── */}
+              {/* ── Gross Salary (Actual) — merged in below a divider, only this part is tappable ── */}
               {settings.rank&&settings.service&&(()=>{
                 // Uses actual YTD gross, not a full-year projection — overtime
                 // is lumpy (a big month early on shouldn't make this look like
                 // you're miles over £100k if the rest of the year is quiet),
                 // so this shows where you genuinely stand today, not a guess
-                // at where the year might end up.
+                // at where the year might end up. The Forecast bar below is
+                // where the projection-based view lives instead.
                 const grossYTD = totals.combinedGrossYTD;
                 const over100k = grossYTD > 100000;
                 const paNow = over100k ? Math.max(0, 12570 - Math.floor((grossYTD-100000)/2)) : 12570;
@@ -1757,9 +1762,9 @@ export default function App() {
                 // zone colour stays readable against the dark card — same
                 // thresholds, same logic, just tuned for contrast.
                 const barColor = grossYTD>=100000 ? '#f87171' : grossYTD>=50270 ? '#fbbf24' : '#34d399';
-                const statusText = grossYTD>=100000 ? 'Over £100k — allowance tapering' : grossYTD>=50270 ? 'Higher rate' : 'Basic rate';
+                const statusText = grossYTD>=125140 ? '+£125k — No PA' : grossYTD>=100000 ? '+£100k — PA tapering' : grossYTD>=50270 ? 'Higher rate' : 'Basic rate';
                 const markers = [
-                  { key:'pa',  value: paNow,  label: over100k ? `PA £${(paNow/1000).toFixed(1)}k` : 'PA £12.6k' },
+                  { key:'pa',  value: paNow,  label: paNow===0 ? 'PA £0' : over100k ? `PA £${(paNow/1000).toFixed(1)}k` : 'PA £12.6k' },
                   { key:'hr',  value: 50270,  label: '£50.3k' },
                   { key:'100', value: 100000, label: '£100k' },
                   { key:'125', value: 125140, label: '£125.1k' },
@@ -1767,7 +1772,7 @@ export default function App() {
                 return (
                   <div onClick={()=>{scrollToTaxImpact.current=true;setTaxImpactExpanded(true);setTab('settings');}} style={{borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:'14px',paddingTop:'12px',cursor:'pointer'}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'14px'}}>
-                      <div style={{fontSize:'11px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px'}}>Tax Threshold</div>
+                      <div style={{fontSize:'11px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px'}}>Gross Salary (Actual)</div>
                       <div style={{fontSize:'10px',fontWeight:800,color:barColor}}>{statusText}</div>
                     </div>
 
@@ -1781,6 +1786,44 @@ export default function App() {
                         </div>
                       ))}
                       <div style={{position:'absolute',left:`${pct(grossYTD)}%`,top:'-5px',width:'3px',height:'20px',background:barColor,transform:'translateX(-1.5px)',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Gross Salary (Forecast) — full-year projection at your current overtime pace ── */}
+              {settings.rank&&settings.service&&(()=>{
+                const proj = totals.projectedAnnualGross;
+                const over100k = proj > 100000;
+                const paNow = over100k ? Math.max(0, 12570 - Math.floor((proj-100000)/2)) : 12570;
+                const scaleMax = Math.max(125140, proj*1.05);
+                const pct = v => Math.max(0, Math.min(100, (v/scaleMax)*100));
+                const barColor = proj>=100000 ? '#f87171' : proj>=50270 ? '#fbbf24' : '#34d399';
+                const statusText = proj>=125140 ? '+£125k — No PA' : proj>=100000 ? '+£100k — PA tapering' : proj>=50270 ? 'Higher rate' : 'Basic rate';
+                const markers = [
+                  { key:'pa',  value: paNow,  label: paNow===0 ? 'PA £0' : over100k ? `PA £${(paNow/1000).toFixed(1)}k` : 'PA £12.6k' },
+                  { key:'hr',  value: 50270,  label: '£50.3k' },
+                  { key:'100', value: 100000, label: '£100k' },
+                  { key:'125', value: 125140, label: '£125.1k' },
+                ];
+                return (
+                  <div onClick={()=>{scrollToTaxImpact.current=true;setTaxImpactExpanded(true);setTab('settings');}} style={{borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:'14px',paddingTop:'12px',cursor:'pointer'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'3px'}}>
+                      <div style={{fontSize:'11px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px'}}>Gross Salary (Forecast)</div>
+                      <div style={{fontSize:'10px',fontWeight:800,color:barColor}}>{statusText}</div>
+                    </div>
+                    <div style={{fontSize:'9.5px',fontWeight:600,color:'#64748b',marginBottom:'12px'}}>Forecast based on your overtime submissions</div>
+
+                    <div style={{position:'relative',marginBottom:'16px'}}>
+                      <div style={{background:'rgba(255,255,255,0.12)',borderRadius:'2px',height:'10px',overflow:'hidden',position:'relative'}}>
+                        <div style={{width:`${pct(proj)}%`,height:'100%',background:barColor,transition:'width 0.3s, background 0.3s'}}/>
+                      </div>
+                      {markers.map(m=>(
+                        <div key={m.key} style={{position:'absolute',left:`${pct(m.value)}%`,top:'-2px',width:'2px',height:'14px',background:'rgba(255,255,255,0.35)',transform:'translateX(-1px)'}}>
+                          <div style={{position:'absolute',top:'17px',left:'50%',transform:'translateX(-50%)',fontSize:'8px',fontWeight:800,color:'#93c5fd',whiteSpace:'nowrap'}}>{m.label}</div>
+                        </div>
+                      ))}
+                      <div style={{position:'absolute',left:`${pct(proj)}%`,top:'-5px',width:'3px',height:'20px',background:barColor,transform:'translateX(-1.5px)',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
                     </div>
                   </div>
                 );
