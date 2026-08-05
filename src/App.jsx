@@ -329,6 +329,31 @@ const computeTaxBandBreakdown = (gross, yearFraction=1) => {
   return { pa, basicAmt, basicTax, higherAmt, higherTax, additionalAmt, additionalTax, totalTax: basicTax+higherTax+additionalTax };
 };
 
+// 2015 Police Pension Scheme member contribution tiers (England & Wales),
+// effective 1 April 2026 — The Police Pensions (Member Contributions)
+// (Amendment and Transitional Provisions) (England and Wales) Regulations
+// 2026 (S.I. 2026/267). The real rule sets a member's tier from their
+// "relevant pay" — actual pensionable earnings over the PREVIOUS scheme
+// year (or their current annual rate if newly joined or returning from a
+// long absence) — held fixed for the whole current year. This app has no
+// way to know last scheme year's actual earnings, so it approximates using
+// the CURRENT year's annualised pensionable pay instead. That's correct
+// for anyone whose pay hasn't changed much year over year, and is flagged
+// as an estimate in the UI for anyone it might not be (e.g. a recent
+// promotion). Pensionable pay is basic salary + London Weighting ONLY —
+// overtime, PA enhancements, and London Allowance are all non-pensionable.
+const pensionTierRate = annualPensionablePay => {
+  if (annualPensionablePay <= 37035) return 0.1288;
+  if (annualPensionablePay < 79588) return 0.1388;
+  return 0.1422;
+};
+const calcPensionContribution = (pensionablePay, yearFraction=1) => {
+  const f = Math.max(1/365, Math.min(1, yearFraction));
+  const annualised = pensionablePay / f;
+  const rate = pensionTierRate(annualised);
+  return { rate, amount: pensionablePay * rate };
+};
+
 // Named bands, used to tell the person plainly which bracket their overtime/PA
 // lands in, rather than a blended "effective %" figure.
 const TAX_BANDS = [
@@ -1026,6 +1051,7 @@ export default function App() {
     // matching the same tax-year window and monthly-stepped method as above.
     const lwAnnualTotal = monthlySteppedSplitBySept(LONDON_WEIGHTING.pre, LONDON_WEIGHTING.post, taxYearStart, taxYearEnd);
     const laAnnualTotal = monthlySteppedAmount(LONDON_ALLOWANCE, taxYearStart, taxYearEnd);
+    const salaryAnnualTotal = svcData ? monthlySteppedSplitBySept(svcData.salary.pre, svcData.salary.post, taxYearStart, taxYearEnd) : 0;
 
     const combinedGrossYTD = salaryYTD + lwYTD + laYTD + otPaidToDate;
 
@@ -1060,7 +1086,7 @@ export default function App() {
     return{
       totalGross, totalNet, totalHrs, cumData, periodBreakdown,
       prev:getP(currPeriodIdx-1), curr:getP(currPeriodIdx), next:getP(currPeriodIdx+1),
-      salaryYTD, lwYTD, laYTD, lwAnnualTotal, laAnnualTotal, combinedGrossYTD, combinedNetYTD,
+      salaryYTD, lwYTD, laYTD, lwAnnualTotal, laAnnualTotal, salaryAnnualTotal, combinedGrossYTD, combinedNetYTD,
       ytdTax, ytdNI, taxBand, taxBandRate, daysElapsed, taxYearDaysElapsed, taxYearStart, hoursByBand,
       projectedAnnualGross, taperExtraTax,
     };
@@ -1742,8 +1768,8 @@ export default function App() {
                 <Ico n="uPlus" s={19} c="#dc2626"/>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:900,color:'#991b1b',fontSize:'13px',marginBottom:'3px'}}>Setup Required</div>
-                  <div style={{color:'#b91c1c',fontSize:'12px',marginBottom:'8px'}}>Configure your rank and pay in Options.</div>
-                  <button onClick={()=>setTab('settings')} style={{background:'#fca5a5',border:'none',borderRadius:'8px',padding:'5px 11px',fontWeight:900,fontSize:'11px',color:'#7f1d1d',cursor:'pointer',fontFamily:'inherit'}}>Go to Options →</button>
+                  <div style={{color:'#b91c1c',fontSize:'12px',marginBottom:'8px'}}>Configure your rank and pay in More..</div>
+                  <button onClick={()=>setTab('settings')} style={{background:'#fca5a5',border:'none',borderRadius:'8px',padding:'5px 11px',fontWeight:900,fontSize:'11px',color:'#7f1d1d',cursor:'pointer',fontFamily:'inherit'}}>Go to More.. →</button>
                 </div>
               </div>
             )}
@@ -1763,7 +1789,7 @@ export default function App() {
               <div style={{fontSize:'11px',fontWeight:700,color:'#94a3b8',marginBottom:'12px'}}>
                 {settings.rank&&settings.service
                   ? `${Math.round(totals.taxYearDaysElapsed)} days into ${totals.taxYearStart.split('-')[0]}/${(parseInt(totals.taxYearStart.split('-')[0])+1).toString().slice(-2)} tax year`
-                  : 'Set your rank & pay point in Options'}
+                  : 'Set your rank & pay point in More..'}
               </div>
 
               {/* breakdown rows — London Weighting/Allowance shown as YTD / full year */}
@@ -1902,7 +1928,7 @@ export default function App() {
 
             {/* ── Current pay period — tap through to Calendar view in Breakdown ── */}
             {totals.curr&&(
-              <div onClick={()=>{ skipBreakdownReset.current=true; setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); setTab('months'); }} style={{...S.card,background:'#059669',border:'none',boxShadow:'0 6px 20px rgba(5,150,105,0.28)',cursor:'pointer'}}>
+              <div onClick={()=>{ skipBreakdownReset.current=true; setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); setTab('months'); }} style={{...S.card,background:'#14b8a6',border:'none',boxShadow:'0 6px 20px rgba(20,184,166,0.28)',cursor:'pointer'}}>
                 <div>
                   <div style={{fontSize:'11px',fontWeight:900,color:'#a7f3d0',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>Current Pay Period</div>
                   <div style={{fontSize:'18px',fontWeight:900,color:'#fff'}}>{totals.curr.month}</div>
@@ -1928,8 +1954,8 @@ export default function App() {
                   <Ico n="uPlus" s={24} c="#dc2626"/>
                 </div>
                 <div style={{fontWeight:900,fontSize:'15px',color:'#991b1b',marginBottom:'6px'}}>Setup Required</div>
-                <div style={{fontSize:'12px',color:'#b91c1c',lineHeight:1.6,marginBottom:'16px'}}>You need to select your rank and pay point in Options before you can log overtime. This ensures your pay is calculated correctly from the start.</div>
-                <button onClick={()=>setTab('settings')} style={{background:'#dc2626',border:'none',borderRadius:'11px',padding:'12px 22px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(220,38,38,0.3)'}}>Go to Options →</button>
+                <div style={{fontSize:'12px',color:'#b91c1c',lineHeight:1.6,marginBottom:'16px'}}>You need to select your rank and pay point in More.. before you can log overtime. This ensures your pay is calculated correctly from the start.</div>
+                <button onClick={()=>setTab('settings')} style={{background:'#dc2626',border:'none',borderRadius:'11px',padding:'12px 22px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 14px rgba(220,38,38,0.3)'}}>Go to More.. →</button>
               </div>
             ) : (
             <>
@@ -2821,35 +2847,51 @@ export default function App() {
               );
             })()}
 
-            {/* ── £100k Tax Calculator — Actual (YTD) and Forecast (full year), side by side ── */}
+            {/* ── Tax & 100K+ Calculator — Actual (YTD) and Forecast (full year), side by side ── */}
             {settings.rank&&settings.service&&(()=>{
               const proj = totals.projectedAnnualGross;
               const ytd  = totals.combinedGrossYTD;
               const taxYearFraction = Math.max(1/365, Math.min(1, totals.taxYearDaysElapsed/365));
 
-              // Forecast — full year, matches how the rest of the app already
-              // treats projections (yearFraction = 1).
-              const overF = proj > 100000;
-              const paLostF = overF ? Math.min(12570, Math.floor((proj-100000)/2)) : 0;
-              const paRemainingF = 12570 - paLostF;
-              const extraTaxF = totals.taperExtraTax; // already computed elsewhere in totals — reused, not recalculated
-              const breakdownF = computeTaxBandBreakdown(proj, 1);
-              const niF = estimateAnnualNI(proj);
-              const netF = proj - breakdownF.totalTax - niF;
+              // Pension contributions come off pay BEFORE income tax is worked
+              // out (a "net pay arrangement"), which is why they reduce the
+              // taxable figure — and therefore the £100k assessment itself —
+              // but never touch National Insurance. Pensionable pay is basic
+              // salary + London Weighting only; London Allowance and all
+              // overtime/PA are non-pensionable, so they play no part here.
+              const pensionablePayA = totals.salaryYTD + totals.lwYTD;
+              const pensionablePayF = totals.salaryAnnualTotal + totals.lwAnnualTotal;
+              const pensionA = calcPensionContribution(pensionablePayA, taxYearFraction);
+              const pensionF = calcPensionContribution(pensionablePayF, 1);
 
-              // Actual — year to date. Personal Allowance is always an annual
-              // concept, so the taper is still judged on the annualised
-              // run-rate; but the amount of that annual allowance genuinely
-              // "used up" by money already banked is the pro-rated slice.
-              const annualisedFromYTD = ytd / taxYearFraction;
+              // Forecast — full year, matches how the rest of the app already
+              // treats projections (yearFraction = 1). Assessed on the
+              // taxable (post-pension) figure, not the raw gross.
+              const taxableGrossF = Math.max(0, proj - pensionF.amount);
+              const overF = taxableGrossF > 100000;
+              const paLostF = overF ? Math.min(12570, Math.floor((taxableGrossF-100000)/2)) : 0;
+              const paRemainingF = 12570 - paLostF;
+              const extraTaxF = overF ? (calcUKIncomeTax(taxableGrossF,1) - calcUKIncomeTaxNoTaper(taxableGrossF,1)) : 0;
+              const breakdownF = computeTaxBandBreakdown(taxableGrossF, 1);
+              const niF = estimateAnnualNI(proj); // NI stays on the full, pre-pension gross
+              const netF = proj - pensionF.amount - breakdownF.totalTax - niF;
+
+              // Actual — year to date, same principle: taxable (post-pension)
+              // YTD figure drives the taper assessment. Personal Allowance is
+              // always an annual concept, so the taper is still judged on the
+              // annualised run-rate; but the amount of that annual allowance
+              // genuinely "used up" by money already banked is the pro-rated
+              // slice.
+              const taxableYTD = Math.max(0, ytd - pensionA.amount);
+              const annualisedFromYTD = taxableYTD / taxYearFraction;
               const overA = annualisedFromYTD > 100000;
               const paLostAnnualA = overA ? Math.min(12570, Math.floor((annualisedFromYTD-100000)/2)) : 0;
               const paRemainingA = 12570 - paLostAnnualA;
               const paLostProRatedA = paLostAnnualA * taxYearFraction;
-              const extraTaxA = overA ? (calcUKIncomeTax(ytd, taxYearFraction) - calcUKIncomeTaxNoTaper(ytd, taxYearFraction)) : 0;
-              const breakdownA = computeTaxBandBreakdown(ytd, taxYearFraction);
-              const niA = totals.ytdNI; // reuse the real, period-summed figure rather than a lump estimate
-              const netA = ytd - breakdownA.totalTax - niA;
+              const extraTaxA = overA ? (calcUKIncomeTax(taxableYTD, taxYearFraction) - calcUKIncomeTaxNoTaper(taxableYTD, taxYearFraction)) : 0;
+              const breakdownA = computeTaxBandBreakdown(taxableYTD, taxYearFraction);
+              const niA = totals.ytdNI; // reuse the real, period-summed figure rather than a lump estimate — unaffected by pension
+              const netA = ytd - pensionA.amount - breakdownA.totalTax - niA;
 
               const over = overA || overF; // header icon reflects risk from either view
 
@@ -2865,7 +2907,7 @@ export default function App() {
                   <div onClick={()=>setTaxImpactExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:taxImpactExpanded?'12px':0,cursor:'pointer'}}>
                     <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                       <div style={{background:over?'#fef2f2':'#f0fdf4',padding:'9px',borderRadius:'11px'}}><Ico n="calc" s={17} c={over?'#dc2626':'#059669'}/></div>
-                      <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>£100k Tax Calculator</div>
+                      <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Tax & 100K+ Calculator</div>
                     </div>
                     <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{taxImpactExpanded?'Tap to Close':'Tap to expand'}</span>
                   </div>
@@ -2882,8 +2924,19 @@ export default function App() {
                       </div>
 
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
-                        {col('PA Remaining', fmtGBP(paRemainingA))}
-                        {col('PA Remaining', fmtGBP(paRemainingF))}
+                        <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'11px',padding:'10px',textAlign:'center'}}>
+                          <div style={{fontSize:'9px',fontWeight:700,color:'#2563eb',marginBottom:'3px'}}>Pension ({(pensionA.rate*100).toFixed(2)}%)</div>
+                          <div style={{fontSize:'13px',fontWeight:900,color:'#1e40af'}}>−{fmtGBP(pensionA.amount)}</div>
+                        </div>
+                        <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'11px',padding:'10px',textAlign:'center'}}>
+                          <div style={{fontSize:'9px',fontWeight:700,color:'#2563eb',marginBottom:'3px'}}>Pension ({(pensionF.rate*100).toFixed(2)}%)</div>
+                          <div style={{fontSize:'13px',fontWeight:900,color:'#1e40af'}}>−{fmtGBP(pensionF.amount)}</div>
+                        </div>
+                      </div>
+
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
+                        {col('Personal Allowance Remaining', fmtGBP(paRemainingA))}
+                        {col('Personal Allowance Remaining', fmtGBP(paRemainingF))}
                       </div>
 
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
@@ -2898,7 +2951,7 @@ export default function App() {
                       </div>
 
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-                        <div onClick={()=>setTaxCalcActualDetailOpen(v=>!v)} style={{background:overA?'#fef2f2':'#f0fdf4',border:`1px solid ${overA?'#fecaca':'#bbf7d0'}`,borderRadius:'11px',padding:'10px',cursor:'pointer'}}>
+                        <div onClick={()=>{ setTaxCalcActualDetailOpen(v=>!v); setTaxCalcForecastDetailOpen(false); }} style={{background:overA?'#fef2f2':'#f0fdf4',border:`1px solid ${overA?'#fecaca':'#bbf7d0'}`,borderRadius:'11px',padding:'10px',cursor:'pointer'}}>
                           <div style={{fontSize:'9px',fontWeight:900,color:overA?'#991b1b':'#166534',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'6px'}}>Calculations</div>
                           {overA ? (
                             <div style={{fontSize:'9.5px',color:'#991b1b',lineHeight:1.7}}>
@@ -2908,21 +2961,21 @@ export default function App() {
                               → at {((extraTaxA/paLostProRatedA)*100).toFixed(1)}% = {fmtGBP(extraTaxA)}
                             </div>
                           ) : (
-                            <div style={{fontSize:'9.5px',color:'#166534',lineHeight:1.7}}>Under £100k so far this year — no allowance used yet.</div>
+                            <div style={{fontSize:'9.5px',color:'#166534',lineHeight:1.7}}>Under £100k so far this year (after pension) — no allowance used yet.</div>
                           )}
                           <div style={{fontSize:'8.5px',fontWeight:800,color:overA?'#dc2626':'#059669',textDecoration:'underline',marginTop:'8px',textAlign:'center'}}>{taxCalcActualDetailOpen?'Showing full breakdown below':'Tap to see full breakdown'}</div>
                         </div>
-                        <div onClick={()=>setTaxCalcForecastDetailOpen(v=>!v)} style={{background:overF?'#fef2f2':'#f0fdf4',border:`1px solid ${overF?'#fecaca':'#bbf7d0'}`,borderRadius:'11px',padding:'10px',cursor:'pointer'}}>
+                        <div onClick={()=>{ setTaxCalcForecastDetailOpen(v=>!v); setTaxCalcActualDetailOpen(false); }} style={{background:overF?'#fef2f2':'#f0fdf4',border:`1px solid ${overF?'#fecaca':'#bbf7d0'}`,borderRadius:'11px',padding:'10px',cursor:'pointer'}}>
                           <div style={{fontSize:'9px',fontWeight:900,color:overF?'#991b1b':'#166534',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'6px'}}>Calculations</div>
                           {overF ? (
                             <div style={{fontSize:'9.5px',color:'#991b1b',lineHeight:1.7}}>
-                              {fmtGBP(proj)} projected<br/>
-                              {fmtGBP(proj-100000)} over £100k<br/>
+                              {fmtGBP(taxableGrossF)} taxable (after pension)<br/>
+                              {fmtGBP(taxableGrossF-100000)} over £100k<br/>
                               → {fmtGBP(paLostF)} allowance lost<br/>
                               → at {((extraTaxF/paLostF)*100).toFixed(1)}% = {fmtGBP(extraTaxF)}
                             </div>
                           ) : (
-                            <div style={{fontSize:'9.5px',color:'#166534',lineHeight:1.7}}>Projected to stay under £100k — {fmtGBP(100000-proj)} of headroom at this pace.</div>
+                            <div style={{fontSize:'9.5px',color:'#166534',lineHeight:1.7}}>Projected to stay under £100k (after pension) — {fmtGBP(100000-taxableGrossF)} of headroom at this pace.</div>
                           )}
                           <div style={{fontSize:'8.5px',fontWeight:800,color:overF?'#dc2626':'#059669',textDecoration:'underline',marginTop:'8px',textAlign:'center'}}>{taxCalcForecastDetailOpen?'Showing full breakdown below':'Tap to see full breakdown'}</div>
                         </div>
@@ -2936,6 +2989,8 @@ export default function App() {
                           </div>
                           <div style={{background:'#f8fafc',borderRadius:'11px',padding:'12px 14px',marginBottom:'10px'}}>
                             <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Gross (YTD)</span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(ytd)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #bfdbfe',background:'#eff6ff',margin:'0 -14px',paddingLeft:'14px',paddingRight:'14px'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#1e40af'}}>Pension Contribution <span style={{color:'#3b82f6',fontWeight:600}}>({(pensionA.rate*100).toFixed(2)}% of {fmtGBP(pensionablePayA)} pensionable pay)</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#1e40af'}}>−{fmtGBP(pensionA.amount)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>= Taxable Gross (YTD)</span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(taxableYTD)}</span></div>
                             <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Personal Allowance <span style={{color:'#94a3b8',fontWeight:600}}>(0%, pro-rated)</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#059669'}}>{fmtGBP(breakdownA.pa)}</span></div>
                             <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Basic Rate <span style={{color:'#94a3b8',fontWeight:600}}>(20% on {fmtGBP(breakdownA.basicAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownA.basicTax)}</span></div>
                             <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Higher Rate <span style={{color:'#94a3b8',fontWeight:600}}>(40% on {fmtGBP(breakdownA.higherAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownA.higherTax)}</span></div>
@@ -2946,14 +3001,14 @@ export default function App() {
                             <span style={{fontSize:'13px',fontWeight:900,color:'#991b1b'}}>{fmtGBP(breakdownA.totalTax)}</span>
                           </div>
                           <div style={{display:'flex',justifyContent:'space-between',background:'#f8fafc',borderRadius:'11px',padding:'10px 14px',marginBottom:'8px'}}>
-                            <span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>National Insurance (YTD)</span>
+                            <span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>National Insurance (YTD) <span style={{color:'#94a3b8',fontWeight:600}}>(on full gross)</span></span>
                             <span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(niA)}</span>
                           </div>
                           <div style={{display:'flex',justifyContent:'space-between',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'11px',padding:'11px 14px'}}>
                             <span style={{fontSize:'11.5px',fontWeight:800,color:'#166534'}}>Estimated Net (YTD)</span>
                             <span style={{fontSize:'14px',fontWeight:900,color:'#166534'}}>{fmtGBP(netA)}</span>
                           </div>
-                          <div style={{fontSize:'9px',color:'#94a3b8',lineHeight:1.5,marginTop:'8px'}}>What's owed on money genuinely banked so far — not a projection.</div>
+                          <div style={{fontSize:'9px',color:'#94a3b8',lineHeight:1.5,marginTop:'8px'}}>What's owed on money genuinely banked so far — not a projection. Pension tier is estimated from your current pay rate, not last scheme year's actual earnings, which is what the real rule technically uses.</div>
                         </div>
                       )}
 
@@ -2965,6 +3020,8 @@ export default function App() {
                           </div>
                           <div style={{background:'#f8fafc',borderRadius:'11px',padding:'12px 14px',marginBottom:'10px'}}>
                             <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Gross (projected annual)</span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(proj)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #bfdbfe',background:'#eff6ff',margin:'0 -14px',paddingLeft:'14px',paddingRight:'14px'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#1e40af'}}>Pension Contribution <span style={{color:'#3b82f6',fontWeight:600}}>({(pensionF.rate*100).toFixed(2)}% of {fmtGBP(pensionablePayF)} pensionable pay)</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#1e40af'}}>−{fmtGBP(pensionF.amount)}</span></div>
+                            <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>= Taxable Gross</span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(taxableGrossF)}</span></div>
                             <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Personal Allowance <span style={{color:'#94a3b8',fontWeight:600}}>(0%)</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#059669'}}>{fmtGBP(breakdownF.pa)}</span></div>
                             <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #f1f5f9'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Basic Rate <span style={{color:'#94a3b8',fontWeight:600}}>(20% on {fmtGBP(breakdownF.basicAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownF.basicTax)}</span></div>
                             <div style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:breakdownF.additionalAmt>0?'1px solid #f1f5f9':'none'}}><span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>Higher Rate <span style={{color:'#94a3b8',fontWeight:600}}>(40% on {fmtGBP(breakdownF.higherAmt)})</span></span><span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(breakdownF.higherTax)}</span></div>
@@ -2975,18 +3032,18 @@ export default function App() {
                             <span style={{fontSize:'13px',fontWeight:900,color:'#991b1b'}}>{fmtGBP(breakdownF.totalTax)}</span>
                           </div>
                           <div style={{display:'flex',justifyContent:'space-between',background:'#f8fafc',borderRadius:'11px',padding:'10px 14px',marginBottom:'8px'}}>
-                            <span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>National Insurance <span style={{color:'#94a3b8',fontWeight:600}}>(est.)</span></span>
+                            <span style={{fontSize:'11.5px',fontWeight:700,color:'#64748b'}}>National Insurance <span style={{color:'#94a3b8',fontWeight:600}}>(est., on full gross)</span></span>
                             <span style={{fontSize:'12.5px',fontWeight:900,color:'#0f172a'}}>{fmtGBP(niF)}</span>
                           </div>
                           <div style={{display:'flex',justifyContent:'space-between',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'11px',padding:'11px 14px'}}>
                             <span style={{fontSize:'11.5px',fontWeight:800,color:'#166534'}}>Estimated Net Pay</span>
                             <span style={{fontSize:'14px',fontWeight:900,color:'#166534'}}>{fmtGBP(netF)}</span>
                           </div>
-                          <div style={{fontSize:'9px',color:'#94a3b8',lineHeight:1.5,marginTop:'8px'}}>The full income tax and NI computation for the whole year, not just the extra caused by crossing £100k.</div>
+                          <div style={{fontSize:'9px',color:'#94a3b8',lineHeight:1.5,marginTop:'8px'}}>The full income tax and NI computation for the whole year, not just the extra caused by crossing £100k. Pension tier is estimated from your current pay rate, not last scheme year's actual earnings, which is what the real rule technically uses.</div>
                         </div>
                       )}
 
-                      <div style={{fontSize:'9.5px',color:'#94a3b8',lineHeight:1.5,marginTop:'10px'}}>Based on your current pay rate projected across the tax year. Please do your own due diligence and if needs be consult an accountant/HMRC.</div>
+                      <div style={{fontSize:'9.5px',color:'#94a3b8',lineHeight:1.5,marginTop:'10px'}}>Based on your current pay rate projected across the tax year. Pension figures follow the 2015 Police Pension Scheme (England & Wales) rates effective 1 April 2026. Please do your own due diligence and if needs be consult an accountant/HMRC or your pension provider.</div>
                     </>
                   )}
                 </div>
@@ -3607,7 +3664,7 @@ export default function App() {
           {id:'months',   n:'cal',  lbl:'Breakdown'},
           {id:'add',      n:'plus', lbl:'Log Overtime'},
           {id:'graph',    n:'clock', lbl:'TOIL'},
-          {id:'settings', n:'cog',  lbl:'Options'},
+          {id:'settings', n:'cog',  lbl:'More..'},
         ].map(t=>(
           <button key={t.id} onClick={()=>{ setEditing(null); if(t.id==='add') { setForm({...blankForm,date:todayStr}); } if(t.id==='months'&&defaultBreakdownView==='list') snapToActiveMonth(false,140); setTab(t.id); }} style={S.nBtn(tab===t.id,t.id==='add')}>
             <Ico n={t.n} s={t.id==='add'?21:18} c={t.id==='add'?'#fff':tab===t.id?'#2563eb':'#94a3b8'} w={tab===t.id||t.id==='add'?2.5:2}/>
