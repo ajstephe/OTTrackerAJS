@@ -1840,11 +1840,10 @@ export default function App() {
               <div style={{position:'absolute',right:'-14px',top:'-14px',width:'72px',height:'72px',background:'rgba(255,255,255,0.04)',borderRadius:'50%'}}/>
 
               {/* header */}
-              <div style={{fontSize:'12px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>
+              <div style={{fontSize:'15px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'3px'}}>
                 Total Gross YTD
-                <div style={{marginTop:'2px'}}>(Salary + Weighting, Allowances &amp; OT)</div>
               </div>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'14px',marginBottom:'3px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px',marginBottom:'3px'}}>
                 <div style={{fontSize:'28px',fontWeight:900,color:'#fff',letterSpacing:'-2px',lineHeight:1}}>
                   {settings.rank&&settings.service ? fmtGBP(totals.combinedGrossYTD) : '—'}
                 </div>
