@@ -641,7 +641,7 @@ const TIME_MINUTES = ['00','15','30','45'];
 // so nothing downstream needs to know the UI is split.
 function TimeSelect({ value, onChange }) {
   const [h,m] = value ? value.split(':') : ['',''];
-  const selStyle = {flex:1,background:'#fff',border:'1px solid #dbeafe',padding:'9px 6px',borderRadius:'10px',fontWeight:700,fontSize:'15px',fontFamily:'inherit',color:'#0f172a',height:'42px'};
+  const selStyle = {flex:1,background:'#fff',border:'1px solid #dbeafe',padding:'9px 6px',borderRadius:'10px',fontWeight:700,fontSize:'16px',fontFamily:'inherit',color:'#0f172a',height:'42px'};
   return (
     <div style={{display:'flex',alignItems:'center',gap:'5px'}}>
       <select style={selStyle} value={h} onChange={e=>{
@@ -1465,8 +1465,8 @@ export default function App() {
     hdr:  {background:'#fff',padding:'13px 18px',borderBottom:'1px solid #e2e8f0',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,zIndex:10},
     main: {flex:1,overflowY:'auto',overflowX:'hidden',minWidth:0,scrollbarWidth:'none',msOverflowStyle:'none'},
     nav:  {background:'rgba(255,255,255,0.96)',backdropFilter:'blur(14px)',borderTop:'1px solid #e2e8f0',position:'absolute',bottom:0,width:'100%',padding:'7px 4px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',zIndex:20},
-    nBtn: (a,add)=>({display:'flex',flexDirection:'column',alignItems:'center',gap:'3px',padding:add?'9px 11px':'6px 8px',background:add?'#10b981':'transparent',color:add?'#fff':a?'#2563eb':'#94a3b8',borderRadius:add?'13px':'8px',border:'none',cursor:'pointer',transition:'all 0.18s',fontFamily:'inherit',boxShadow:add?'0 4px 14px rgba(16,185,129,0.4)':'none'}),
-    nLbl: {fontSize:'8px',fontWeight:900,textTransform:'uppercase',letterSpacing:'0.5px'},
+    nBtn: (a,add)=>({flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:'3px',padding:add?'9px 4px':'6px 4px',background:add?'#10b981':'transparent',color:add?'#fff':a?'#2563eb':'#94a3b8',borderRadius:add?'13px':'8px',border:'none',cursor:'pointer',transition:'all 0.18s',fontFamily:'inherit',boxShadow:add?'0 4px 14px rgba(16,185,129,0.4)':'none'}),
+    nLbl: {fontSize:'8px',fontWeight:900,textTransform:'uppercase',letterSpacing:'0.5px',whiteSpace:'nowrap'},
     card: {background:'#fff',borderRadius:'18px',padding:'18px',boxShadow:'0 1px 6px rgba(0,0,0,0.05)',border:'1px solid #f1f5f9',marginBottom:'10px'},
     dark: {background:'#0f2744',borderRadius:'18px',padding:'19px',boxShadow:'0 8px 28px rgba(15,39,68,0.28)',marginBottom:'10px',position:'relative',overflow:'hidden'},
     lbl:  {display:'block',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'7px'},
@@ -2309,7 +2309,7 @@ export default function App() {
           <div className="fi" style={{padding:'14px',paddingBottom:'96px'}}>
             {/* Sticky header — heading, toggle and month pills all float together */}
             <div ref={stickyRef} style={{position:'sticky',top:0,zIndex:20,background:'#f8fafc',paddingTop:'6px',paddingBottom:'8px',marginTop:'-14px',marginBottom:'6px'}}>
-              <h2 style={{fontSize:'21px',fontWeight:900,color:'#0f172a',margin:'0 0 10px',letterSpacing:'-0.5px'}}>Breakdown</h2>
+              <h2 style={{fontSize:'21px',fontWeight:900,color:'#0f172a',margin:'0 0 10px',letterSpacing:'-0.5px'}}>Summary</h2>
               <div style={{display:'flex',background:'#eef2f7',borderRadius:'14px',padding:'4px',boxShadow:'0 4px 14px rgba(15,23,42,0.08)'}}>
                 {/* Each half is a div rather than a button so the star can be its own
                     tap target inside it — nesting buttons isn't valid HTML. */}
@@ -3285,11 +3285,11 @@ export default function App() {
                   <div style={{display:'flex',gap:'10px',marginBottom:'6px'}}>
                     <div style={{flex:1}}>
                       <label style={{display:'block',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>Start</label>
-                      <input type="date" value={payslipStart} onChange={e=>setPayslipStart(e.target.value)} style={{width:'100%',boxSizing:'border-box',background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:'11px',padding:'11px 12px',fontWeight:700,fontSize:'14px',fontFamily:'inherit',color:'#0f172a'}}/>
+                      <input type="date" value={payslipStart} onChange={e=>setPayslipStart(e.target.value)} style={{width:'100%',boxSizing:'border-box',background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:'11px',padding:'11px 12px',fontWeight:700,fontSize:'16px',fontFamily:'inherit',color:'#0f172a'}}/>
                     </div>
                     <div style={{flex:1}}>
                       <label style={{display:'block',fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>End</label>
-                      <input type="date" value={payslipEnd} onChange={e=>setPayslipEnd(e.target.value)} style={{width:'100%',boxSizing:'border-box',background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:'11px',padding:'11px 12px',fontWeight:700,fontSize:'14px',fontFamily:'inherit',color:'#0f172a'}}/>
+                      <input type="date" value={payslipEnd} onChange={e=>setPayslipEnd(e.target.value)} style={{width:'100%',boxSizing:'border-box',background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:'11px',padding:'11px 12px',fontWeight:700,fontSize:'16px',fontFamily:'inherit',color:'#0f172a'}}/>
                     </div>
                   </div>
                   {payslipStart&&payslipEnd&&!rangeValid&&<div style={{fontSize:'10.5px',color:'#dc2626',fontWeight:700,marginTop:'6px'}}>End date must be on or after the start date.</div>}
@@ -3684,7 +3684,7 @@ export default function App() {
       <nav className="no-print" style={S.nav}>
         {[
           {id:'dashboard',n:'home', lbl:'Home'},
-          {id:'months',   n:'cal',  lbl:'Breakdown'},
+          {id:'months',   n:'cal',  lbl:'Summary'},
           {id:'add',      n:'plus', lbl:'Log Overtime'},
           {id:'graph',    n:'clock', lbl:'TOIL'},
           {id:'settings', n:'cog',  lbl:'More..'},
