@@ -2011,7 +2011,7 @@ export default function App() {
               </div>
             </div>
 
-            <div style={{fontSize:'10.5px',color:'#94a3b8',textAlign:'center',lineHeight:1.5,padding:'8px 12px 0'}}>This calculator is accurate to the best of our knowledge and is a guide. Always double check your payslip for precise figures.</div>
+            <div style={{fontSize:'10.5px',color:'#b91c1c',textAlign:'center',lineHeight:1.5,padding:'8px 12px 0'}}>This calculator is accurate to the best of our knowledge and is a guide. Always double check your payslip for precise figures.</div>
           </div>
         )}
 
