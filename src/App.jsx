@@ -1000,6 +1000,16 @@ export default function App() {
     });
 
     const totalNet = periodBreakdown.reduce((s,pb)=>s+pb.combinedNet,0);
+    // Per-component YTD figures — same underlying otResult/nightResult/paResult
+    // used everywhere else, just summed by component instead of combined, so
+    // totalOTGross+totalNightGross+totalPAGross === totalGross by construction
+    // (same for the net figures), keeping this consistent with every other tab.
+    const totalOTGross    = periodBreakdown.reduce((s,pb)=>s+pb.ot,0);
+    const totalOTNet      = periodBreakdown.reduce((s,pb)=>s+pb.otResult.net,0);
+    const totalNightGross = periodBreakdown.reduce((s,pb)=>s+pb.night,0);
+    const totalNightNet   = periodBreakdown.reduce((s,pb)=>s+pb.nightResult.net,0);
+    const totalPAGross    = periodBreakdown.reduce((s,pb)=>s+pb.pa,0);
+    const totalPANet      = periodBreakdown.reduce((s,pb)=>s+pb.paResult.net,0);
 
     const getP=i=>{
       if(i<0||i>=periodBreakdown.length) return null;
@@ -1085,6 +1095,7 @@ export default function App() {
 
     return{
       totalGross, totalNet, totalHrs, cumData, periodBreakdown,
+      totalOTGross, totalOTNet, totalNightGross, totalNightNet, totalPAGross, totalPANet,
       prev:getP(currPeriodIdx-1), curr:getP(currPeriodIdx), next:getP(currPeriodIdx+1),
       salaryYTD, lwYTD, laYTD, lwAnnualTotal, laAnnualTotal, salaryAnnualTotal, combinedGrossYTD, combinedNetYTD,
       ytdTax, ytdNI, taxBand, taxBandRate, daysElapsed, taxYearDaysElapsed, taxYearStart, hoursByBand,
@@ -1850,7 +1861,7 @@ export default function App() {
                   : 'Set your rank & pay point in More..'}
               </div>
 
-              {/* breakdown rows — London Weighting/Allowance shown as YTD / full year */}
+              {/* breakdown rows — London Weighting/Allowance shown as YTD out of full year */}
               <div style={{borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:'10px',display:'flex',flexDirection:'column',gap:'6px'}}>
                 {[
                   ['Base Salary',      totals.salaryYTD, null],
@@ -1868,10 +1879,17 @@ export default function App() {
                     </span>
                   </div>
                 ))}
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <span style={{fontSize:'13px',fontWeight:700,color:'#94a3b8'}}>Overtime & PA</span>
-                  <span style={{fontSize:'13px',fontWeight:900,color:'#cbd5e1'}}>{fmtGBP(totals.totalGross)}<span style={{color:'#6ee7b7',fontWeight:700}}> ({fmtGBP(totals.totalNet)} Net)</span></span>
-                </div>
+                {[
+                  ['Overtime',        totals.totalOTGross,    totals.totalOTNet],
+                  ['PA',              totals.totalPAGross,    totals.totalPANet],
+                  ['Night Allowance', totals.totalNightGross, totals.totalNightNet],
+                ].map(([label,gross,net])=>(
+                  <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:'13px',fontWeight:700,color:'#94a3b8'}}>{label}</span>
+                    <span style={{fontSize:'13px',fontWeight:900,color:'#cbd5e1'}}>{fmtGBP(gross)}<span style={{color:'#6ee7b7',fontWeight:700}}> ({fmtGBP(net)})</span></span>
+                  </div>
+                ))}
+                <div style={{fontSize:'9.5px',fontWeight:600,color:'#cbd5e1',textAlign:'right',marginTop:'2px'}}>Figures in brackets, e.g. <span style={{color:'#6ee7b7'}}>(£xx.xx)</span>, are net</div>
               </div>
 
               {/* ── Gross Salary (Actual) — merged in below a divider, only this part is tappable ── */}
