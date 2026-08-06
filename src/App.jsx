@@ -1527,6 +1527,30 @@ export default function App() {
     );
   };
 
+  // Full financial year Overtime & PA totals — same card that used to live on
+  // Home, now shown at the end of both Summary views instead, since it's a
+  // whole-year figure and belongs alongside the rest of the year's detail
+  // rather than competing with Home's day-to-day figures.
+  const renderFYTotalsCard = () => (
+    <div style={{...S.card,background:'#2563eb',border:'none',marginTop:'9px',boxShadow:'0 6px 20px rgba(37,99,235,0.28)'}}>
+      <div style={{fontSize:'11px',fontWeight:900,color:'#dbeafe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'10px'}}>Overtime & PA — FY {CURRENT_FY_YEAR}/{(CURRENT_FY_YEAR+1).toString().slice(-2)}</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
+        <div>
+          <div style={{fontSize:'11px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Gross OT</div>
+          <div style={{fontSize:'18px',fontWeight:900,color:'#fff'}}>{fmt(totals.totalGross)}</div>
+        </div>
+        <div>
+          <div style={{fontSize:'11px',fontWeight:900,color:'#bbf7d0',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Net OT</div>
+          <div style={{fontSize:'18px',fontWeight:900,color:'#dcfce7'}}>{fmt(totals.totalNet)}</div>
+        </div>
+        <div>
+          <div style={{fontSize:'11px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Hours</div>
+          <div style={{fontSize:'18px',fontWeight:900,color:'#fff',display:'flex',alignItems:'center',gap:'5px'}}><Ico n="clock" s={13} c="rgba(255,255,255,0.6)"/>{totals.totalHrs.toFixed(1)}</div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderMonthlyChart = (big, dark=false) => {
     const data = totals.periodBreakdown.map(pb=>({short:PAY_PERIODS.find(p=>p.month===pb.month).short, gross:pb.combinedGross, net:pb.combinedNet}));
     const max = Math.max(...data.map(d=>d.gross), 200);
@@ -1832,7 +1856,6 @@ export default function App() {
                   ['Base Salary',      totals.salaryYTD, null],
                   ['London Weighting', settings.rank&&settings.service ? totals.lwYTD : null, totals.lwAnnualTotal],
                   ['London Allowance', settings.rank&&settings.service ? totals.laYTD : null, totals.laAnnualTotal],
-                  ['Overtime & PA',    totals.totalGross, null],
                 ].map(([label,val,fullYear])=>(
                   <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <span style={{fontSize:'13px',fontWeight:700,color:'#94a3b8'}}>{label}</span>
@@ -1845,6 +1868,10 @@ export default function App() {
                     </span>
                   </div>
                 ))}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:'13px',fontWeight:700,color:'#94a3b8'}}>Overtime & PA</span>
+                  <span style={{fontSize:'13px',fontWeight:900,color:'#cbd5e1'}}>{fmtGBP(totals.totalGross)}<span style={{color:'#6ee7b7',fontWeight:700}}> ({fmtGBP(totals.totalNet)} Net)</span></span>
+                </div>
               </div>
 
               {/* ── Gross Salary (Actual) — merged in below a divider, only this part is tappable ── */}
@@ -1947,26 +1974,18 @@ export default function App() {
               )}
             </div>
 
-            {/* ── Overtime-only summary card — sits directly under Total Gross YTD, lighter blue to distinguish ── */}
-            <div onClick={()=>setTab('months')} style={{...S.card,background:'#2563eb',border:'none',marginBottom:'10px',boxShadow:'0 6px 20px rgba(37,99,235,0.28)',cursor:'pointer'}}>
-              <div style={{fontSize:'11px',fontWeight:900,color:'#dbeafe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'10px'}}>Overtime & PA — FY 26/27</div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
+            {/* ── Current pay period — tap through to Calendar view in Summary ── */}
+            {totals.curr&&(
+              <div onClick={()=>{ skipBreakdownReset.current=true; setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); setTab('months'); }} style={{...S.card,background:'#14b8a6',border:'none',marginBottom:'10px',boxShadow:'0 6px 20px rgba(20,184,166,0.28)',cursor:'pointer'}}>
                 <div>
-                  <div style={{fontSize:'11px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Gross OT</div>
-                  <div style={{fontSize:'18px',fontWeight:900,color:'#fff'}}>{fmt(totals.totalGross)}</div>
-                </div>
-                <div>
-                  <div style={{fontSize:'11px',fontWeight:900,color:'#bbf7d0',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Net OT</div>
-                  <div style={{fontSize:'18px',fontWeight:900,color:'#dcfce7'}}>{fmt(totals.totalNet)}</div>
-                </div>
-                <div>
-                  <div style={{fontSize:'11px',fontWeight:900,color:'#bfdbfe',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'3px'}}>Hours</div>
-                  <div style={{fontSize:'18px',fontWeight:900,color:'#fff',display:'flex',alignItems:'center',gap:'5px'}}><Ico n="clock" s={13} c="rgba(255,255,255,0.6)"/>{totals.totalHrs.toFixed(1)}</div>
+                  <div style={{fontSize:'11px',fontWeight:900,color:'#fff',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>Current Pay Period</div>
+                  <div style={{fontSize:'18px',fontWeight:900,color:'#fff'}}>{totals.curr.month}</div>
+                  <div style={{fontSize:'11px',fontWeight:700,color:'#d1fae5',marginTop:'2px'}}>{fmtD(totals.curr.start)} – {fmtD(totals.curr.end)}</div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* ── TOIL summary card — sits directly under Overtime & PA ── */}
+            {/* ── TOIL summary card ── */}
             <div onClick={()=>setTab('graph')} style={{...S.card,background:toilLedger.balance<0?'#dc2626':'#7c3aed',border:'none',marginBottom:'10px',boxShadow:toilLedger.balance<0?'0 6px 20px rgba(220,38,38,0.28)':'0 6px 20px rgba(124,58,237,0.28)',cursor:'pointer'}}>
               <div>
                 <div style={{fontSize:'11px',fontWeight:900,color:toilLedger.balance<0?'#fecaca':'#ede9fe',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>TOIL Balance{toilLedger.balance<0?' — Overdrawn':''}</div>
@@ -1975,16 +1994,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ── Current pay period — tap through to Calendar view in Breakdown ── */}
-            {totals.curr&&(
-              <div onClick={()=>{ skipBreakdownReset.current=true; setBreakdownView('calendar'); setCalPeriodIdx(currPeriodIdx>=0?currPeriodIdx:0); setTab('months'); }} style={{...S.card,background:'#14b8a6',border:'none',boxShadow:'0 6px 20px rgba(20,184,166,0.28)',cursor:'pointer'}}>
-                <div>
-                  <div style={{fontSize:'11px',fontWeight:900,color:'#a7f3d0',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'6px'}}>Current Pay Period</div>
-                  <div style={{fontSize:'18px',fontWeight:900,color:'#fff'}}>{totals.curr.month}</div>
-                  <div style={{fontSize:'11px',fontWeight:700,color:'#d1fae5',marginTop:'2px'}}>{fmtD(totals.curr.start)} – {fmtD(totals.curr.end)}</div>
-                </div>
-              </div>
-            )}
+            <div style={{fontSize:'10.5px',color:'#94a3b8',textAlign:'center',lineHeight:1.5,padding:'8px 12px 0'}}>This calculator is accurate to the best of our knowledge and is a guide. Always double check your payslip for precise figures.</div>
           </div>
         )}
 
@@ -2553,6 +2563,7 @@ export default function App() {
                 </div>
               );
             })}
+            {renderFYTotalsCard()}
             </>
             ) : (
             <>
@@ -2731,6 +2742,7 @@ export default function App() {
                       <div style={{textAlign:'right'}}><div style={{fontSize:'14px',fontWeight:900,color:'#059669',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'2px'}}>Net</div><div style={{fontWeight:900,fontSize:'23px',color:'#059669'}}>{fmt(pb.combinedNet)}</div></div>
                     </div>
                   </div>
+                  {renderFYTotalsCard()}
                 </>
               );
             })()}
@@ -2800,7 +2812,13 @@ export default function App() {
               {savedBadge&&<div style={{display:'flex',alignItems:'center',gap:'5px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'9px',padding:'4px 9px'}}><Ico n="check" s={12} c="#059669"/><span style={{fontSize:'11px',fontWeight:900,color:'#065f46'}}>Saved</span></div>}
             </div>
 
+            {/* ── Configuration — Rank/Pay Point selection (always visible) merged with Hourly Rates & Payscales (behind the expand toggle) ── */}
             <div style={S.card}>
+              <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'13px'}}>
+                <div style={{background:'#eff6ff',padding:'9px',borderRadius:'11px'}}><Ico n="cog" s={17} c="#2563eb"/></div>
+                <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Configuration</div>
+              </div>
+
               <div style={{marginBottom:'13px'}}>
                 <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'7px'}}>
                   <label style={{...S.lbl,marginBottom:0}}>Rank</label>
@@ -2831,70 +2849,61 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <div style={{borderTop:'1px solid #f1f5f9',marginTop:'14px',paddingTop:'12px',display:'flex',alignItems:'flex-start',gap:'8px'}}>
-                <Ico n="shield" s={13} c="#94a3b8"/>
-                <span style={{fontSize:'11px',fontWeight:600,color:'#64748b',lineHeight:1.5}}>Tax is calculated automatically using real UK income tax bands, applied cumulatively across your salary, allowances and overtime — no manual rate needed.</span>
+              <div onClick={()=>setHourlyRatesExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',borderTop:'1px solid #f1f5f9',marginTop:'14px',paddingTop:'12px',cursor:'pointer'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                  <div style={{background:'#eff6ff',padding:'9px',borderRadius:'11px'}}><Ico n="clock" s={17} c="#2563eb"/></div>
+                  <span style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Hourly Rates & Payscales</span>
+                </div>
+                <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{hourlyRatesExpanded?'Tap to Close':'Tap to expand'}</span>
               </div>
-            </div>
 
-            {/* ── Rates & Pay Scales — merged: Hourly Rates first, then the published scale reference table ── */}
-            {settings.rank&&settings.service&&(()=>{
-              const svcData = PAY_RATES[settings.rank][settings.service];
-              return(
-                <div style={{...S.card,background:'#eff6ff',border:'1px solid #bfdbfe'}}>
-                  <div onClick={()=>setHourlyRatesExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',cursor:'pointer',marginBottom:hourlyRatesExpanded?'12px':0}}>
-                    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                      <div style={{background:'#fff',padding:'9px',borderRadius:'11px'}}><Ico n="clock" s={17} c="#0f172a"/></div>
-                      <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Hourly Rates ({settings.service}) &amp; Payscales</div>
+              {settings.rank&&settings.service&&hourlyRatesExpanded&&(()=>{
+                const svcData = PAY_RATES[settings.rank][settings.service];
+                return (
+                  <div style={{borderTop:'1px solid #f1f5f9',marginTop:'14px',paddingTop:'14px'}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+                      {[['Pre 1 Sep 2026','pre','#64748b','#f8fafc'],['From 1 Sep 2026','post','#2563eb','#fff']].map(([label,key,col,bg])=>(
+                        <div key={key} style={{background:bg,borderRadius:'12px',padding:'12px',border:key==='post'?'1.5px solid #bfdbfe':'1px solid #f1f5f9'}}>
+                          <div style={{fontSize:'9px',fontWeight:900,color:col,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'8px'}}>{label}</div>
+                          {['Base','1.33x','1.5x','2.0x'].map((lbl,i)=>(
+                            <div key={lbl} style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
+                              <span style={{fontSize:'10px',fontWeight:700,color:'#64748b'}}>{lbl}</span>
+                              <span style={{fontSize:'10px',fontWeight:900,color:key==='post'?'#1e3a5f':'#475569'}}>£{(svcData[key][['base','r133','r150','r200'][i]]||0).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
                     </div>
-                    <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{hourlyRatesExpanded?'Tap to Close':'Tap to expand'}</span>
-                  </div>
-                  {hourlyRatesExpanded&&(
-                    <>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-                        {[['Pre 1 Sep 2026','pre','#64748b','#f8fafc'],['From 1 Sep 2026','post','#2563eb','#fff']].map(([label,key,col,bg])=>(
-                          <div key={key} style={{background:bg,borderRadius:'12px',padding:'12px',border:key==='post'?'1.5px solid #bfdbfe':'none'}}>
-                            <div style={{fontSize:'9px',fontWeight:900,color:col,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'8px'}}>{label}</div>
-                            {['Base','1.33x','1.5x','2.0x'].map((lbl,i)=>(
-                              <div key={lbl} style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
-                                <span style={{fontSize:'10px',fontWeight:700,color:'#64748b'}}>{lbl}</span>
-                                <span style={{fontSize:'10px',fontWeight:900,color:key==='post'?'#1e3a5f':'#475569'}}>£{(svcData[key][['base','r133','r150','r200'][i]]||0).toFixed(2)}</span>
+                    <div style={{marginTop:'10px',background:'rgba(37,99,235,0.06)',borderRadius:'10px',padding:'8px 10px',display:'flex',alignItems:'center',gap:'6px'}}>
+                      <Ico n="moon" s={12} c="#6366f1"/>
+                      <span style={{fontSize:'10px',fontWeight:700,color:'#4f46e5'}}>Night enhancement is 10% of the hourly rates: £{(svcData.post.base*0.10).toFixed(2)}/hr</span>
+                    </div>
+
+                    <div style={{borderTop:'1px solid #dbeafe',marginTop:'16px',paddingTop:'14px'}}>
+                      <div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'10px'}}>Published Pay Scales</div>
+                      {['Constable','Sergeant'].map(rank=>(
+                        <div key={rank} style={{marginBottom: rank==='Constable' ? '16px' : 0}}>
+                          <div style={{fontSize:'10px',fontWeight:900,color:'#1e3a5f',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>{rank}</div>
+                          <div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr 1fr',gap:'2px 8px',alignItems:'center'}}>
+                            <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',paddingBottom:'5px',borderBottom:'1px solid #dbeafe'}}>Pay Point</div>
+                            <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #dbeafe'}}>Pre-Sept</div>
+                            <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #dbeafe'}}>Post-Sept</div>
+                            {Object.entries(PAY_RATES[rank]).map(([point,data])=>(
+                              <div key={point} style={{display:'contents'}}>
+                                <div style={{fontSize:'11px',fontWeight:700,color:'#0f172a',padding:'5px 0'}}>{point}</div>
+                                <div style={{fontSize:'11px',fontWeight:700,color:'#64748b',textAlign:'right',padding:'5px 0'}}>£{data.salary.pre.toLocaleString('en-GB')}</div>
+                                <div style={{fontSize:'11px',fontWeight:900,color:'#1e3a5f',textAlign:'right',padding:'5px 0'}}>£{data.salary.post.toLocaleString('en-GB')}</div>
                               </div>
                             ))}
                           </div>
-                        ))}
-                      </div>
-                      <div style={{marginTop:'10px',background:'rgba(37,99,235,0.06)',borderRadius:'10px',padding:'8px 10px',display:'flex',alignItems:'center',gap:'6px'}}>
-                        <Ico n="moon" s={12} c="#6366f1"/>
-                        <span style={{fontSize:'10px',fontWeight:700,color:'#4f46e5'}}>Night enhancement is 10% of the hourly rates: £{(svcData.post.base*0.10).toFixed(2)}/hr</span>
-                      </div>
-
-                      <div style={{borderTop:'1px solid #dbeafe',marginTop:'16px',paddingTop:'14px'}}>
-                        <div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.2px',marginBottom:'10px'}}>Published Pay Scales</div>
-                        {['Constable','Sergeant'].map(rank=>(
-                          <div key={rank} style={{marginBottom: rank==='Constable' ? '16px' : 0}}>
-                            <div style={{fontSize:'10px',fontWeight:900,color:'#1e3a5f',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'7px'}}>{rank}</div>
-                            <div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr 1fr',gap:'2px 8px',alignItems:'center'}}>
-                              <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',paddingBottom:'5px',borderBottom:'1px solid #dbeafe'}}>Pay Point</div>
-                              <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #dbeafe'}}>Pre-Sept</div>
-                              <div style={{fontSize:'8px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',textAlign:'right',paddingBottom:'5px',borderBottom:'1px solid #dbeafe'}}>Post-Sept</div>
-                              {Object.entries(PAY_RATES[rank]).map(([point,data])=>(
-                                <div key={point} style={{display:'contents'}}>
-                                  <div style={{fontSize:'11px',fontWeight:700,color:'#0f172a',padding:'5px 0'}}>{point}</div>
-                                  <div style={{fontSize:'11px',fontWeight:700,color:'#64748b',textAlign:'right',padding:'5px 0'}}>£{data.salary.pre.toLocaleString('en-GB')}</div>
-                                  <div style={{fontSize:'11px',fontWeight:900,color:'#1e3a5f',textAlign:'right',padding:'5px 0'}}>£{data.salary.post.toLocaleString('en-GB')}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                        <div style={{marginTop:'12px',fontSize:'9px',fontWeight:600,color:'#94a3b8',lineHeight:1.5}}>Excludes London Weighting (£3,150 pre-Sept / £3,260 post-Sept) and London Allowance (£6,588), which are added separately.</div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })()}
+                        </div>
+                      ))}
+                      <div style={{marginTop:'12px',fontSize:'9px',fontWeight:600,color:'#94a3b8',lineHeight:1.5}}>Excludes London Weighting (£3,150 pre-Sept / £3,260 post-Sept) and London Allowance (£6,588), which are added separately.</div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
 
             {/* ── Tax & 100K+ Calculator — Actual (YTD) and Forecast (full year), side by side ── */}
             {settings.rank&&settings.service&&(()=>{
@@ -2962,6 +2971,10 @@ export default function App() {
                   </div>
                   {taxImpactExpanded&&(
                     <>
+                      <div style={{display:'flex',alignItems:'flex-start',gap:'8px',marginBottom:'13px'}}>
+                        <Ico n="shield" s={13} c="#94a3b8"/>
+                        <span style={{fontSize:'11px',fontWeight:600,color:'#64748b',lineHeight:1.5}}>Tax is calculated automatically using real UK income tax bands, applied cumulatively across your salary, allowances and overtime — no manual rate needed.</span>
+                      </div>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
                         <div style={{fontSize:'9px',fontWeight:900,color:overA?'#dc2626':'#059669',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',background:overA?'#fef2f2':'#f0fdf4',borderRadius:'8px',padding:'5px 0'}}>Actual (YTD)</div>
                         <div style={{fontSize:'9px',fontWeight:900,color:overF?'#dc2626':'#059669',textTransform:'uppercase',letterSpacing:'1px',textAlign:'center',background:overF?'#fef2f2':'#f0fdf4',borderRadius:'8px',padding:'5px 0'}}>Forecast</div>
