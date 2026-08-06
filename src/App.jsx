@@ -745,6 +745,7 @@ export default function App() {
   const [archiveExpandedPeriod, setArchiveExpandedPeriod] = useState(null); // short label of the expanded period within that year, or null
   const [trendsExpanded, setTrendsExpanded] = useState(false);
   const [taxImpactExpanded, setTaxImpactExpanded] = useState(false);
+  const [homeGraphExpanded, setHomeGraphExpanded] = useState(false);
   const [taxCalcActualDetailOpen, setTaxCalcActualDetailOpen] = useState(false);
   const [taxCalcForecastDetailOpen, setTaxCalcForecastDetailOpen] = useState(false);
   const [hourlyRatesExpanded, setHourlyRatesExpanded] = useState(false);
@@ -800,7 +801,6 @@ export default function App() {
   const prevTabRef = useRef(tab);
   useEffect(()=>{
     if(prevTabRef.current==='settings' && tab!=='settings'){
-      setTrendsExpanded(false);
       setTaxImpactExpanded(false);
       setTaxCalcActualDetailOpen(false);
       setTaxCalcForecastDetailOpen(false);
@@ -1527,7 +1527,7 @@ export default function App() {
     );
   };
 
-  const renderMonthlyChart = (big) => {
+  const renderMonthlyChart = (big, dark=false) => {
     const data = totals.periodBreakdown.map(pb=>({short:PAY_PERIODS.find(p=>p.month===pb.month).short, gross:pb.combinedGross, net:pb.combinedNet}));
     const max = Math.max(...data.map(d=>d.gross), 200);
     const W = big?520:330, H = big?300:170, pX = big?46:34, pY = big?20:12;
@@ -1538,6 +1538,13 @@ export default function App() {
     const np = pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.yN}`).join(' ');
     const tapPt = (chartTap && chartTap.chart==='mon' && chartTap.big===big) ? pts[chartTap.i] : null;
     const toggle = i => setChartTap(t=>(t&&t.chart==='mon'&&t.i===i&&t.big===big)?null:{chart:'mon',i,big});
+    // Dark variant sits on the navy Total Gross YTD card, so grid/label
+    // colours flip to bright blue-white instead of slate-on-white.
+    const gridStroke = dark ? 'rgba(255,255,255,0.08)' : '#f1f5f9';
+    const axisFill    = dark ? '#64748b' : '#cbd5e1';
+    const lblFill      = dark ? '#94a3b8' : '#94a3b8';
+    const dotStroke   = dark ? '#0f2744' : 'white';
+    const tooltipBg    = dark ? '#132f52' : '#1e3a5f';
 
     let tooltip = null;
     if (tapPt) {
@@ -1549,7 +1556,7 @@ export default function App() {
       let ty = topY - th - 10; if (ty<2) ty = Math.max(tapPt.yG,tapPt.yN) + 14;
       tooltip = (
         <g>
-          <rect x={tx} y={ty} width={tw} height={th} rx="7" fill="#1e3a5f"/>
+          <rect x={tx} y={ty} width={tw} height={th} rx="7" fill={tooltipBg}/>
           <text x={tx+tw/2} y={ty+padTop} textAnchor="middle" dominantBaseline="middle" style={{fontSize:big?10:8,fontWeight:900,fill:'#93c5fd'}}>{tapPt.lbl}</text>
           <text x={tx+tw/2} y={ty+padTop+lineH} textAnchor="middle" dominantBaseline="middle" style={{fontSize:big?11:9,fontWeight:800,fill:'#6ee7b7'}}>Gross {fmtGBP(tapPt.g)}</text>
           <text x={tx+tw/2} y={ty+padTop+lineH*2} textAnchor="middle" dominantBaseline="middle" style={{fontSize:big?11:9,fontWeight:800,fill:'#fca5a5'}}>Net {fmtGBP(tapPt.n)}</text>
@@ -1559,15 +1566,15 @@ export default function App() {
 
     return (
       <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',overflow:'visible'}} preserveAspectRatio="none">
-        {[0,0.5,1].map(v=>(<g key={v}><line x1={pX} y1={H-pY-v*eH} x2={W-pX} y2={H-pY-v*eH} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={v===0?'0':'3 4'}/><text x={pX-4} y={H-pY-v*eH} textAnchor="end" dominantBaseline="middle" style={{fontSize:fsAxis,fill:'#cbd5e1',fontWeight:700}}>£{Math.round(max*v)}</text></g>))}
-        {pts.map((p,i)=><text key={i} x={p.x} y={H-pY+(big?17:11)} textAnchor="middle" style={{fontSize:fsLbl,fill:'#94a3b8',fontWeight:900}}>{p.lbl}</text>)}
+        {[0,0.5,1].map(v=>(<g key={v}><line x1={pX} y1={H-pY-v*eH} x2={W-pX} y2={H-pY-v*eH} stroke={gridStroke} strokeWidth="1" strokeDasharray={v===0?'0':'3 4'}/><text x={pX-4} y={H-pY-v*eH} textAnchor="end" dominantBaseline="middle" style={{fontSize:fsAxis,fill:axisFill,fontWeight:700}}>£{Math.round(max*v)}</text></g>))}
+        {pts.map((p,i)=><text key={i} x={p.x} y={H-pY+(big?17:11)} textAnchor="middle" style={{fontSize:fsLbl,fill:lblFill,fontWeight:900}}>{p.lbl}</text>)}
         <path d={np} fill="none" stroke="#f87171" strokeWidth={lineW} strokeLinecap="round" strokeLinejoin="round"/>
         <path d={gp} fill="none" stroke="#34d399" strokeWidth={lineW} strokeLinecap="round" strokeLinejoin="round"/>
         {pts.map((p,i)=>(
           <g key={i}>
-            <circle cx={p.x} cy={p.yG} r={ptR} fill="#34d399" stroke="white" strokeWidth="1.5" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
+            <circle cx={p.x} cy={p.yG} r={ptR} fill="#34d399" stroke={dotStroke} strokeWidth="1.5" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
             <circle cx={p.x} cy={p.yG} r={ptR+7} fill="transparent" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
-            <circle cx={p.x} cy={p.yN} r={ptR} fill="#f87171" stroke="white" strokeWidth="1.5" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
+            <circle cx={p.x} cy={p.yN} r={ptR} fill="#f87171" stroke={dotStroke} strokeWidth="1.5" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
             <circle cx={p.x} cy={p.yN} r={ptR+7} fill="transparent" style={{cursor:'pointer'}} onClick={()=>toggle(i)}/>
           </g>
         ))}
@@ -1605,15 +1612,34 @@ export default function App() {
     });
     const gross = ot + night + pa;
 
+    // Pension — same principle as the Home £100k Tax Calculator: pensionable
+    // pay is basic salary + London Weighting only (overtime/PA/London
+    // Allowance are all non-pensionable), the tier is judged on the
+    // annualised YTD-through-this-report rate, and the contribution comes
+    // off pay BEFORE income tax, which is why it reduces the taxable
+    // cumulative baseline below — but never National Insurance.
+    const svcData = settings.rank && settings.service ? PAY_RATES[settings.rank]?.[settings.service] : null;
+    const tyFracForEnd = taxYearFractionForDate(end);
+    const pensionablePayYTDThroughEnd = svcData
+      ? monthlySteppedSplitBySept(svcData.salary.pre, svcData.salary.post, taxYearStartForRange, end) + monthlySteppedSplitBySept(LONDON_WEIGHTING.pre, LONDON_WEIGHTING.post, taxYearStartForRange, end)
+      : 0;
+    const pensionablePayForRange = svcData
+      ? monthlySteppedSplitBySept(svcData.salary.pre, svcData.salary.post, effectiveStart, end) + monthlySteppedSplitBySept(LONDON_WEIGHTING.pre, LONDON_WEIGHTING.post, effectiveStart, end)
+      : 0;
+    const pensionRate = pensionTierRate(pensionablePayYTDThroughEnd / tyFracForEnd);
+    const pensionYTDThroughEnd = pensionablePayYTDThroughEnd * pensionRate;
+    const pensionForRange = pensionablePayForRange * pensionRate;
+
     const endIdx = PAY_PERIODS.findIndex(p=>end>=p.start&&end<=p.end);
     const pb = endIdx>=0 ? totals.periodBreakdown[endIdx] : null;
-    const cumulativeBefore = Math.max(0, totals.combinedGrossYTD - gross);
-    const periodGrossBefore = pb ? Math.max(0, (pb.baseAmt+pb.ot+pb.night+pb.pa) - gross) : 0;
-    const result = applyBandTax(cumulativeBefore, gross, taxYearFractionForDate(end), periodGrossBefore);
+    const cumulativeBefore = Math.max(0, totals.combinedGrossYTD - gross - pensionYTDThroughEnd);
+    const periodGrossBefore = pb ? Math.max(0, (pb.baseAmt+pb.ot+pb.night+pb.pa) - gross) : 0; // NI stays on full gross, unaffected by pension
+    const result = applyBandTax(cumulativeBefore, gross, tyFracForEnd, periodGrossBefore);
     const r = getRates(settings.rank, settings.service, end);
 
     return { rangeEntries, ot, night, pa, hrs, toilBanked, rateHrs, paCounts, gross,
       net:result.net, tax:result.tax, ni:result.ni, bandName:result.bandName, rate:result.rate, rates:r,
+      pensionForRange, pensionRate, pensionablePayForRange,
       clippedFrom: clipped ? effectiveStart : null };
   };
 
@@ -1783,8 +1809,16 @@ export default function App() {
                 Total Gross YTD
                 <div style={{marginTop:'2px'}}>(Salary + Weighting, Allowances &amp; OT)</div>
               </div>
-              <div style={{fontSize:'28px',fontWeight:900,color:'#fff',letterSpacing:'-2px',marginBottom:'3px',lineHeight:1}}>
-                {settings.rank&&settings.service ? fmtGBP(totals.combinedGrossYTD) : '—'}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'14px',marginBottom:'3px'}}>
+                <div style={{fontSize:'28px',fontWeight:900,color:'#fff',letterSpacing:'-2px',lineHeight:1}}>
+                  {settings.rank&&settings.service ? fmtGBP(totals.combinedGrossYTD) : '—'}
+                </div>
+                {settings.rank&&settings.service&&(
+                  <div onClick={()=>setHomeGraphExpanded(v=>!v)} style={{display:'flex',alignItems:'center',gap:'5px',background:homeGraphExpanded?'rgba(147,197,253,0.15)':'rgba(255,255,255,0.08)',border:`1px solid ${homeGraphExpanded?'rgba(147,197,253,0.4)':'rgba(255,255,255,0.15)'}`,borderRadius:'8px',padding:'6px 10px',cursor:'pointer',flexShrink:0}}>
+                    <Ico n="bar" s={13} c="#93c5fd"/>
+                    <span style={{fontSize:'9px',fontWeight:800,color:'#93c5fd'}}>{homeGraphExpanded?'Hide Graph':'Graph'}</span>
+                  </div>
+                )}
               </div>
               <div style={{fontSize:'11px',fontWeight:700,color:'#94a3b8',marginBottom:'12px'}}>
                 {settings.rank&&settings.service
@@ -1839,7 +1873,7 @@ export default function App() {
                 ];
                 return (
                   <div onClick={()=>{scrollToTaxImpact.current=true;setTaxImpactExpanded(true);setTab('settings');}} style={{borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:'14px',paddingTop:'12px',cursor:'pointer'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'14px'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'26px'}}>
                       <div style={{fontSize:'11px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px'}}>Gross Salary (Actual)</div>
                       <div style={{fontSize:'10px',fontWeight:800,color:barColor}}>{statusText}</div>
                     </div>
@@ -1854,6 +1888,7 @@ export default function App() {
                         </div>
                       ))}
                       <div style={{position:'absolute',left:`${pct(grossYTD)}%`,top:'-5px',width:'3px',height:'20px',background:barColor,transform:'translateX(-1.5px)',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
+                      <div style={{position:'absolute',left:`${pct(grossYTD)}%`,top:'-19px',transform:'translateX(-50%)',fontSize:'10px',fontWeight:900,color:barColor,whiteSpace:'nowrap'}}>£{(grossYTD/1000).toFixed(1)}k</div>
                     </div>
                   </div>
                 );
@@ -1880,7 +1915,7 @@ export default function App() {
                       <div style={{fontSize:'11px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px'}}>Gross Salary (Forecast)</div>
                       <div style={{fontSize:'10px',fontWeight:800,color:barColor}}>{statusText}</div>
                     </div>
-                    <div style={{fontSize:'9.5px',fontWeight:600,color:'#64748b',marginBottom:'12px'}}>Forecast based on your overtime submissions</div>
+                    <div style={{fontSize:'9.5px',fontWeight:600,color:'#64748b',marginBottom:'19px'}}>Forecast based on your overtime submissions</div>
 
                     <div style={{position:'relative',marginBottom:'16px'}}>
                       <div style={{background:'rgba(255,255,255,0.12)',borderRadius:'2px',height:'10px',overflow:'hidden',position:'relative'}}>
@@ -1892,10 +1927,24 @@ export default function App() {
                         </div>
                       ))}
                       <div style={{position:'absolute',left:`${pct(proj)}%`,top:'-5px',width:'3px',height:'20px',background:barColor,transform:'translateX(-1.5px)',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
+                      <div style={{position:'absolute',left:`${pct(proj)}%`,top:'-19px',transform:'translateX(-50%)',fontSize:'10px',fontWeight:900,color:barColor,whiteSpace:'nowrap'}}>£{(proj/1000).toFixed(1)}k</div>
                     </div>
                   </div>
                 );
               })()}
+
+              {/* ── Monthly Gross vs Net — toggled via the Graph button up top ── */}
+              {homeGraphExpanded&&settings.rank&&settings.service&&(
+                <div style={{borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:'14px',paddingTop:'12px'}}>
+                  <div style={{fontSize:'11px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'10px'}}>Monthly Gross vs Net</div>
+                  {renderMonthlyChart(false, true)}
+                  <div style={{display:'flex',justifyContent:'center',gap:'18px',marginTop:'8px'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'13px',height:'2.5px',background:'#34d399',borderRadius:'2px'}}/><span style={{fontSize:'9px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</span></div>
+                    <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'13px',height:'2.5px',background:'#f87171',borderRadius:'2px'}}/><span style={{fontSize:'9px',fontWeight:900,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1px'}}>Net</span></div>
+                  </div>
+                  <div style={{textAlign:'center',marginTop:'6px',fontSize:'9px',color:'#64748b'}}>Tap any point for that period's figure</div>
+                </div>
+              )}
             </div>
 
             {/* ── Overtime-only summary card — sits directly under Total Gross YTD, lighter blue to distinguish ── */}
@@ -2704,16 +2753,16 @@ export default function App() {
             <div style={{...S.card,background:'#fff',border:'1.5px solid #ede9fe'}}>
               <div style={{...S.lbl,fontSize:'11px',marginBottom:'8px'}}>Redeem TOIL</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 52px 66px',gap:'8px',marginBottom:'8px'}}>
-                <input type="date" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'15px',boxSizing:'border-box'}} value={toilTakenForm.date} onChange={e=>setToilTakenForm({...toilTakenForm,date:e.target.value})}/>
-                <input type="number" min="0" step="1" placeholder="Hrs" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'15px',textAlign:'center',boxSizing:'border-box'}} value={toilTakenForm.hours} onChange={e=>setToilTakenForm({...toilTakenForm,hours:e.target.value})}/>
-                <select style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px 4px',fontFamily:'inherit',fontSize:'15px',textAlign:'center',boxSizing:'border-box',background:'#fff'}} value={toilTakenForm.minutes} onChange={e=>setToilTakenForm({...toilTakenForm,minutes:e.target.value})}>
+                <input type="date" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'16px',boxSizing:'border-box'}} value={toilTakenForm.date} onChange={e=>setToilTakenForm({...toilTakenForm,date:e.target.value})}/>
+                <input type="number" min="0" step="1" placeholder="Hrs" style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'16px',textAlign:'center',boxSizing:'border-box'}} value={toilTakenForm.hours} onChange={e=>setToilTakenForm({...toilTakenForm,hours:e.target.value})}/>
+                <select style={{border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px 4px',fontFamily:'inherit',fontSize:'16px',textAlign:'center',boxSizing:'border-box',background:'#fff'}} value={toilTakenForm.minutes} onChange={e=>setToilTakenForm({...toilTakenForm,minutes:e.target.value})}>
                   <option value="00">00m</option>
                   <option value="15">15m</option>
                   <option value="30">30m</option>
                   <option value="45">45m</option>
                 </select>
               </div>
-              <input type="text" placeholder="Note (optional) — e.g. half day, appointment" style={{width:'100%',boxSizing:'border-box',border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'14px',marginBottom:'8px'}} value={toilTakenForm.note} onChange={e=>setToilTakenForm({...toilTakenForm,note:e.target.value})}/>
+              <input type="text" placeholder="Note (optional) — e.g. half day, appointment" style={{width:'100%',boxSizing:'border-box',border:'1px solid #ddd6fe',borderRadius:'9px',padding:'8px',fontFamily:'inherit',fontSize:'16px',marginBottom:'8px'}} value={toilTakenForm.note} onChange={e=>setToilTakenForm({...toilTakenForm,note:e.target.value})}/>
               <button onClick={addToilTaken} style={{width:'100%',background:'#7c3aed',color:'#fff',border:'none',borderRadius:'10px',padding:'11px',fontWeight:900,fontSize:'14px',cursor:'pointer',fontFamily:'inherit'}}>Redeem TOIL</button>
             </div>
 
@@ -3050,45 +3099,6 @@ export default function App() {
               );
             })()}
 
-            {/* ── Trends — moved here from the old TOIL Etc. tab ── */}
-            <div style={S.card}>
-              <div onClick={()=>setTrendsExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:trendsExpanded?'12px':0,cursor:'pointer'}}>
-                <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                  <div style={{background:'#f5f3ff',padding:'9px',borderRadius:'11px'}}><Ico n="tUp" s={17} c="#7c3aed"/></div>
-                  <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Graphs</div>
-                </div>
-                <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{trendsExpanded?'Tap to Close':'Tap to expand'}</span>
-              </div>
-              {trendsExpanded&&(
-                <>
-                  <div style={{fontSize:'9px',fontWeight:900,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'1.5px',marginBottom:'14px'}}>FY {CURRENT_FY_YEAR}/{(CURRENT_FY_YEAR+1).toString().slice(-2)}</div>
-
-                  <div style={{...S.card,background:'#f8fafc',border:'1px solid #f1f5f9',marginBottom:'10px'}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'6px'}}><Ico n="tUp" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Cumulative Gross Earnings</div></div>
-                      <button onClick={()=>{setChartTap(null);setChartModal('cum');}} style={{display:'flex',alignItems:'center',gap:'4px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'8px',padding:'5px 9px',fontSize:'9px',fontWeight:800,color:'#2563eb',cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>⤢ Enlarge</button>
-                    </div>
-                    {renderCumulativeChart(false)}
-                    <div style={{textAlign:'center',marginTop:'5px',fontSize:'11px',fontWeight:700,color:'#64748b'}}>Running total: <strong style={{color:'#1e3a5f'}}>£{totals.totalGross.toFixed(2)}</strong></div>
-                    <div style={{textAlign:'center',marginTop:'4px',fontSize:'9px',color:'#94a3b8'}}>Tap any point for that period's figure</div>
-                  </div>
-
-                  <div style={{...S.card,background:'#f8fafc',border:'1px solid #f1f5f9'}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'6px'}}><Ico n="bar" s={14} c="#2563eb"/><div style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1.5px'}}>Monthly Gross vs Net</div></div>
-                      <button onClick={()=>{setChartTap(null);setChartModal('mon');}} style={{display:'flex',alignItems:'center',gap:'4px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'8px',padding:'5px 9px',fontSize:'9px',fontWeight:800,color:'#2563eb',cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>⤢ Enlarge</button>
-                    </div>
-                    {renderMonthlyChart(false)}
-                    <div style={{display:'flex',justifyContent:'center',gap:'18px',marginTop:'9px'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'13px',height:'2.5px',background:'#34d399',borderRadius:'2px'}}/><span style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px'}}>Gross</span></div>
-                      <div style={{display:'flex',alignItems:'center',gap:'5px'}}><div style={{width:'13px',height:'2.5px',background:'#f87171',borderRadius:'2px'}}/><span style={{fontSize:'9px',fontWeight:900,color:'#64748b',textTransform:'uppercase',letterSpacing:'1px'}}>Net</span></div>
-                    </div>
-                    <div style={{textAlign:'center',marginTop:'4px',fontSize:'9px',color:'#94a3b8'}}>Tap any point for that period's figure</div>
-                  </div>
-                </>
-              )}
-            </div>
-
             {/* ── Financial Years — generated calendar, every past year with data is browsable ── */}
             <div style={S.card}>
               <div onClick={()=>setFinancialYearsExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',marginBottom:financialYearsExpanded?'11px':0,cursor:'pointer'}}>
@@ -3419,6 +3429,19 @@ export default function App() {
                         <div style={{background:'#f5f3ff',border:'1px solid #ddd6fe',borderRadius:'10px',padding:'11px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'11.5px',color:'#6d28d9'}}>
                           <span>Not included in the totals below</span>
                           <strong>+{fmtHM(d.toilBanked)}h</strong>
+                        </div>
+                      </>
+                    )}
+
+                    {d.pensionForRange>0&&(
+                      <>
+                        <div style={sectionTitle}>Pension Contribution (this period)</div>
+                        <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px'}}>
+                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'11.5px',color:'#1e40af'}}>
+                            <span>{(d.pensionRate*100).toFixed(2)}% of {fmtGBP(d.pensionablePayForRange)} pensionable pay</span>
+                            <strong>−{fmtGBP(d.pensionForRange)}</strong>
+                          </div>
+                          <div style={{fontSize:'9.5px',color:'#3b82f6',marginTop:'4px',lineHeight:1.5}}>Deducted from salary before tax — already reflected in the rate below. Not shown in the overtime total, since pension is never taken from overtime pay itself.</div>
                         </div>
                       </>
                     )}
