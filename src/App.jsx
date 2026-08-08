@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 // ─── financial year — generated, not hardcoded ────────────────────────────────
 // Pay periods follow a fixed 4-4-5-4-4-5-4-4-5-4-4-5 week cycle (52 weeks/364
@@ -53,6 +54,13 @@ const CURRENT_FY_YEAR = getFYStartYearFor(new Date().toISOString().split('T')[0]
 const PAY_PERIODS = generateFYPeriods(CURRENT_FY_YEAR);
 const FY_START = PAY_PERIODS[0].start;
 const FY_END   = PAY_PERIODS[11].end;
+
+// Cloud retention: current financial year plus the 4 most recent (5 FYs
+// total), matching how Archived Financial Years already frames things.
+// This is a CLOUD-ONLY policy — local storage on the device is never
+// pruned and can hold data indefinitely, however far back it goes.
+const CLOUD_RETENTION_CUTOFF = generateFYPeriods(CURRENT_FY_YEAR - 4)[0].start;
+const isWithinCloudRetention = (dateISO) => dateISO >= CLOUD_RETENTION_CUTOFF;
 const RATE_CHANGE_DATE = '2026-09-01'; // new pay rates + night enhancement from here — a real pay-award date, not a pattern to generate
 
 // ─── pay rates ────────────────────────────────────────────────────────────────
@@ -534,6 +542,10 @@ const KEYS = {
   defaultBreakdownView:'ajs_ot_defaultBreakdownView',
   toilTaken:'ajs_ot_toilTaken',
   lastSeenFYYear:'ajs_ot_lastSeenFYYear',
+  lastSyncedEntries:'ajs_ot_lastSyncedEntries',
+  lastSyncedToilTaken:'ajs_ot_lastSyncedToilTaken',
+  lastSyncedSettings:'ajs_ot_lastSyncedSettings',
+  lastCloudPruneCheck:'ajs_ot_lastCloudPruneCheck',
 };
 const dualWrite = (key, val) => {
   const s = JSON.stringify(val);
@@ -545,6 +557,112 @@ const dualRead = (key, fb) => {
   try { const v=sessionStorage.getItem(key); if(v) return JSON.parse(v); } catch(_){}
   return fb;
 };
+
+// ─── auth: supabase client ─────────────────────────────────────────────────────
+// PHASE 1 SCOPE: sign in / sign up / sign out / local-only mode only.
+// Entries, toilTaken and settings still live purely in localStorage at this
+// stage — nothing is encrypted or synced to Supabase yet. That's phase 2,
+// once the data-key wrap/unwrap functions exist, so a signed-in account
+// doesn't imply "your data is backed up" until that lands.
+let supabaseUrl, supabaseAnonKey;
+try {
+  supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+} catch(_){}
+// If the environment variables are missing or malformed, supabase stays null
+// rather than throwing — the app falls back to local-only behaviour instead
+// of a blank white screen. Every call site below checks for this.
+const supabase = (supabaseUrl && supabaseAnonKey) ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+// ─── crypto: data key wrap/unwrap ──────────────────────────────────────────
+// Every user's shift data is encrypted with a single random "data key" (DEK),
+// generated once at sign-up. The DEK itself never leaves the device in the
+// clear — it's wrapped (encrypted) by a key derived from the login password,
+// AND separately wrapped again by a key derived from the recovery word.
+// Either secret alone is enough to unwrap the same DEK; losing one doesn't
+// affect the other. Supabase only ever stores the wrapped (still-encrypted)
+// copies — it never sees the DEK, the password, or the recovery word.
+// Verified independently (round-trip via both paths, wrong-secret rejection,
+// uniqueness of salts/IVs) before being wired in here — see build notes.
+const _enc = new TextEncoder();
+const _dec = new TextDecoder();
+const b64encode = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+const b64decode = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+
+async function deriveKekFromSecret(secret, saltB64, iterations) {
+  const salt = b64decode(saltB64);
+  const keyMaterial = await crypto.subtle.importKey('raw', _enc.encode(secret), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['wrapKey', 'unwrapKey']
+  );
+}
+const randomSaltB64 = () => b64encode(crypto.getRandomValues(new Uint8Array(16)));
+const generateDataKey = () => crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+
+// Wraps dataKey under a secret (password or recovery word). Returns a single
+// base64 blob (IV + wrapped key bytes, concatenated) plus the salt used —
+// matches the schema's wrapped_dek / kek_salt columns exactly, no extra IV
+// column needed.
+async function wrapDataKey(dataKey, secret, iterations) {
+  const salt = randomSaltB64();
+  const kek = await deriveKekFromSecret(secret, salt, iterations);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const wrappedBytes = new Uint8Array(await crypto.subtle.wrapKey('raw', dataKey, kek, { name: 'AES-GCM', iv }));
+  const combined = new Uint8Array(iv.length + wrappedBytes.length);
+  combined.set(iv, 0);
+  combined.set(wrappedBytes, iv.length);
+  return { wrapped: b64encode(combined), salt };
+}
+
+async function unwrapDataKey(wrappedB64, saltB64, secret, iterations) {
+  const kek = await deriveKekFromSecret(secret, saltB64, iterations);
+  const combined = b64decode(wrappedB64);
+  const iv = combined.slice(0, 12);
+  const wrappedBytes = combined.slice(12);
+  return crypto.subtle.unwrapKey(
+    'raw', wrappedBytes, kek, { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
+  );
+}
+
+// Encrypts/decrypts the actual row payloads (entries, toilTaken, settings)
+// under the (already-unwrapped, in-memory) data key. Same IV-bundled blob
+// pattern, matching the ciphertext text column.
+async function encryptWithDataKey(dataKey, plainObj) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintextBytes = _enc.encode(JSON.stringify(plainObj));
+  const ctBytes = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, dataKey, plaintextBytes));
+  const combined = new Uint8Array(iv.length + ctBytes.length);
+  combined.set(iv, 0);
+  combined.set(ctBytes, iv.length);
+  return b64encode(combined);
+}
+
+async function decryptWithDataKey(dataKey, blobB64) {
+  const combined = b64decode(blobB64);
+  const iv = combined.slice(0, 12);
+  const ctBytes = combined.slice(12);
+  const plaintextBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, dataKey, ctBytes);
+  return JSON.parse(_dec.decode(plaintextBytes));
+}
+
+// Recovery-word validation: 5+ characters, not on a short blocklist of
+// obviously-guessable words. At this length the blocklist is doing most of
+// the real work, not the length check — deliberate trade-off, not an
+// oversight.
+const RECOVERY_MIN_LENGTH = 5;
+const RECOVERY_BLOCKLIST = ['password','overtime','shift','shift1','police','london','metro','12345','qwerty','letmein','admin','welcome','abcde','testy'];
+function checkRecoveryWordStrength(word) {
+  if (word.length < RECOVERY_MIN_LENGTH) return { ok:false, reason:`Needs at least ${RECOVERY_MIN_LENGTH} characters` };
+  if (RECOVERY_BLOCKLIST.includes(word.toLowerCase())) return { ok:false, reason:'Too common — choose something less predictable' };
+  return { ok:true };
+}
+const PASSWORD_KDF_ITERATIONS = 210000; // used every sign-in, cost stays invisible
+const RECOVERY_KDF_ITERATIONS = 600000; // used maybe once ever, so it can afford to be slower
 
 // Migrate settings if they contain old rank names from a previous version
 const migrateSettings = s => {
@@ -592,6 +710,9 @@ const Ico = ({ n, s=20, c, w=2, f='none' }) => (
     {n==='doc'   &&<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>}
     {n==='share' &&<><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></>}
     {n==='bell'  &&<><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>}
+    {n==='logout'&&<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>}
+    {n==='refresh'&&<><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></>}
+    {n==='user'&&<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}
   </svg>
 );
 
@@ -634,6 +755,25 @@ function ClockCashIcon({ width=28, height=19 }) {
 
 const TIME_HOURS = Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));
 const TIME_MINUTES = ['00','15','30','45'];
+
+// Simplified fire-exit-sign pictogram — running figure heading through a
+// doorway, with a directional arrow — evoking the standard green exit
+// sign. White strokes/fills throughout, meant to sit on a green backdrop.
+function FireExitIcon({ size=20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <circle cx="6" cy="4" r="1.7" fill="#fff"/>
+      <path d="M6.5 6 L8 11" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
+      <path d="M8 11 L10.5 13 L9.5 16.5" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <path d="M8 11 L4.8 13 L4 11.5" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <path d="M7 7.3 L9.8 6.8" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
+      <path d="M6.8 7.6 L4.8 9.5" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
+      <rect x="15.5" y="2.5" width="6.5" height="19" rx="0.6" stroke="#fff" strokeWidth="1.4"/>
+      <path d="M11.5 12 H19" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
+      <path d="M16.3 9 L19.3 12 L16.3 15" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
 
 // Two small selects (hour, then minute) rather than one 96-option list —
 // picking "21" then "45" is much faster than scrolling to find "21:45".
@@ -705,6 +845,321 @@ function ToastStack({ toasts, onDismiss }) {
   );
 }
 
+// ─── auth screens ───────────────────────────────────────────────────────────
+// Phase 1 scope: sign in, sign up, forgot-password request, and the
+// local-only escape hatch. Recovery-secret setup and real cloud sync of
+// entries/toilTaken/settings are phase 2, once the data-key wrap/unwrap
+// functions exist — signing up here does not yet mean data is backed up.
+function AuthScreens({ supabase, addToast, setAuthFlowBusy, onUnlocked, startInPasswordRecovery, onRecoveryComplete }) {
+  const [screen, setScreen]         = useState(startInPasswordRecovery ? 'set-new-password' : 'signin'); // 'signin' | 'signup' | 'forgot' | 'recovery-setup' | 'set-new-password' | 'recovery-unlock'
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
+  const [password2, setPassword2]   = useState('');
+  const [recoveryWord, setRecoveryWord] = useState('');
+  const [busy, setBusy]             = useState(false);
+  const [error, setError]           = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [noRecoveryWarning, setNoRecoveryWarning] = useState(false);
+
+  const AS = {
+    // Dark blue page — deliberately different from the rest of the app's
+    // light theme, matching the brand-moment treatment requested for this
+    // screen specifically. #0f2744 matches the app's own theme-color, so
+    // it's not a new colour being introduced, just used at page-scale here.
+    page: {display:'flex',flexDirection:'column',height:'100dvh',maxWidth:'430px',margin:'0 auto',background:'#0f2744',fontFamily:"'DM Sans',system-ui,sans-serif",color:'#0f172a',boxSizing:'border-box',position:'relative',overflow:'hidden'},
+    // Sized and positioned so it sits behind and around the card, not
+    // under it — update the src once the actual watermark file exists.
+    watermark: {position:'absolute',top:'46%',left:'50%',transform:'translate(-50%,-50%)',width:'380px',maxWidth:'85vw',height:'380px',objectFit:'contain',opacity:0.07,pointerEvents:'none',zIndex:0},
+    cardWrap: {flex:1,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px',position:'relative',zIndex:1,minHeight:0},
+    card: {width:'100%',background:'#fff',borderRadius:'18px',padding:'26px 22px 22px',boxShadow:'0 12px 34px rgba(0,0,0,0.28)',boxSizing:'border-box'},
+    label:{display:'block',fontSize:'9px',color:'#64748b',margin:'0 0 6px',fontWeight:900,textTransform:'uppercase',letterSpacing:'1.5px'},
+    input:{width:'100%',background:'#f8fafc',border:'none',padding:'12px 15px',borderRadius:'13px',fontWeight:700,fontSize:'16px',outline:'none',fontFamily:'inherit',boxSizing:'border-box',color:'#0f172a',marginBottom:'14px'},
+    err:{fontSize:'12px',color:'#dc2626',margin:'-10px 0 14px',fontWeight:700},
+    btn:{width:'100%',padding:'13px 0',borderRadius:'13px',border:'none',fontFamily:'inherit',fontSize:'11px',fontWeight:900,cursor:'pointer',background:'#2563eb',color:'#fff',textTransform:'uppercase',letterSpacing:'1px'},
+    btnGhost:{width:'100%',padding:'13px 0',borderRadius:'13px',border:'1px solid #f1f5f9',fontFamily:'inherit',fontSize:'11px',fontWeight:900,cursor:'pointer',background:'#fff',color:'#64748b',marginTop:'10px',textTransform:'uppercase',letterSpacing:'1px'},
+    linkRow:{textAlign:'center',marginTop:'14px',fontSize:'13px',color:'#94a3b8',fontWeight:700},
+    link:{color:'#2563eb',cursor:'pointer'},
+    note:{display:'flex',gap:'9px',background:'#f5f3ff',borderRadius:'13px',padding:'12px 13px',marginBottom:'16px',fontSize:'12.5px',lineHeight:1.5,color:'#6d28d9',fontWeight:600},
+    divider:{display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',margin:'14px 0',fontSize:'11.5px',color:'#94a3b8',fontWeight:700},
+  };
+
+  const validEmail = /\S+@\S+\.\S+/.test(email);
+
+  const handleSignIn = async () => {
+    setError('');
+    if (!validEmail) { setError('Enter a valid email address'); return; }
+    setBusy(true);
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
+    if (err) { setBusy(false); setError(err.message); return; }
+    // Covers an account that signed up but never finished recovery-secret
+    // setup (e.g. email confirmation delayed the first real session).
+    const { data: keyRow } = await supabase.from('user_keys')
+      .select('wrapped_dek, kek_salt, kek_iterations')
+      .eq('user_id', data.user.id).maybeSingle();
+    if (!keyRow) {
+      setBusy(false);
+      if (setAuthFlowBusy) setAuthFlowBusy(true);
+      setScreen('recovery-setup');
+      return;
+    }
+    try {
+      const dek = await unwrapDataKey(keyRow.wrapped_dek, keyRow.kek_salt, password, keyRow.kek_iterations);
+      setBusy(false);
+      setPassword('');
+      if (onUnlocked) onUnlocked(dek);
+    } catch (e) {
+      // Password was accepted by Supabase Auth but couldn't unwrap the data
+      // key — should only happen if the row's been corrupted or tampered
+      // with, not from a normal wrong-password case (that fails at
+      // signInWithPassword, above, before this point is ever reached).
+      setBusy(false);
+      setError('Signed in, but couldn\u2019t unlock your data — contact support rather than retrying blindly.');
+    }
+  };
+
+  const handleSignUp = async () => {
+    setError('');
+    if (!validEmail) { setError('Enter a valid email address'); return; }
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (password !== password2) { setError('Passwords do not match'); return; }
+    setBusy(true);
+    const { data, error: err } = await supabase.auth.signUp({ email, password });
+    setBusy(false);
+    if (err) { setError(err.message); return; }
+    if (!data.session) {
+      // Email confirmation required — no session yet, nowhere safe to write
+      // key material. Setup resumes on first sign-in instead, above.
+      if (addToast) addToast('Check your email to confirm your account, then sign in.', 'success', null, 6000, 'Almost there');
+      setScreen('signin');
+      return;
+    }
+    if (setAuthFlowBusy) setAuthFlowBusy(true);
+    setScreen('recovery-setup');
+    // password intentionally stays in state — it's needed to wrap the data key next
+  };
+
+  const recoveryTooShort = recoveryWord.length > 0 && recoveryWord.length < RECOVERY_MIN_LENGTH;
+  const recoveryTooCommon = RECOVERY_BLOCKLIST.includes(recoveryWord.toLowerCase());
+
+  const handleRecoverySetup = async () => {
+    setError('');
+    if (recoveryWord.length < RECOVERY_MIN_LENGTH) { setError(`Must be at least ${RECOVERY_MIN_LENGTH} letters`); return; }
+    if (recoveryTooCommon) { setError('Too common — choose something less predictable'); return; }
+    setBusy(true);
+    try {
+      const dek = await generateDataKey();
+      const passWrap = await wrapDataKey(dek, password, PASSWORD_KDF_ITERATIONS);
+      const recWrap  = await wrapDataKey(dek, recoveryWord, RECOVERY_KDF_ITERATIONS);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const { error: err } = await supabase.from('user_keys').upsert({
+        user_id: sessionData.session.user.id,
+        wrapped_dek: passWrap.wrapped,
+        kek_salt: passWrap.salt,
+        kek_iterations: PASSWORD_KDF_ITERATIONS,
+        wrapped_dek_recovery: recWrap.wrapped,
+        recovery_salt: recWrap.salt,
+        recovery_iterations: RECOVERY_KDF_ITERATIONS,
+      });
+      setBusy(false);
+      if (err) { setError(err.message); return; }
+      setPassword(''); setRecoveryWord('');
+      if (addToast) addToast('Recovery secret saved — you\u2019re all set', 'success', null, 4000, 'Ready to go');
+      if (setAuthFlowBusy) setAuthFlowBusy(false);
+      if (onUnlocked) onUnlocked(dek);
+      if (onRecoveryComplete) onRecoveryComplete();
+    } catch (e) {
+      setBusy(false);
+      setError('Something went wrong setting up encryption \u2014 try again');
+    }
+  };
+
+  const handleForgotRequest = async () => {
+    setError('');
+    if (!validEmail) { setError('Enter a valid email address'); return; }
+    setBusy(true);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    setBusy(false);
+    if (err) { setError(err.message); return; }
+    setForgotSent(true);
+  };
+
+  // Reached after clicking the link in a reset email. Supabase already has
+  // a temporary session at this point (see the PASSWORD_RECOVERY handling
+  // in the parent) — this just sets the actual new password. The old data
+  // key is still wrapped under the OLD password after this succeeds; that's
+  // resolved next, in handleRecoveryUnlock.
+  const handleSetNewPassword = async () => {
+    setError('');
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (password !== password2) { setError('Passwords do not match'); return; }
+    setBusy(true);
+    const { error: err } = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (err) { setError(err.message); return; }
+    setPassword2('');
+    setScreen('recovery-unlock');
+    // `password` intentionally stays in state — it's the new password,
+    // needed below to re-wrap the data key once the recovery word unlocks it.
+  };
+
+  // Unwraps the existing data key via the recovery-word path, then re-wraps
+  // that SAME key under the new password. The data key itself never
+  // changes here — only which secrets can unwrap it — so nothing already
+  // encrypted under it needs touching.
+  const handleRecoveryUnlock = async () => {
+    setError('');
+    setBusy(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData.session.user.id;
+      const { data: keyRow, error: fetchErr } = await supabase.from('user_keys')
+        .select('wrapped_dek_recovery, recovery_salt, recovery_iterations')
+        .eq('user_id', uid).maybeSingle();
+      if (fetchErr || !keyRow) throw new Error('missing key row');
+      const dek = await unwrapDataKey(keyRow.wrapped_dek_recovery, keyRow.recovery_salt, recoveryWord, keyRow.recovery_iterations);
+      const newPassWrap = await wrapDataKey(dek, password, PASSWORD_KDF_ITERATIONS);
+      const { error: updateErr } = await supabase.from('user_keys').update({
+        wrapped_dek: newPassWrap.wrapped,
+        kek_salt: newPassWrap.salt,
+        kek_iterations: PASSWORD_KDF_ITERATIONS,
+      }).eq('user_id', uid);
+      if (updateErr) throw updateErr;
+      setBusy(false);
+      setPassword(''); setRecoveryWord('');
+      if (onUnlocked) onUnlocked(dek);
+      if (onRecoveryComplete) onRecoveryComplete();
+      if (addToast) addToast('Password reset and data unlocked', 'success', null, 4000, 'All set');
+    } catch (e) {
+      setBusy(false);
+      setError('That recovery word didn\u2019t work \u2014 try again, or continue without your old data below.');
+    }
+  };
+
+  return (
+    <div style={AS.page}>
+      {/* Faint background watermark — update this src once the actual RaSP
+          image file is supplied; sized and centred to sit behind the card
+          without competing with it. */}
+      <img src="/rasp-watermark.png" alt="" style={AS.watermark} onError={e=>{e.target.style.display='none';}}/>
+
+      <div style={AS.cardWrap}>
+      <div style={AS.card}>
+        {/* Title lives inside the card itself on this screen, rather than
+            as a page-level header above it — colours suited to the card's
+            white background, unlike the page's dark backdrop. */}
+        <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'20px'}}>
+          <ClockCashIcon width={26} height={18}/>
+          <div style={{display:'flex',flexDirection:'column',lineHeight:1.2,minWidth:0}}>
+            <span style={{fontSize:'17px',fontWeight:900,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:'-0.4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Overtime &amp; Shift Tracker</span>
+            <span style={{fontSize:'12px',fontWeight:700,color:'#94a3b8',letterSpacing:'0.2px'}}>by Adam Stephens</span>
+          </div>
+        </div>
+
+        {screen === 'signin' && (
+          <>
+            <label style={AS.label}>Email</label>
+            <input style={AS.input} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/>
+            <label style={AS.label}>Password</label>
+            <input style={AS.input} type="password" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password"/>
+            {error && <div style={AS.err}>{error}</div>}
+            <button style={{...AS.btn,opacity:busy?0.7:1}} disabled={busy} onClick={handleSignIn}>{busy?'Signing in…':'Sign in'}</button>
+            <div style={AS.divider}>or</div>
+            <button style={AS.btnGhost} onClick={()=>{ setScreen('signup'); setError(''); }}>Create account</button>
+            <div style={AS.linkRow}><span style={AS.link} onClick={()=>{ setScreen('forgot'); setError(''); setForgotSent(false); }}>Forgot password?</span></div>
+          </>
+        )}
+
+        {screen === 'signup' && (
+          <>
+            <label style={AS.label}>Email</label>
+            <input style={AS.input} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/>
+            <label style={AS.label}>Password</label>
+            <input style={AS.input} type="password" placeholder="At least 8 characters" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password"/>
+            <label style={AS.label}>Confirm password</label>
+            <input style={AS.input} type="password" placeholder="••••••••" value={password2} onChange={e=>setPassword2(e.target.value)} autoComplete="new-password"/>
+            <div style={AS.note}>
+              <span>↻</span>
+              <span><b>You'll set up a recovery secret next.</b> That protects your data if you ever forget your password.</span>
+            </div>
+            {error && <div style={AS.err}>{error}</div>}
+            <button style={{...AS.btn,opacity:busy?0.7:1}} disabled={busy} onClick={handleSignUp}>{busy?'Creating…':'Create account'}</button>
+            <div style={AS.linkRow}>Already have an account? <span style={AS.link} onClick={()=>{ setScreen('signin'); setError(''); }}>Sign in</span></div>
+          </>
+        )}
+
+        {screen === 'recovery-setup' && (
+          <>
+            <div style={{fontSize:'19px',fontWeight:900,letterSpacing:'-0.5px',marginBottom:'6px'}}>Save your recovery secret</div>
+            <div style={{fontSize:'13px',color:'#64748b',lineHeight:1.5,marginBottom:'18px',fontWeight:600}}>If you ever forget your password, this word is the only other way back into your data. Nobody else has a copy of it — not even us.</div>
+
+            <label style={AS.label}>Your recovery word</label>
+            <input style={AS.input} type="text" placeholder="Something only you'd think of" autoComplete="off" value={recoveryWord} onChange={e=>setRecoveryWord(e.target.value)}/>
+            <div style={{fontSize:'12px',color:recoveryWord.length>=RECOVERY_MIN_LENGTH?'#16a34a':'#94a3b8',margin:'-10px 0 6px',fontWeight:700}}>{recoveryWord.length} / {RECOVERY_MIN_LENGTH} characters minimum</div>
+            {recoveryTooCommon && recoveryWord.length>0 && <div style={AS.err}>Too common — choose something less predictable</div>}
+            {error && <div style={{...AS.err,marginTop:recoveryTooCommon?0:'-4px'}}>{error}</div>}
+
+            <button style={{...AS.btn,opacity:busy?0.7:1,marginTop:'8px'}} disabled={busy} onClick={handleRecoverySetup}>{busy?'Saving…':'Save and continue'}</button>
+          </>
+        )}
+
+        {screen === 'forgot' && !forgotSent && (
+          <>
+            <div style={{fontSize:'19px',fontWeight:900,letterSpacing:'-0.5px',marginBottom:'6px'}}>Reset your password</div>
+            <div style={{fontSize:'13px',color:'#64748b',lineHeight:1.5,marginBottom:'18px',fontWeight:600}}>We'll email you a secure link to set a new password.</div>
+            <label style={AS.label}>Email</label>
+            <input style={AS.input} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/>
+            {error && <div style={AS.err}>{error}</div>}
+            <button style={{...AS.btn,opacity:busy?0.7:1}} disabled={busy} onClick={handleForgotRequest}>{busy?'Sending…':'Send reset link'}</button>
+            <div style={AS.linkRow}><span style={AS.link} onClick={()=>{ setScreen('signin'); setError(''); }}>Back to sign in</span></div>
+          </>
+        )}
+
+        {screen === 'forgot' && forgotSent && (
+          <>
+            <div style={{fontSize:'19px',fontWeight:900,letterSpacing:'-0.5px',marginBottom:'6px'}}>Check your email</div>
+            <div style={{fontSize:'13px',color:'#64748b',lineHeight:1.5,marginBottom:'18px',fontWeight:600}}>A reset link's on its way to {email}. Follow it to set a new password.</div>
+            <button style={AS.btnGhost} onClick={()=>{ setScreen('signin'); setError(''); setForgotSent(false); }}>Back to sign in</button>
+          </>
+        )}
+
+        {screen === 'set-new-password' && (
+          <>
+            <div style={{fontSize:'19px',fontWeight:900,letterSpacing:'-0.5px',marginBottom:'6px'}}>Set a new password</div>
+            <div style={{fontSize:'13px',color:'#64748b',lineHeight:1.5,marginBottom:'18px',fontWeight:600}}>Choose a new password for your account.</div>
+            <label style={AS.label}>New password</label>
+            <input style={AS.input} type="password" placeholder="At least 8 characters" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password"/>
+            <label style={AS.label}>Confirm new password</label>
+            <input style={AS.input} type="password" placeholder="••••••••" value={password2} onChange={e=>setPassword2(e.target.value)} autoComplete="new-password"/>
+            {error && <div style={AS.err}>{error}</div>}
+            <button style={{...AS.btn,opacity:busy?0.7:1}} disabled={busy} onClick={handleSetNewPassword}>{busy?'Saving…':'Set new password'}</button>
+          </>
+        )}
+
+        {screen === 'recovery-unlock' && (
+          <>
+            <div style={{fontSize:'19px',fontWeight:900,letterSpacing:'-0.5px',marginBottom:'6px'}}>Unlock your existing data</div>
+            <div style={{fontSize:'13px',color:'#64748b',lineHeight:1.5,marginBottom:'18px',fontWeight:600}}>Your password's been reset. Enter your recovery word to restore access to your previous shifts and TOIL.</div>
+            <label style={AS.label}>Recovery word</label>
+            <input style={AS.input} type="text" placeholder="Enter your recovery word" autoComplete="off" value={recoveryWord} onChange={e=>setRecoveryWord(e.target.value)}/>
+            {error && <div style={AS.err}>{error}</div>}
+            <button style={{...AS.btn,opacity:busy?0.7:1}} disabled={busy} onClick={handleRecoveryUnlock}>{busy?'Unlocking…':'Unlock my data'}</button>
+            <div style={AS.linkRow}><span style={AS.link} onClick={()=>setNoRecoveryWarning(true)}>I don't have my recovery word</span></div>
+            {noRecoveryWarning && (
+              <div style={{marginTop:'12px'}}>
+                <div style={{fontSize:'11.5px',color:'#dc2626',lineHeight:1.5,fontWeight:700,marginBottom:'10px'}}>Without it, your existing shifts and TOIL can't be recovered by anyone. You can continue and set up a fresh recovery word, but everything logged before this reset will be gone for good.</div>
+                <button style={AS.btnGhost} onClick={()=>{ setError(''); setRecoveryWord(''); setNoRecoveryWarning(false); setScreen('recovery-setup'); }}>Continue without my old data</button>
+              </div>
+            )}
+          </>
+        )}
+
+      </div>
+      </div>
+    </div>
+  );
+}
+
+
 // ─── app ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const todayStr      = new Date().toISOString().split('T')[0];
@@ -726,18 +1181,28 @@ export default function App() {
   const [payslipEnd, setPayslipEnd] = useState('');
   const [payslipPreview, setPayslipPreview] = useState(null); // { start, end, label, data } | null
   const [sanitiseNotes, setSanitiseNotes] = useState(true); // blank the Notes column on CSV export by default — safer given notes may hold operationally sensitive detail
-  const [defaultBreakdownView, setDefaultBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list'));
-  const [breakdownView, setBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'list')); // 'list' | 'calendar'
+  const [defaultBreakdownView, setDefaultBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'calendar'));
+  const [breakdownView, setBreakdownView] = useState(()=>dualRead(KEYS.defaultBreakdownView,'calendar')); // 'list' | 'calendar'
   const [calPeriodIdx, setCalPeriodIdx] = useState(null); // set to currPeriodIdx on first render
   const [selectedCalDay, setSelectedCalDay] = useState(null);
   const [confirmCreateDay, setConfirmCreateDay] = useState(null);
   const [focusEntryId, setFocusEntryId] = useState(null);
   const [editing,      setEditing]      = useState(null);
   const [wipeConf,     setWipeConf]     = useState(false);
+  const [wipingData,   setWipingData]   = useState(false);
+  const [deleteAcctConf, setDeleteAcctConf] = useState(false);
+  const [deleteAcctTyped, setDeleteAcctTyped] = useState('');
+  const [deletingAcct, setDeletingAcct] = useState(false);
   const [confirmDel,   setConfirmDel]   = useState(null);
   const [toasts,       setToasts]       = useState([]);
   const [savedBadge,   setSavedBadge]   = useState(false);
   const [lastBackedUp, setLastBackedUp] = useState(()=>dualRead(KEYS.backedUpAt,null));
+  const [session,      setSession]      = useState(null);
+  const [authLoading,  setAuthLoading]  = useState(true);
+  const [dataKey,      setDataKey]      = useState(null); // unwrapped CryptoKey, in memory only, never persisted
+  const [manualSyncing, setManualSyncing] = useState(false);
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   const [showFYRollover, setShowFYRollover] = useState(false);
   const [fySummaryYear, setFySummaryYear] = useState(null); // calendar FY-start-year of the archived year being viewed, or null
@@ -745,11 +1210,28 @@ export default function App() {
   const [archiveExpandedPeriod, setArchiveExpandedPeriod] = useState(null); // short label of the expanded period within that year, or null
   const [trendsExpanded, setTrendsExpanded] = useState(false);
   const [taxImpactExpanded, setTaxImpactExpanded] = useState(false);
+  const [accountExpanded, setAccountExpanded] = useState(false);
+  const [dataManagementExpanded, setDataManagementExpanded] = useState(false);
   const [homeGraphExpanded, setHomeGraphExpanded] = useState(false);
   const [taxCalcActualDetailOpen, setTaxCalcActualDetailOpen] = useState(false);
   const [taxCalcForecastDetailOpen, setTaxCalcForecastDetailOpen] = useState(false);
-  const [hourlyRatesExpanded, setHourlyRatesExpanded] = useState(false);
+  const [configExpanded, setConfigExpanded] = useState(false);
   const [exportDataExpanded, setExportDataExpanded] = useState(false);
+
+  // Configuration must stay visibly open for as long as rank/pay point
+  // setup is incomplete — that's the critical first-run flow, not
+  // something a collapse toggle should be able to hide. The moment setup
+  // actually completes, it's left open rather than snapping shut, since
+  // the person was just looking at it.
+  const configSetupIncomplete = !settings.rank || !settings.service;
+  const prevConfigSetupIncompleteRef = useRef(configSetupIncomplete);
+  useEffect(()=>{
+    if (prevConfigSetupIncompleteRef.current && !configSetupIncomplete) {
+      setConfigExpanded(true);
+    }
+    prevConfigSetupIncompleteRef.current = configSetupIncomplete;
+  },[configSetupIncomplete]);
+  const configShown = configExpanded || configSetupIncomplete;
   const [financialYearsExpanded, setFinancialYearsExpanded] = useState(false);
   const [pulseBackupBtn, setPulseBackupBtn] = useState(false);
 
@@ -759,16 +1241,272 @@ export default function App() {
   const stickyRef = useRef(null);
   const entryRefs = useRef({});
   const notesRef = useRef(null);
+  // What's already been pushed to Supabase, keyed by row id — compared
+  // against on every local change so only genuinely new/edited/removed
+  // items get pushed, not the whole array on every render. Hydrated from
+  // localStorage on mount, and re-persisted on every mutation below —
+  // without this, a plain page reload would forget everything this device
+  // has ever actually synced, since useRef alone doesn't survive that.
+  const lastSyncedEntriesRef = useRef(new Map(Object.entries(dualRead(KEYS.lastSyncedEntries,{}))));
+  const lastSyncedToilRef = useRef(new Map(Object.entries(dualRead(KEYS.lastSyncedToilTaken,{}))));
+  const lastSyncedSettingsRef = useRef(dualRead(KEYS.lastSyncedSettings,null));
+  const persistLastSyncedEntries = () => dualWrite(KEYS.lastSyncedEntries, Object.fromEntries(lastSyncedEntriesRef.current));
+  const persistLastSyncedToil = () => dualWrite(KEYS.lastSyncedToilTaken, Object.fromEntries(lastSyncedToilRef.current));
+  const persistLastSyncedSettings = () => dualWrite(KEYS.lastSyncedSettings, lastSyncedSettingsRef.current);
+  // Always-current mirrors of local state, for the async pull/realtime code
+  // below — a value captured at the top of a useEffect can be stale by the
+  // time an awaited call or an event callback actually runs.
+  const entriesRef = useRef(entries);
+  const toilTakenRef = useRef(toilTaken);
+  const settingsRef = useRef(settings);
+  useEffect(()=>{ entriesRef.current = entries; },[entries]);
+  useEffect(()=>{ toilTakenRef.current = toilTaken; },[toilTaken]);
+  useEffect(()=>{ settingsRef.current = settings; },[settings]);
 
   const blankForm = { date:todayStr, reason:'', hours133:'', hours150:'', hours200:'', nightWorkHours:'', nightHours:'', paRate:'None', comments:'', recordShiftTimes:true, rosteredStart:'', rosteredEnd:'', actualStart:'', actualEnd:'', dutyType:'normal', otRateTier:'hours133', otAuto:true, nightAuto:true, takeAs:'pay', toilHours:'' };
   const [form, setForm] = useState(blankForm);
 
+  // ── cloud push sync ──────────────────────────────────────────────────────
+  // Local state (via dualWrite, below) stays the instant, source-of-truth
+  // write — this only ever runs after that, in the background, and never
+  // blocks or slows down anything the person sees. Diffs against what was
+  // last pushed so an edit to one entry doesn't reupload every other one.
+  // Deliberately no retry queue or offline detection yet — a failed push
+  // here is silently dropped rather than lost data, since local storage
+  // already has the real copy; that gap is closed by pull-and-merge on
+  // sign-in, which is the next piece, not this one.
+  async function pushRowChanges(table, items, lastSyncedRef, persistFn) {
+    if (!supabase || !session || !dataKey) return;
+    const uid = session.user.id;
+    const currentIds = new Set(items.map(it => it.id));
+    const toUpsert = items.filter(it => lastSyncedRef.current.get(it.id) !== JSON.stringify(it));
+    const toDelete = Array.from(lastSyncedRef.current.keys()).filter(id => !currentIds.has(id));
+    if (toUpsert.length === 0 && toDelete.length === 0) return;
+    const now = new Date().toISOString();
+    for (const item of toUpsert) {
+      try {
+        const ciphertext = await encryptWithDataKey(dataKey, item);
+        const { error } = await supabase.from(table).upsert({ id: item.id, user_id: uid, ciphertext, updated_at: now, deleted_at: null });
+        if (!error) { lastSyncedRef.current.set(item.id, JSON.stringify(item)); persistFn(); console.log(`[sync] pushed ${table} id=${item.id}`); }
+        else console.error(`[sync] push failed for ${table} id=${item.id}:`, error.message || error);
+      } catch (e) { console.error(`[sync] push threw for ${table} id=${item.id}:`, e.message || e); }
+    }
+    for (const id of toDelete) {
+      const { error } = await supabase.from(table).update({ deleted_at: now, updated_at: now }).eq('id', id).eq('user_id', uid);
+      if (!error) { lastSyncedRef.current.delete(id); persistFn(); }
+      else console.error(`[sync] soft-delete failed for ${table} id=${id}:`, error.message || error);
+    }
+  }
+
+  async function pushSettingsChange(settingsObj) {
+    if (!supabase || !session || !dataKey) return;
+    const json = JSON.stringify(settingsObj);
+    if (lastSyncedSettingsRef.current === json) return;
+    try {
+      const ciphertext = await encryptWithDataKey(dataKey, settingsObj);
+      const { error } = await supabase.from('settings').upsert({ user_id: session.user.id, ciphertext, updated_at: new Date().toISOString() });
+      if (!error) { lastSyncedSettingsRef.current = json; persistLastSyncedSettings(); console.log('[sync] pushed settings'); }
+      else console.error('[sync] push failed for settings:', error.message || error);
+    } catch (e) { console.error('[sync] push threw for settings:', e.message || e); }
+  }
+
+  // ── cloud pull + merge ──────────────────────────────────────────────────
+  // Runs once when the data key first becomes ready (a fresh sign-in or a
+  // freshly-unlocked device), and again every time the realtime channel
+  // (re)connects, to close whatever gap opened while disconnected.
+  //
+  // The merge rule reuses lastSyncedRef rather than needing a separate
+  // per-item local timestamp: if a local item's JSON still matches what
+  // this device last believes it pushed, there's no unsynced local edit,
+  // so it's safe to take whatever the server has (which may be newer, from
+  // another device). If the local JSON has since diverged, there's a
+  // pending local edit — keep it, and the next push cycle will send it up.
+  // An item that WAS synced before but is missing from the server now
+  // means another device deleted it — dropped locally too, not resurrected.
+  async function pullAndMergeRows(table, itemsRef, setLocalItems, lastSyncedRef, persistFn) {
+    if (!supabase || !session || !dataKey) return;
+    const uid = session.user.id;
+    const { data: rows, error } = await supabase.from(table).select('id, ciphertext, deleted_at').eq('user_id', uid);
+    if (error) { console.error(`[sync] pull failed for ${table}:`, error.message || error); return; }
+    if (!rows) return;
+    console.log(`[sync] pulled ${rows.length} row(s) from ${table}`);
+    const remoteMap = new Map();
+    let decryptFailures = 0;
+    for (const row of rows) {
+      if (row.deleted_at) continue;
+      try { remoteMap.set(row.id, await decryptWithDataKey(dataKey, row.ciphertext)); }
+      catch (e) { decryptFailures++; }
+    }
+    if (decryptFailures > 0) console.error(`[sync] ${decryptFailures} row(s) in ${table} failed to decrypt with the current key`);
+    const merged = [];
+    for (const localItem of itemsRef.current) {
+      if (remoteMap.has(localItem.id)) {
+        const remoteItem = remoteMap.get(localItem.id);
+        const noPendingLocalEdit = lastSyncedRef.current.get(localItem.id) === JSON.stringify(localItem);
+        if (noPendingLocalEdit) {
+          merged.push(remoteItem);
+          lastSyncedRef.current.set(localItem.id, JSON.stringify(remoteItem));
+        } else {
+          merged.push(localItem);
+        }
+        remoteMap.delete(localItem.id);
+      } else if (!lastSyncedRef.current.has(localItem.id)) {
+        merged.push(localItem); // never synced yet — keep, will push shortly
+      } else if (!isWithinCloudRetention(localItem.date)) {
+        // Was synced before, now gone from the cloud — but this item is
+        // older than the retention window, so its absence is expected
+        // (pruned for storage, not a deletion on another device). Kept
+        // locally without limit; not re-pushed either, since deliberately
+        // pruned data shouldn't just reappear in the cloud on its own.
+        merged.push(localItem);
+      }
+      // else: was synced before, still within the retention window, but
+      // gone from the server now — genuinely deleted elsewhere, drop it.
+    }
+    for (const [id, remoteItem] of remoteMap) {
+      merged.push(remoteItem);
+      lastSyncedRef.current.set(id, JSON.stringify(remoteItem));
+    }
+    persistFn();
+    setLocalItems(merged);
+  }
+
+  async function pullAndMergeSettings() {
+    if (!supabase || !session || !dataKey) return;
+    const { data: row, error } = await supabase.from('settings').select('ciphertext').eq('user_id', session.user.id).maybeSingle();
+    if (error || !row) return;
+    try {
+      const remoteSettings = await decryptWithDataKey(dataKey, row.ciphertext);
+      // A device that's never synced settings before (lastSyncedSettingsRef
+      // still null) only has blank local defaults, not a real pending edit
+      // — that's not the same case as "synced before, changed since," and
+      // needs to be treated as safe to overwrite, same as no pending edit.
+      const neverSynced = lastSyncedSettingsRef.current === null;
+      const noPendingLocalEdit = neverSynced || lastSyncedSettingsRef.current === JSON.stringify(settingsRef.current);
+      if (noPendingLocalEdit) {
+        saveSett(remoteSettings);
+        lastSyncedSettingsRef.current = JSON.stringify(remoteSettings);
+        persistLastSyncedSettings();
+      }
+    } catch (e) { /* undecryptable — skip */ }
+  }
+
+  // Runs the initial catch-up pull once the data key is actually ready —
+  // deliberately keyed on dataKey alone, not on entries/toilTaken/settings,
+  // since this should fire once per unlock, not on every local edit.
+  useEffect(()=>{
+    if (!dataKey) return;
+    pullAndMergeRows('entries', entriesRef, setEntries, lastSyncedEntriesRef, persistLastSyncedEntries);
+    pullAndMergeRows('toil_taken', toilTakenRef, setToilTaken, lastSyncedToilRef, persistLastSyncedToil);
+    pullAndMergeSettings();
+    pruneOldCloudData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[dataKey]);
+
+  // ── realtime ─────────────────────────────────────────────────────────────
+  // Live updates from other signed-in devices while this one's also open.
+  // RLS applies to realtime the same as any other query, so the filter
+  // below is belt-and-braces, not the actual security boundary. On
+  // (re)connect — including the very first connection — a full pull runs
+  // first, closing any gap from time spent disconnected before relying on
+  // the live stream for anything after that point.
+  useEffect(()=>{
+    if (!supabase || !session || !dataKey) return;
+    const uid = session.user.id;
+    // Tracks whether this is a genuine reconnect (channel dropped and came
+    // back) versus the very first connection, which the dataKey-ready
+    // effect above already pulled for. Re-pulling again immediately after
+    // that first pull raced against the push effect it triggers — the
+    // push would mark an item as synced between the two pulls, tricking
+    // the second one into thinking a genuine pending local edit was safe
+    // to overwrite with a stale remote copy.
+    let hasConnectedOnce = false;
+
+    const handleRowChange = async (setLocalItems, lastSyncedRef, persistFn, payload) => {
+      const row = payload.new;
+      if (!row) return;
+      if (row.deleted_at) {
+        setLocalItems(prev => prev.filter(it => it.id !== row.id));
+        lastSyncedRef.current.delete(row.id);
+        persistFn();
+        return;
+      }
+      try {
+        const decrypted = await decryptWithDataKey(dataKey, row.ciphertext);
+        lastSyncedRef.current.set(row.id, JSON.stringify(decrypted));
+        persistFn();
+        setLocalItems(prev => {
+          const idx = prev.findIndex(it => it.id === row.id);
+          if (idx === -1) return [...prev, decrypted];
+          const copy = [...prev]; copy[idx] = decrypted; return copy;
+        });
+      } catch (e) { /* undecryptable — skip */ }
+    };
+
+    const channel = supabase.channel('sync-'+uid)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entries', filter: `user_id=eq.${uid}` }, p => handleRowChange(setEntries, lastSyncedEntriesRef, persistLastSyncedEntries, p))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'toil_taken', filter: `user_id=eq.${uid}` }, p => handleRowChange(setToilTaken, lastSyncedToilRef, persistLastSyncedToil, p))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings', filter: `user_id=eq.${uid}` }, async (p) => {
+        const row = p.new; if (!row) return;
+        try {
+          const decrypted = await decryptWithDataKey(dataKey, row.ciphertext);
+          lastSyncedSettingsRef.current = JSON.stringify(decrypted);
+          persistLastSyncedSettings();
+          saveSett(decrypted);
+        } catch (e) { /* undecryptable — skip */ }
+      })
+      .subscribe((status)=>{
+        if (status === 'SUBSCRIBED') {
+          if (hasConnectedOnce) {
+            pullAndMergeRows('entries', entriesRef, setEntries, lastSyncedEntriesRef, persistLastSyncedEntries);
+            pullAndMergeRows('toil_taken', toilTakenRef, setToilTaken, lastSyncedToilRef, persistLastSyncedToil);
+            pullAndMergeSettings();
+          }
+          hasConnectedOnce = true;
+        }
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  },[supabase, session, dataKey]);
+
   // ── persist ────────────────────────────────────────────────────────────────
   useEffect(()=>{
     dualWrite(KEYS.entries,entries);
+    pushRowChanges('entries', entries, lastSyncedEntriesRef, persistLastSyncedEntries);
   },[entries]);
-  useEffect(()=>{ dualWrite(KEYS.toilTaken,toilTaken); },[toilTaken]);
-  useEffect(()=>{ dualWrite(KEYS.settings,settings); },[settings]);
+  useEffect(()=>{ dualWrite(KEYS.toilTaken,toilTaken); pushRowChanges('toil_taken', toilTaken, lastSyncedToilRef, persistLastSyncedToil); },[toilTaken]);
+  useEffect(()=>{ dualWrite(KEYS.settings,settings); pushSettingsChange(settings); },[settings]);
+
+  // ── auth session ──────────────────────────────────────────────────────────
+  // Checks for an existing session once on mount, then stays subscribed for
+  // sign-in/sign-out events for the lifetime of the app. A signed-in session
+  // is now required — there's no local-only bypass.
+  useEffect(()=>{
+    if (!supabase) { setAuthLoading(false); return; }
+    let cancelled = false;
+    supabase.auth.getSession().then(({data})=>{
+      if (cancelled) return;
+      setSession(data.session);
+      setAuthLoading(false);
+    }).catch(()=>{
+      // Offline or unreachable — fall through to the auth gate rather than
+      // hang on "Loading…" forever.
+      if (cancelled) return;
+      setSession(null);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession)=>{
+      // Clicking the emailed reset link lands here as a PASSWORD_RECOVERY
+      // event, with a real (temporary) session attached. Without this
+      // check that session would satisfy the normal !session gate check
+      // below and drop the person straight into the main app with their
+      // old password still active — the whole point of the reset link is
+      // to make them set a new one first.
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecoveryMode(true);
+      setSession(newSession);
+    });
+    return ()=>{ cancelled = true; listener.subscription.unsubscribe(); };
+  },[]);
   useEffect(()=>{ if(mainRef.current) mainRef.current.scrollTop=0; },[tab]);
 
   // Opening the Breakdown tab always returns to the starred default view.
@@ -804,9 +1542,11 @@ export default function App() {
       setTaxImpactExpanded(false);
       setTaxCalcActualDetailOpen(false);
       setTaxCalcForecastDetailOpen(false);
-      setHourlyRatesExpanded(false);
+      setConfigExpanded(false);
       setExportDataExpanded(false);
       setFinancialYearsExpanded(false);
+      setAccountExpanded(false);
+      setDataManagementExpanded(false);
     }
     prevTabRef.current = tab;
   },[tab]);
@@ -1414,7 +2154,150 @@ export default function App() {
     fr.readAsText(ev.target.files[0]);
   };
 
-  const handleWipe=()=>{ setEntries([]); setToilTaken([]); saveSett({rank:'',service:''}); setWipeConf(false); setTab('dashboard'); };
+  // Clears local data as before, and — new — the same user's rows in
+  // Supabase, when there's an active session. Deliberately does NOT delete
+  // the auth account/email itself; that's what Delete Account is for,
+  // separately. Cloud deletes are attempted first: if any of them fail,
+  // local data is left untouched rather than risk local being wiped while
+  // stale cloud data silently survives.
+  const handleWipe = async () => {
+    setWipingData(true);
+    if (supabase && session) {
+      try {
+        const uid = session.user.id;
+        const results = await Promise.all([
+          supabase.from('entries').delete().eq('user_id', uid),
+          supabase.from('toil_taken').delete().eq('user_id', uid),
+          supabase.from('settings').delete().eq('user_id', uid),
+        ]);
+        if (results.some(r => r.error)) {
+          setWipingData(false);
+          addToast('Couldn\u2019t fully clear cloud data \u2014 check your connection and try again', 'warn', null, 6000);
+          return;
+        }
+      } catch (e) {
+        setWipingData(false);
+        addToast('Couldn\u2019t clear cloud data \u2014 check your connection and try again', 'warn', null, 6000);
+        return;
+      }
+    }
+    setEntries([]); setToilTaken([]); saveSett({rank:'',service:''});
+    lastSyncedEntriesRef.current.clear(); persistLastSyncedEntries();
+    lastSyncedToilRef.current.clear(); persistLastSyncedToil();
+    lastSyncedSettingsRef.current = null; persistLastSyncedSettings();
+    setWipingData(false);
+    setWipeConf(false);
+    setTab('dashboard');
+  };
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setDataKey(null);
+    addToast('Signed out', 'success');
+    // No manual state changes needed — onAuthStateChange (in the effect above)
+    // picks this up and clears session automatically, which sends the app
+    // straight back to the sign-in gate.
+  };
+
+  // Permanently deletes the Supabase Auth account itself — not just this
+  // device's data. This can't be done directly from the browser (deleting
+  // an auth user needs the service_role key, which never ships to client
+  // code), so it calls a small Edge Function that does it server-side.
+  // Deleting the auth user cascades to entries/toil_taken/settings/user_keys
+  // automatically via the "on delete cascade" foreign keys in the schema —
+  // nothing else needs deleting here. Local data on this device is
+  // deliberately untouched — the real distinction from Wipe All Data is
+  // that this removes the account and email entirely; Wipe All Data clears
+  // everything (local and cloud) but leaves the same account signed in.
+  const handleDeleteAccount = async () => {
+    if (!supabase) return;
+    setDeletingAcct(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setDataKey(null);
+      setDeleteAcctConf(false);
+      setDeleteAcctTyped('');
+      addToast('Account deleted', 'success', null, 5000);
+      // Session clears via onAuthStateChange once the token this session
+      // was using no longer resolves to an existing user, same as sign-out.
+    } catch (e) {
+      addToast('Couldn\u2019t delete account \u2014 ' + (e.message || 'try again'), 'warn', null, 6000);
+    } finally {
+      setDeletingAcct(false);
+    }
+  };
+
+  // Manual "sync now" — the same pull-and-merge already used on unlock and
+  // on realtime reconnect, just triggered on demand instead of waiting for
+  // one of those moments. Push isn't included deliberately: local changes
+  // already push themselves the moment they happen, so there's nothing a
+  // manual push would do that hasn't already been attempted.
+  // Every path that ends in "the app is now unlocked" — a fresh sign-in,
+  // finishing recovery-secret setup, or recovering after a password reset
+  // — calls this. Always landing back on Home regardless of which path got
+  // here, rather than wherever `tab` happened to be left from an earlier
+  // sign-out in the same session.
+  const handleUnlocked = (dek) => {
+    setDataKey(dek);
+    setTab('dashboard');
+  };
+
+  // Hard-deletes entries/toil_taken rows older than the 5-financial-year
+  // cloud retention window (see isWithinCloudRetention above) — a real
+  // DELETE, not a soft-delete, since the goal is to actually reduce what's
+  // stored in Supabase. The server has no way to know which rows qualify
+  // on its own — dates live inside the encrypted ciphertext, not in a
+  // plaintext column — so this decrypts each row client-side first,
+  // decides locally, then deletes only those specific rows by id.
+  // Throttled to at most once a day; local data is never touched here.
+  const pruneOldCloudData = async () => {
+    if (!supabase || !session || !dataKey) return;
+    const today = new Date().toISOString().split('T')[0];
+    if (dualRead(KEYS.lastCloudPruneCheck, null) === today) return;
+    const uid = session.user.id;
+    try {
+      for (const table of ['entries', 'toil_taken']) {
+        const { data: rows, error } = await supabase.from(table).select('id, ciphertext, deleted_at').eq('user_id', uid);
+        if (error || !rows) continue;
+        const idsToDelete = [];
+        for (const row of rows) {
+          if (row.deleted_at) continue; // already soft-deleted — not this policy's concern
+          try {
+            const decrypted = await decryptWithDataKey(dataKey, row.ciphertext);
+            if (decrypted.date && !isWithinCloudRetention(decrypted.date)) idsToDelete.push(row.id);
+          } catch (e) { /* undecryptable — leave it alone rather than guess */ }
+        }
+        if (idsToDelete.length > 0) {
+          const { error: delError } = await supabase.from(table).delete().eq('user_id', uid).in('id', idsToDelete);
+          if (delError) console.error(`[retention] failed to prune ${table}:`, delError.message || delError);
+          else console.log(`[retention] pruned ${idsToDelete.length} row(s) from ${table} older than ${CLOUD_RETENTION_CUTOFF}`);
+        }
+      }
+      dualWrite(KEYS.lastCloudPruneCheck, today);
+    } catch (e) {
+      console.error('[retention] prune check failed:', e.message || e);
+    }
+  };
+
+  const handleManualSync = async () => {
+    if (!supabase || !session || !dataKey) { addToast('Not signed in \u2014 nothing to sync', 'warn'); return; }
+    setManualSyncing(true);
+    try {
+      await Promise.all([
+        pullAndMergeRows('entries', entriesRef, setEntries, lastSyncedEntriesRef, persistLastSyncedEntries),
+        pullAndMergeRows('toil_taken', toilTakenRef, setToilTaken, lastSyncedToilRef, persistLastSyncedToil),
+        pullAndMergeSettings(),
+      ]);
+      pruneOldCloudData();
+      addToast('Synced', 'success', null, 2000);
+    } catch (e) {
+      addToast('Sync failed \u2014 check your connection', 'warn');
+    } finally {
+      setManualSyncing(false);
+    }
+  };
 
   // Scrolls the main container so a month card sits just below the sticky
   // header. The header's height is measured live (it changes between views,
@@ -1734,12 +2617,42 @@ export default function App() {
     return { year, start: yPeriods[0].start, end: yPeriods[11].end, totalShifts, totalGross, totalHrs, totalToilBanked, periods };
   };
 
+  // ── auth gate ──────────────────────────────────────────────────────────────
+  // Placed after every hook above has already run (React's rules of hooks
+  // require that), so it's safe to branch the actual render here. An active
+  // session is required to reach the app below. If Supabase itself is
+  // unreachable or misconfigured (supabase is null), this still falls back
+  // to rendering the app rather than a dead end — see the client setup above.
+  if (authLoading) {
+    return (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100dvh',background:'#f8fafc'}}>
+        <span style={{fontSize:'13px',fontWeight:700,color:'#94a3b8',fontFamily:"'DM Sans',system-ui,sans-serif"}}>Loading…</span>
+      </div>
+    );
+  }
+  if (supabase && passwordRecoveryMode) {
+    return (
+      <AuthScreens
+        key="recovery"
+        supabase={supabase}
+        addToast={addToast}
+        onUnlocked={handleUnlocked}
+        startInPasswordRecovery={true}
+        onRecoveryComplete={()=>setPasswordRecoveryMode(false)}
+      />
+    );
+  }
+  if (supabase && (!session || !dataKey)) {
+    return <AuthScreens key="normal" supabase={supabase} addToast={addToast} onUnlocked={handleUnlocked} />;
+  }
+
   return (
     <div style={S.wrap}>
       <style>{`
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         ::-webkit-scrollbar{display:none}
         @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes su{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes urgentPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}25%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}50%{opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0);transform:scale(1)}75%{opacity:0.78;box-shadow:0 0 0 9px rgba(220,38,38,0.38);transform:scale(1.012)}}
         @keyframes backupPulse{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,0)}30%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}50%{box-shadow:0 0 0 0 rgba(37,99,235,0)}70%{box-shadow:0 0 0 8px rgba(37,99,235,0.35)}}
@@ -1774,18 +2687,38 @@ export default function App() {
       <header className="no-print" style={S.hdr}>
         <div style={{display:'flex',alignItems:'center',gap:'8px',minWidth:0}}>
           <ClockCashIcon width={28} height={19}/>
-          <div style={{display:'flex',flexDirection:'column',lineHeight:1.2,minWidth:0}}>
-            <span style={{fontSize:'19px',fontWeight:900,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:'-0.4px',whiteSpace:'nowrap'}}>Overtime &amp; Shift Tracker</span>
-            <span style={{fontSize:'13px',fontWeight:700,color:'#94a3b8',letterSpacing:'0.2px'}}>by Adam Stephens</span>
+          <div style={{display:'flex',flexDirection:'column',lineHeight:1.2,minWidth:0,overflow:'hidden'}}>
+            <span style={{fontSize:'19px',fontWeight:900,background:'linear-gradient(135deg,#1e3a5f,#2563eb)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',letterSpacing:'-0.4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Overtime &amp; Shift Tracker</span>
+            <span style={{fontSize:'13px',fontWeight:700,color:'#94a3b8',letterSpacing:'0.2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>by Adam Stephens</span>
           </div>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:'5px',flexShrink:0}}>
-          <div style={{width:'6px',height:'6px',borderRadius:'50%',background:lastBackedUp?'#10b981':'#f59e0b',flexShrink:0}}/>
-          <span style={{fontSize:'9px',fontWeight:700,color:'#94a3b8',whiteSpace:'nowrap'}}>
-            {lastBackedUp?`Backed up ${fmtBackedUp(lastBackedUp)}`:'Not backed up'}
-          </span>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',flexShrink:0}}>
+          {session&&(
+            <button onClick={handleManualSync} disabled={manualSyncing} aria-label="Sync now" style={{display:'flex',alignItems:'center',gap:'6px',padding:'8px 13px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'9px',color:'#2563eb',fontWeight:800,fontSize:'11px',fontFamily:'inherit',cursor:manualSyncing?'default':'pointer',whiteSpace:'nowrap'}}>
+              <span style={{display:'flex',animation:manualSyncing?'spin 0.8s linear infinite':'none'}}><Ico n="refresh" s={13} c="#2563eb"/></span> Sync
+            </button>
+          )}
         </div>
       </header>
+
+      {/* ── sign-out confirmation — bottom sheet, same pattern as the export
+           modal, with an explicit close (×) as well as Cancel ── */}
+      {signOutConfirmOpen&&(
+        <div onClick={()=>setSignOutConfirmOpen(false)} style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'flex-end',justifyContent:'center',zIndex:60}}>
+          <div onClick={e=>e.stopPropagation()} className="fi" style={{background:'#fff',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:'430px',padding:'20px',boxSizing:'border-box',position:'relative'}}>
+            <button onClick={()=>setSignOutConfirmOpen(false)} aria-label="Close" style={{position:'absolute',top:'14px',right:'14px',width:'28px',height:'28px',display:'flex',alignItems:'center',justifyContent:'center',background:'#f1f5f9',border:'none',borderRadius:'50%',cursor:'pointer'}}>
+              <Ico n="x" s={14} c="#64748b"/>
+            </button>
+            <div style={{width:'36px',height:'4px',background:'#e2e8f0',borderRadius:'4px',margin:'0 auto 14px'}}/>
+            <div style={{fontSize:'15px',fontWeight:900,marginBottom:'6px',textAlign:'center'}}>Sign out?</div>
+            <div style={{fontSize:'12px',color:'#64748b',textAlign:'center',marginBottom:'18px',lineHeight:1.5}}>You'll need your password again to get back in. Data already synced stays exactly as it is.</div>
+            <div style={{display:'flex',gap:'8px'}}>
+              <button onClick={()=>{ setSignOutConfirmOpen(false); handleSignOut(); }} style={{flex:1,padding:'12px',background:'#2563eb',border:'none',borderRadius:'11px',color:'#fff',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px'}}>Sign Out</button>
+              <button onClick={()=>setSignOutConfirmOpen(false)} style={{flex:1,padding:'12px',background:'#f1f5f9',border:'none',borderRadius:'11px',color:'#64748b',fontWeight:900,fontSize:'11px',fontFamily:'inherit',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px'}}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 14-day backup reminder — optional, dismissible, never blocks the app ── */}
       {showBackupReminder&&(
@@ -2829,13 +3762,21 @@ export default function App() {
               {savedBadge&&<div style={{display:'flex',alignItems:'center',gap:'5px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'9px',padding:'4px 9px'}}><Ico n="check" s={12} c="#059669"/><span style={{fontSize:'11px',fontWeight:900,color:'#065f46'}}>Saved</span></div>}
             </div>
 
-            {/* ── Configuration — Rank/Pay Point selection (always visible) merged with Hourly Rates & Payscales (behind the expand toggle) ── */}
+            {/* ── Configuration — now a single collapsible unit like the
+                 other cards, except it forces itself open for as long as
+                 rank/pay point setup is incomplete (see configShown above)
+                 — that part was never meant to be hideable. ── */}
             <div style={S.card}>
-              <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'13px'}}>
-                <div style={{background:'#eff6ff',padding:'9px',borderRadius:'11px'}}><Ico n="cog" s={17} c="#2563eb"/></div>
-                <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Configuration</div>
+              <div onClick={configSetupIncomplete?undefined:()=>setConfigExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',cursor:configSetupIncomplete?'default':'pointer',marginBottom:configShown?'13px':0}}>
+                <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                  <div style={{background:'#eff6ff',padding:'9px',borderRadius:'11px'}}><Ico n="cog" s={17} c="#2563eb"/></div>
+                  <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Config, Rates &amp; Payscales</div>
+                </div>
+                {!configSetupIncomplete && <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{configShown?'Tap to Close':'Tap to expand'}</span>}
               </div>
 
+              {configShown && (
+              <>
               <div style={{marginBottom:'13px'}}>
                 <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'7px'}}>
                   <label style={{...S.lbl,marginBottom:0}}>Rank</label>
@@ -2866,15 +3807,12 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <div onClick={()=>setHourlyRatesExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',borderTop:'1px solid #f1f5f9',marginTop:'14px',paddingTop:'12px',cursor:'pointer'}}>
-                <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                  <div style={{background:'#eff6ff',padding:'9px',borderRadius:'11px'}}><Ico n="clock" s={17} c="#2563eb"/></div>
-                  <span style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Hourly Rates & Payscales</span>
-                </div>
-                <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{hourlyRatesExpanded?'Tap to Close':'Tap to expand'}</span>
+              <div style={{display:'flex',alignItems:'center',gap:'8px',borderTop:'1px solid #f1f5f9',marginTop:'14px',paddingTop:'12px'}}>
+                <div style={{background:'#eff6ff',padding:'9px',borderRadius:'11px'}}><Ico n="clock" s={17} c="#2563eb"/></div>
+                <span style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Hourly Rates & Payscales</span>
               </div>
 
-              {settings.rank&&settings.service&&hourlyRatesExpanded&&(()=>{
+              {settings.rank&&settings.service&&(()=>{
                 const svcData = PAY_RATES[settings.rank][settings.service];
                 return (
                   <div style={{borderTop:'1px solid #f1f5f9',marginTop:'14px',paddingTop:'14px'}}>
@@ -2920,6 +3858,8 @@ export default function App() {
                   </div>
                 );
               })()}
+              </>
+              )}
             </div>
 
             {/* ── Tax & 100K+ Calculator — Actual (YTD) and Forecast (full year), side by side ── */}
@@ -3181,50 +4121,100 @@ export default function App() {
               )}
             </div>
 
-            {/* data management */}
-            <div style={{...S.dark,background:'#0f2744'}}>
-              <div style={{display:'flex',alignItems:'center',gap:'11px',marginBottom:'13px'}}>
-                <div style={{background:'rgba(255,255,255,0.1)',padding:'11px',borderRadius:'13px'}}><Ico n="shield" s={21} c="#93c5fd"/></div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:900,fontSize:'14px',color:'#fff',textTransform:'uppercase'}}>Data Management</div>
-                  <div style={{fontSize:'11px',color:'#93c5fd',marginTop:'1px'}}>Stored locally on your device.</div>
+            {/* ── Account — who's signed in, and a way to sign out. Collapsible
+                 like Hourly Rates and Tax & 100K, sitting directly above
+                 Data Management. Only shown when there's an actual session,
+                 since supabase can be null (missing config) or the app can
+                 otherwise be mid-auth-check. ── */}
+            {session&&(
+              <div style={S.card}>
+                <div onClick={()=>setAccountExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',cursor:'pointer',marginBottom:accountExpanded?'13px':0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                    <div style={{background:'#eff6ff',padding:'9px',borderRadius:'11px'}}><Ico n="user" s={17} c="#2563eb"/></div>
+                    <div style={{fontWeight:900,fontSize:'13px',color:'#0f172a'}}>Account</div>
+                  </div>
+                  <span style={{fontSize:'9px',fontWeight:800,color:'#2563eb',textDecoration:'underline',flexShrink:0}}>{accountExpanded?'Tap to Close':'Tap to expand'}</span>
                 </div>
-              </div>
-              <div style={{background:'rgba(255,255,255,0.07)',borderRadius:'12px',padding:'10px 13px',marginBottom:'12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{display:'flex',alignItems:'center',gap:'7px'}}>
-                  <div style={{width:'7px',height:'7px',borderRadius:'50%',background:lastBackedUp?'#34d399':'#f59e0b',boxShadow:lastBackedUp?'0 0 6px #34d399':'0 0 6px #f59e0b'}}/>
-                  <div>
-                    <div style={{fontSize:'10px',fontWeight:900,color:'#fff',textTransform:'uppercase',letterSpacing:'0.5px'}}>{lastBackedUp?'Last backed up':'Not yet backed up'}</div>
-                    <div style={{fontSize:'9px',color:'#93c5fd',marginTop:'1px'}}>
-                      {lastBackedUp
-                        ?new Date(lastBackedUp).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' at '+new Date(lastBackedUp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
-                        :'Download a backup to protect your data'}
+                {accountExpanded&&(
+                  <>
+                    <div style={{fontSize:'12px',color:'#64748b',marginBottom:'11px',fontWeight:600}}>Signed in as {session.user?.email}</div>
+                    <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid #f1f5f9'}}>
+                      {!deleteAcctConf ? (
+                        <button onClick={()=>setDeleteAcctConf(true)} style={{width:'100%',padding:'10px',background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'10px',color:'#dc2626',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="trash" s={12} c="#dc2626"/> Delete Account</button>
+                      ) : (
+                        <>
+                          <div style={{fontSize:'11.5px',color:'#dc2626',lineHeight:1.5,fontWeight:700,marginBottom:'10px'}}>This permanently deletes your account and email registration, and all data stored in the cloud under it. Data already on this device isn't touched. Your email becomes available for a brand new account afterward. This can't be undone.</div>
+                          <div style={{fontSize:'10.5px',color:'#94a3b8',fontWeight:700,marginBottom:'6px',textTransform:'uppercase',letterSpacing:'0.5px'}}>Type your email to confirm: {session.user?.email}</div>
+                          <input
+                            value={deleteAcctTyped}
+                            onChange={e=>setDeleteAcctTyped(e.target.value)}
+                            placeholder={session.user?.email}
+                            style={{width:'100%',background:'#f8fafc',border:'1px solid #fecaca',padding:'10px 12px',borderRadius:'10px',fontWeight:700,fontSize:'14px',outline:'none',fontFamily:'inherit',boxSizing:'border-box',color:'#0f172a',marginBottom:'10px'}}
+                          />
+                          <div style={{display:'flex',gap:'8px'}}>
+                            <button
+                              onClick={handleDeleteAccount}
+                              disabled={deleteAcctTyped !== session.user?.email || deletingAcct}
+                              style={{flex:1,padding:'9px',background:(deleteAcctTyped===session.user?.email)?'#dc2626':'#fecaca',border:'none',borderRadius:'8px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:(deleteAcctTyped===session.user?.email)?'pointer':'not-allowed',textTransform:'uppercase',letterSpacing:'1px'}}
+                            >{deletingAcct?'Deleting…':'Delete Permanently'}</button>
+                            <button onClick={()=>{ setDeleteAcctConf(false); setDeleteAcctTyped(''); }} style={{flex:1,padding:'9px',background:'#f1f5f9',border:'none',borderRadius:'8px',color:'#64748b',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px'}}>Cancel</button>
+                          </div>
+                        </>
+                      )}
                     </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* data management — collapsible like the cards above, but
+                deliberately keeps its dark blue styling rather than
+                switching to the white S.card look the others use. */}
+            <div style={{...S.dark,background:'#0f2744'}}>
+              <div onClick={()=>setDataManagementExpanded(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px',cursor:'pointer',marginBottom:dataManagementExpanded?'13px':0}}>
+                <div style={{display:'flex',alignItems:'center',gap:'11px'}}>
+                  <div style={{background:'rgba(255,255,255,0.1)',padding:'11px',borderRadius:'13px'}}><Ico n="shield" s={21} c="#93c5fd"/></div>
+                  <div style={{fontWeight:900,fontSize:'14px',color:'#fff',textTransform:'uppercase'}}>Data Management</div>
+                </div>
+                <span style={{fontSize:'9px',fontWeight:800,color:'#93c5fd',textDecoration:'underline',flexShrink:0}}>{dataManagementExpanded?'Tap to Close':'Tap to expand'}</span>
+              </div>
+              {dataManagementExpanded&&(
+                <div style={{background:'rgba(0,0,0,0.2)',borderRadius:'13px',padding:'13px'}}>
+                  <div style={{fontSize:'11px',color:'rgba(147,197,253,0.65)',marginBottom:'11px',lineHeight:1.5}}>Data is automatically saved to a secure cloud. Backup creates a hard copy on this device.</div>
+                  <div style={{display:'flex',gap:'6px',marginBottom:'11px'}}>
+                    <button onClick={handleExport} className={pulseBackupBtn?'backup-pulse':''} style={{flex:1,padding:'10px',background:'#2563eb',border:'none',borderRadius:'10px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="dl" s={12} c="#fff"/> Backup</button>
+                    <button onClick={()=>fileRef.current.click()} style={{flex:1,padding:'10px',background:'rgba(255,255,255,0.1)',border:'none',borderRadius:'10px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="ul" s={12} c="#fff"/> Restore</button>
+                    <input type="file" ref={fileRef} style={{display:'none'}} accept=".json" onChange={handleImport}/>
+                  </div>
+                  <div style={{borderTop:'1px solid rgba(255,255,255,0.1)',paddingTop:'11px'}}>
+                    {!wipeConf
+                      ?<button onClick={()=>setWipeConf(true)} style={{width:'100%',padding:'10px',background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:'10px',color:'#fca5a5',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="trash" s={12} c="#fca5a5"/> Wipe All Data</button>
+                      :<div style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'12px',padding:'12px'}}>
+                          <div style={{textAlign:'center',color:'#fca5a5',fontWeight:700,fontSize:'12px',marginBottom:'9px',lineHeight:1.4}}>Are you absolutely sure?<br/><span style={{fontSize:'10px',fontWeight:400,color:'rgba(252,165,165,0.7)'}}>{session ? 'Deletes every logged shift and all TOIL data — on this device and in the cloud. ' : 'Deletes every logged shift and all TOIL data on this device. '}This cannot be undone.</span></div>
+                          <div style={{display:'flex',gap:'6px'}}>
+                            <button onClick={handleWipe} disabled={wipingData} style={{flex:1,padding:'9px',background:'#dc2626',border:'none',borderRadius:'8px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:wipingData?'not-allowed':'pointer',textTransform:'uppercase',letterSpacing:'1px',opacity:wipingData?0.7:1}}>{wipingData?'Wiping…':'Yes, Delete'}</button>
+                            <button onClick={()=>setWipeConf(false)} disabled={wipingData} style={{flex:1,padding:'9px',background:'rgba(255,255,255,0.1)',border:'none',borderRadius:'8px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px'}}>Cancel</button>
+                          </div>
+                        </div>
+                    }
                   </div>
                 </div>
-                <div style={{fontSize:'9px',fontWeight:700,color:'rgba(147,197,253,0.6)'}}>{entries.length} record{entries.length!==1?'s':''}</div>
-              </div>
-              <div style={{background:'rgba(0,0,0,0.2)',borderRadius:'13px',padding:'13px'}}>
-                <div style={{fontSize:'11px',color:'rgba(147,197,253,0.65)',fontStyle:'italic',marginBottom:'11px',lineHeight:1.5}}>Autosave protects against refreshes. Download a backup to protect against browser data being cleared.</div>
-                <div style={{display:'flex',gap:'6px',marginBottom:'11px'}}>
-                  <button onClick={handleExport} className={pulseBackupBtn?'backup-pulse':''} style={{flex:1,padding:'10px',background:'#2563eb',border:'none',borderRadius:'10px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="dl" s={12} c="#fff"/> Backup</button>
-                  <button onClick={()=>fileRef.current.click()} style={{flex:1,padding:'10px',background:'rgba(255,255,255,0.1)',border:'none',borderRadius:'10px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="ul" s={12} c="#fff"/> Restore</button>
-                  <input type="file" ref={fileRef} style={{display:'none'}} accept=".json" onChange={handleImport}/>
-                </div>
-                <div style={{borderTop:'1px solid rgba(255,255,255,0.1)',paddingTop:'11px'}}>
-                  {!wipeConf
-                    ?<button onClick={()=>setWipeConf(true)} style={{width:'100%',padding:'10px',background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:'10px',color:'#fca5a5',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textTransform:'uppercase',letterSpacing:'1px'}}><Ico n="trash" s={12} c="#fca5a5"/> Wipe All Data</button>
-                    :<div style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'12px',padding:'12px'}}>
-                        <div style={{textAlign:'center',color:'#fca5a5',fontWeight:700,fontSize:'12px',marginBottom:'9px',lineHeight:1.4}}>Are you absolutely sure?<br/><span style={{fontSize:'10px',fontWeight:400,color:'rgba(252,165,165,0.7)'}}>Deletes every logged shift and all TOIL data (balance, ledger, everything). This cannot be undone.</span></div>
-                        <div style={{display:'flex',gap:'6px'}}>
-                          <button onClick={handleWipe} style={{flex:1,padding:'9px',background:'#dc2626',border:'none',borderRadius:'8px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px'}}>Yes, Delete</button>
-                          <button onClick={()=>setWipeConf(false)} style={{flex:1,padding:'9px',background:'rgba(255,255,255,0.1)',border:'none',borderRadius:'8px',color:'#fff',fontWeight:900,fontSize:'10px',fontFamily:'inherit',cursor:'pointer',textTransform:'uppercase',letterSpacing:'1px'}}>Cancel</button>
-                        </div>
-                      </div>
-                  }
-                </div>
-              </div>
+              )}
             </div>
+
+            {/* ── Sign Out — its own full box-button, same size/shape as the
+                 other cards, matching how Help & Suggestions below is
+                 itself the clickable element rather than a button inside
+                 a static box. ── */}
+            {session&&(
+              <button onClick={()=>setSignOutConfirmOpen(true)} style={{...S.card,width:'100%',display:'flex',alignItems:'center',gap:'12px',background:'#059669',border:'1px solid #059669',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+                <div style={{background:'rgba(255,255,255,0.15)',padding:'11px',borderRadius:'13px',flexShrink:0}}><FireExitIcon size={19}/></div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:900,fontSize:'13px',color:'#fff'}}>Sign Out</div>
+                </div>
+                <Ico n="cR" s={16} c="rgba(255,255,255,0.7)"/>
+              </button>
+            )}
 
             {/* ── Help & suggestions ── */}
             <a href="mailto:ajstephe@me.com?subject=Overtime%20Tracker%20—%20Feedback" style={{...S.card,display:'flex',alignItems:'center',gap:'12px',textDecoration:'none',cursor:'pointer'}}>
@@ -3501,13 +4491,19 @@ export default function App() {
         return (
           <div className={fySummaryPrintMode?'payslip-print-area':''} style={{position:'absolute',inset:0,background:'#f8fafc',zIndex:65,overflowY:'auto'}}>
             <div className="no-print" style={{background:'#fef3c7',padding:'8px',fontSize:'10px',fontWeight:800,color:'#92400e',textAlign:'center'}}>📁 Archived — {label} is read-only</div>
+            {!fySummaryPrintMode&&(
+              <div className="no-print" style={{display:'flex',gap:'8px',padding:'12px 12px 0'}}>
+                <button onClick={()=>setFySummaryPrintMode(true)} style={{flex:1,background:'#2563eb',color:'#fff',border:'none',borderRadius:'11px',padding:'11px',fontWeight:900,fontSize:'11.5px',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}><Ico n="doc" s={13} c="#fff"/> PDF</button>
+                <button onClick={()=>handleExportCSV(y.start, y.end, sanitiseNotes)} style={{flex:1,background:'#f0fdf4',color:'#059669',border:'1.5px solid #d1fae5',borderRadius:'11px',padding:'11px',fontWeight:900,fontSize:'11.5px',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}><Ico n="table" s={13} c="#059669"/> Spreadsheet</button>
+              </div>
+            )}
             {fySummaryPrintMode&&(
               <div className="no-print" style={{padding:'12px 12px 0'}}>
                 <button onClick={()=>window.print()} style={{width:'100%',background:'#2563eb',color:'#fff',border:'none',borderRadius:'11px',padding:'12px',fontWeight:900,fontSize:'12px',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}><Ico n="dl" s={13} c="#fff"/> Print / Save as PDF</button>
               </div>
             )}
             <div className={fySummaryPrintMode?'payslip-print-doc':''} style={{background:'#0f2744',color:'#fff',padding:'16px',margin:fySummaryPrintMode?'12px':0,borderRadius:fySummaryPrintMode?'12px':0}}>
-              <button className="no-print" onClick={()=>{setFySummaryYear(null);setFySummaryPrintMode(false);}} style={{background:'rgba(255,255,255,0.12)',border:'none',borderRadius:'9px',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',cursor:'pointer',marginBottom:'12px'}}><Ico n="back" s={16} c="#fff"/></button>
+              <button className="no-print" onClick={()=>{ if(fySummaryPrintMode){ setFySummaryPrintMode(false); } else { setFySummaryYear(null); } }} style={{background:'rgba(255,255,255,0.12)',border:'none',borderRadius:'9px',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',cursor:'pointer',marginBottom:'12px'}}><Ico n="back" s={16} c="#fff"/></button>
               <div style={{fontSize:'10px',fontWeight:800,color:'#93c5fd',textTransform:'uppercase',letterSpacing:'1.2px'}}>Financial Year</div>
               <div style={{fontSize:'19px',fontWeight:900}}>{label}</div>
               <div style={{fontSize:'10px',color:'#93c5fd',marginTop:'2px'}}>{fmtD(y.start)} – {fmtD(y.end)}</div>
