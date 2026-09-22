@@ -752,6 +752,7 @@ export default function App() {
   const [exportDataExpanded, setExportDataExpanded] = useState(false);
   const [financialYearsExpanded, setFinancialYearsExpanded] = useState(false);
   const [pulseBackupBtn, setPulseBackupBtn] = useState(false);
+  const [showDeprecationNotice, setShowDeprecationNotice] = useState(true);
 
   const mainRef   = useRef(null);
   const fileRef   = useRef(null);
@@ -1769,6 +1770,21 @@ export default function App() {
       `}</style>
 
       <div className="no-print"><ToastStack toasts={toasts} onDismiss={dismissToast}/></div>
+
+      {/* ── deprecation notice — shown every time the app opens, dismissed only via the close button ── */}
+      {showDeprecationNotice&&(
+        <div className="no-print" style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100,padding:'20px'}}>
+          <div className="fi" style={{background:'#fff',borderRadius:'18px',padding:'22px',width:'100%',maxWidth:'340px',position:'relative'}}>
+            <button onClick={()=>setShowDeprecationNotice(false)} aria-label="Close" style={{position:'absolute',top:'12px',right:'12px',background:'#f1f5f9',border:'none',borderRadius:'8px',padding:'7px',cursor:'pointer',display:'flex'}}><Ico n="x" s={15} c="#64748b"/></button>
+            <div style={{fontWeight:900,fontSize:'16px',color:'#0f172a',marginBottom:'10px',paddingRight:'28px'}}>This app is no longer supported</div>
+            <div style={{fontSize:'13px',fontWeight:600,color:'#64748b',lineHeight:1.5,marginBottom:'16px'}}>
+              Please switch to the new version at{' '}
+              <a href="https://rasptrackas.vercel.app" target="_blank" rel="noopener noreferrer" style={{color:'#2563eb',fontWeight:800,textDecoration:'underline'}}>rasptrackas.vercel.app</a>.
+            </div>
+            <button onClick={()=>setShowDeprecationNotice(false)} style={{width:'100%',padding:'11px',background:'#2563eb',border:'none',borderRadius:'10px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit'}}>Got it</button>
+          </div>
+        </div>
+      )}
 
       {/* ── header ── */}
       <header className="no-print" style={S.hdr}>
