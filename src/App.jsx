@@ -115,7 +115,7 @@ const PAY_RATES = {
   },
 };
 
-const PA_RATES   = { None:0, PA1:40, PA2:90, PA3:125 };
+const PA_RATES   = { None:0, PA1:48, PA2:98, PA3:133 };
 
 // ─── Record Shift Times (optional Notes convenience) ──────────────────────────
 const toMinutesOfDay = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
@@ -229,7 +229,7 @@ const syncShiftTimesIntoForm = f => {
   const comments = line ? `${line}\n\n${rest}` : rest;
   return { ...f, comments };
 };
-const PA_LABELS  = { None:'—', PA1:'£40', PA2:'£90', PA3:'£125' };
+const PA_LABELS  = { None:'—', PA1:'£48', PA2:'£98', PA3:'£133' };
 
 // ─── Met Police allowances ────────────────────────────────────────────────────
 const LONDON_WEIGHTING = { pre:3150, post:3260 }; // pre/post 1 Sep 2026
