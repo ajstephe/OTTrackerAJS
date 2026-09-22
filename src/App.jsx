@@ -1778,7 +1778,7 @@ export default function App() {
             <button onClick={()=>setShowDeprecationNotice(false)} aria-label="Close" style={{position:'absolute',top:'12px',right:'12px',background:'#f1f5f9',border:'none',borderRadius:'8px',padding:'7px',cursor:'pointer',display:'flex'}}><Ico n="x" s={15} c="#64748b"/></button>
             <div style={{fontWeight:900,fontSize:'16px',color:'#0f172a',marginBottom:'10px',paddingRight:'28px'}}>This app is no longer supported</div>
             <div style={{fontSize:'13px',fontWeight:600,color:'#64748b',lineHeight:1.5,marginBottom:'16px'}}>
-              Please switch to the new version at{' '}
+              This app will remain usable until the end of the financial year. Please switch to the new version at{' '}
               <a href="https://rasptrackas.vercel.app" target="_blank" rel="noopener noreferrer" style={{color:'#2563eb',fontWeight:800,textDecoration:'underline'}}>rasptrackas.vercel.app</a>.
             </div>
             <button onClick={()=>setShowDeprecationNotice(false)} style={{width:'100%',padding:'11px',background:'#2563eb',border:'none',borderRadius:'10px',fontWeight:900,fontSize:'12px',color:'#fff',cursor:'pointer',fontFamily:'inherit'}}>Got it</button>
